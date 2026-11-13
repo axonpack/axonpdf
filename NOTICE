@@ -1,0 +1,3 @@
+axonpdf includes third-party code:
+
+- Yoga 3.2.1 (https://github.com/facebook/yoga), MIT License. Source and license in vendor/yoga/.
