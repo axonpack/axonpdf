@@ -1,0 +1,3772 @@
+{
+  "yoga": "3.2.1",
+  "how": "Each case is laid out by yoga-layout 3.2.1 (parity/yoga.mjs) and by the engine (tests/yoga.rs); boxes must be identical. A measured leaf returns [w, h] clamped by Yoga's offer: the offered size when the mode is Exactly, the smaller of the two when AtMost, its own size when Undefined. expected.boxes are [left, top, width, height] for every node in depth-first order.",
+  "cases": [
+    {
+      "name": "flex_direction_column",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "column"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 60,
+              "height": 40
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            0,
+            30,
+            60,
+            40
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "flex_direction_column-reverse",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "column-reverse"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 60,
+              "height": 40
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            170,
+            50,
+            30
+          ],
+          [
+            0,
+            130,
+            60,
+            40
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "flex_direction_row",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 60,
+              "height": 40
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            50,
+            0,
+            60,
+            40
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "flex_direction_row-reverse",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row-reverse"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 60,
+              "height": 40
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            250,
+            0,
+            50,
+            30
+          ],
+          [
+            190,
+            0,
+            60,
+            40
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "justify_content_flex-start",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "justify_content": "flex-start"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 60,
+              "height": 40
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            50,
+            0,
+            60,
+            40
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "justify_content_center",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "justify_content": "center"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 60,
+              "height": 40
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            95,
+            0,
+            50,
+            30
+          ],
+          [
+            145,
+            0,
+            60,
+            40
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "justify_content_flex-end",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "justify_content": "flex-end"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 60,
+              "height": 40
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            190,
+            0,
+            50,
+            30
+          ],
+          [
+            240,
+            0,
+            60,
+            40
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "justify_content_space-between",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "justify_content": "space-between"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 60,
+              "height": 40
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            240,
+            0,
+            60,
+            40
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "justify_content_space-around",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "justify_content": "space-around"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 60,
+              "height": 40
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            47.5,
+            0,
+            50,
+            30
+          ],
+          [
+            192.5,
+            0,
+            60,
+            40
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "justify_content_space-evenly",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "justify_content": "space-evenly"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 60,
+              "height": 40
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            63.33333206176758,
+            0,
+            50,
+            30
+          ],
+          [
+            176.66665649414062,
+            0,
+            60,
+            40
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "align_items_auto",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "align_items": "auto"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50
+            }
+          },
+          {
+            "style": {
+              "width": 40,
+              "height": 80
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            170,
+            50,
+            30
+          ],
+          [
+            50,
+            200,
+            50,
+            0
+          ],
+          [
+            100,
+            120,
+            40,
+            80
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "align_items_flex-start",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "align_items": "flex-start"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50
+            }
+          },
+          {
+            "style": {
+              "width": 40,
+              "height": 80
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            50,
+            0,
+            50,
+            0
+          ],
+          [
+            100,
+            0,
+            40,
+            80
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "align_items_center",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "align_items": "center"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50
+            }
+          },
+          {
+            "style": {
+              "width": 40,
+              "height": 80
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            85,
+            50,
+            30
+          ],
+          [
+            50,
+            100,
+            50,
+            0
+          ],
+          [
+            100,
+            60,
+            40,
+            80
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "align_items_flex-end",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "align_items": "flex-end"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50
+            }
+          },
+          {
+            "style": {
+              "width": 40,
+              "height": 80
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            170,
+            50,
+            30
+          ],
+          [
+            50,
+            200,
+            50,
+            0
+          ],
+          [
+            100,
+            120,
+            40,
+            80
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "align_items_stretch",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "align_items": "stretch"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50
+            }
+          },
+          {
+            "style": {
+              "width": 40,
+              "height": 80
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            50,
+            0,
+            50,
+            200
+          ],
+          [
+            100,
+            0,
+            40,
+            80
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "align_items_baseline",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "align_items": "baseline"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50
+            }
+          },
+          {
+            "style": {
+              "width": 40,
+              "height": 80
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            50,
+            50,
+            30
+          ],
+          [
+            50,
+            80,
+            50,
+            0
+          ],
+          [
+            100,
+            0,
+            40,
+            80
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "align_items_space-between",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "align_items": "space-between"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50
+            }
+          },
+          {
+            "style": {
+              "width": 40,
+              "height": 80
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            170,
+            50,
+            30
+          ],
+          [
+            50,
+            200,
+            50,
+            0
+          ],
+          [
+            100,
+            120,
+            40,
+            80
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "align_items_space-around",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "align_items": "space-around"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50
+            }
+          },
+          {
+            "style": {
+              "width": 40,
+              "height": 80
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            170,
+            50,
+            30
+          ],
+          [
+            50,
+            200,
+            50,
+            0
+          ],
+          [
+            100,
+            120,
+            40,
+            80
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "align_items_space-evenly",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "align_items": "space-evenly"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50
+            }
+          },
+          {
+            "style": {
+              "width": 40,
+              "height": 80
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            170,
+            50,
+            30
+          ],
+          [
+            50,
+            200,
+            50,
+            0
+          ],
+          [
+            100,
+            120,
+            40,
+            80
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "align_self_center",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "align_items": "flex-start"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "align_self": "center"
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            50,
+            100,
+            50,
+            0
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "align_self_stretch",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "align_items": "flex-start"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "align_self": "stretch"
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            50,
+            0,
+            50,
+            200
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "align_self_baseline",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row",
+          "align_items": "flex-start"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "align_self": "baseline"
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            50,
+            0,
+            50,
+            0
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "align_content_center",
+      "root": {
+        "style": {
+          "width": 120,
+          "height": 200,
+          "flex_direction": "row",
+          "flex_wrap": "wrap",
+          "align_content": "center"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            120,
+            200
+          ],
+          [
+            0,
+            70,
+            50,
+            30
+          ],
+          [
+            50,
+            70,
+            50,
+            30
+          ],
+          [
+            0,
+            100,
+            50,
+            30
+          ],
+          [
+            50,
+            100,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "align_content_space-between",
+      "root": {
+        "style": {
+          "width": 120,
+          "height": 200,
+          "flex_direction": "row",
+          "flex_wrap": "wrap",
+          "align_content": "space-between"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            120,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            50,
+            0,
+            50,
+            30
+          ],
+          [
+            0,
+            170,
+            50,
+            30
+          ],
+          [
+            50,
+            170,
+            50,
+            170
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "align_content_space-evenly",
+      "root": {
+        "style": {
+          "width": 120,
+          "height": 200,
+          "flex_direction": "row",
+          "flex_wrap": "wrap",
+          "align_content": "space-evenly"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            120,
+            200
+          ],
+          [
+            0,
+            46.66666793823242,
+            50,
+            30
+          ],
+          [
+            50,
+            46.66666793823242,
+            50,
+            30
+          ],
+          [
+            0,
+            123.33333587646484,
+            50,
+            30
+          ],
+          [
+            50,
+            123.33333587646484,
+            50,
+            76.66667175292969
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "align_content_stretch",
+      "root": {
+        "style": {
+          "width": 120,
+          "height": 200,
+          "flex_direction": "row",
+          "flex_wrap": "wrap",
+          "align_content": "stretch"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            120,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            50,
+            0,
+            50,
+            30
+          ],
+          [
+            0,
+            100,
+            50,
+            30
+          ],
+          [
+            50,
+            100,
+            50,
+            100
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "flex_wrap_no-wrap",
+      "root": {
+        "style": {
+          "width": 120,
+          "height": 200,
+          "flex_direction": "row",
+          "flex_wrap": "no-wrap"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            120,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            50,
+            0,
+            50,
+            30
+          ],
+          [
+            100,
+            0,
+            50,
+            30
+          ],
+          [
+            150,
+            0,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "flex_wrap_wrap",
+      "root": {
+        "style": {
+          "width": 120,
+          "height": 200,
+          "flex_direction": "row",
+          "flex_wrap": "wrap"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            120,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            50,
+            0,
+            50,
+            30
+          ],
+          [
+            0,
+            30,
+            50,
+            30
+          ],
+          [
+            50,
+            30,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "flex_wrap_wrap-reverse",
+      "root": {
+        "style": {
+          "width": 120,
+          "height": 200,
+          "flex_direction": "row",
+          "flex_wrap": "wrap-reverse"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            120,
+            200
+          ],
+          [
+            0,
+            170,
+            50,
+            30
+          ],
+          [
+            50,
+            170,
+            50,
+            30
+          ],
+          [
+            0,
+            140,
+            50,
+            30
+          ],
+          [
+            50,
+            140,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "position_type_static_ignores_offsets",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30,
+              "position_type": "static",
+              "position": {
+                "top": 10,
+                "left": 10
+              }
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "position_type_relative",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30,
+              "position_type": "relative",
+              "position": {
+                "top": 10,
+                "left": 5
+              }
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            5,
+            10,
+            50,
+            30
+          ],
+          [
+            0,
+            30,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "position_type_absolute_pt_and_pct",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30,
+              "position_type": "absolute",
+              "position": {
+                "right": 5,
+                "bottom": "10%"
+              }
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            245,
+            150,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "position_auto_edge",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30,
+              "position_type": "absolute",
+              "position": {
+                "left": "auto",
+                "top": "auto",
+                "right": 20
+              }
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            230,
+            0,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "position_start_end_horizontal_vertical",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200
+        },
+        "children": [
+          {
+            "style": {
+              "position_type": "absolute",
+              "position": {
+                "start": 10,
+                "end": 30,
+                "vertical": 15
+              }
+            }
+          },
+          {
+            "style": {
+              "position_type": "absolute",
+              "position": {
+                "horizontal": "5%",
+                "bottom": 0
+              },
+              "height": 20
+            }
+          },
+          {
+            "style": {
+              "position_type": "absolute",
+              "position": {
+                "all": 40
+              }
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            10,
+            15,
+            260,
+            170
+          ],
+          [
+            15,
+            180,
+            270,
+            20
+          ],
+          [
+            40,
+            40,
+            220,
+            120
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "overflow_visible",
+      "root": {
+        "style": {
+          "width": 100,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "overflow": "visible",
+              "flex_shrink": 1
+            },
+            "children": [
+              {
+                "style": {
+                  "width": 150,
+                  "height": 30
+                }
+              }
+            ]
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            100,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            200
+          ],
+          [
+            0,
+            0,
+            150,
+            30
+          ],
+          [
+            50,
+            0,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "overflow_hidden",
+      "root": {
+        "style": {
+          "width": 100,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "overflow": "hidden",
+              "flex_shrink": 1
+            },
+            "children": [
+              {
+                "style": {
+                  "width": 150,
+                  "height": 30
+                }
+              }
+            ]
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            100,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            200
+          ],
+          [
+            0,
+            0,
+            150,
+            30
+          ],
+          [
+            50,
+            0,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "overflow_scroll",
+      "root": {
+        "style": {
+          "width": 100,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "overflow": "scroll",
+              "flex_shrink": 1
+            },
+            "children": [
+              {
+                "style": {
+                  "width": 150,
+                  "height": 30
+                }
+              }
+            ]
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            100,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            200
+          ],
+          [
+            0,
+            0,
+            150,
+            30
+          ],
+          [
+            50,
+            0,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "display_none",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30,
+              "display": "none"
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "display_flex",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30,
+              "display": "flex"
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            50,
+            0,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "display_contents",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "display": "contents"
+            },
+            "children": [
+              {
+                "style": {
+                  "width": 50,
+                  "height": 30
+                }
+              },
+              {
+                "style": {
+                  "width": 40,
+                  "height": 40
+                }
+              }
+            ]
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            50,
+            0,
+            40,
+            40
+          ],
+          [
+            90,
+            0,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "flex_grow",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "flex_grow": 1
+            }
+          },
+          {
+            "style": {
+              "flex_grow": 3
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            75,
+            200
+          ],
+          [
+            75,
+            0,
+            225,
+            200
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "flex_shrink",
+      "root": {
+        "style": {
+          "width": 200,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 150,
+              "height": 30,
+              "flex_shrink": 1
+            }
+          },
+          {
+            "style": {
+              "width": 150,
+              "height": 30,
+              "flex_shrink": 2
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            200,
+            200
+          ],
+          [
+            0,
+            0,
+            116.66667175292969,
+            30
+          ],
+          [
+            116.66667175292969,
+            0,
+            83.33333587646484,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "flex_basis_pt",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "flex_basis": 80
+            }
+          },
+          {
+            "style": {
+              "flex_basis": 40,
+              "flex_grow": 1
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            80,
+            200
+          ],
+          [
+            80,
+            0,
+            220,
+            200
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "flex_basis_pct",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "flex_basis": "25%"
+            }
+          },
+          {
+            "style": {
+              "flex_basis": "10%",
+              "flex_grow": 1
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            75,
+            200
+          ],
+          [
+            75,
+            0,
+            225,
+            200
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "flex_basis_auto",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "flex_basis": "auto",
+              "width": 70
+            }
+          },
+          {
+            "style": {
+              "flex_basis": "auto",
+              "flex_grow": 1
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            70,
+            200
+          ],
+          [
+            70,
+            0,
+            230,
+            200
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "width_height_pt",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200
+        },
+        "children": [
+          {
+            "style": {
+              "width": 80,
+              "height": 45
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            80,
+            45
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "width_height_pct",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200
+        },
+        "children": [
+          {
+            "style": {
+              "width": "50%",
+              "height": "25%"
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            150,
+            50
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "width_height_auto",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "align_items": "flex-start"
+        },
+        "children": [
+          {
+            "style": {
+              "width": "auto",
+              "height": "auto"
+            },
+            "children": [
+              {
+                "style": {
+                  "width": 70,
+                  "height": 20
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            70,
+            20
+          ],
+          [
+            0,
+            0,
+            70,
+            20
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "min_width_pt",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "min_width": 120
+            }
+          },
+          {
+            "style": {
+              "flex_grow": 1
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            120,
+            200
+          ],
+          [
+            120,
+            0,
+            180,
+            200
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "min_width_pct",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "min_width": "30%"
+            }
+          },
+          {
+            "style": {
+              "flex_grow": 1
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            90,
+            200
+          ],
+          [
+            90,
+            0,
+            210,
+            200
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "max_width_pt",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "flex_grow": 1,
+              "max_width": 90
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            90,
+            200
+          ],
+          [
+            90,
+            0,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "max_width_pct",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "flex_grow": 1,
+              "max_width": "20%"
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            60,
+            200
+          ],
+          [
+            60,
+            0,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "min_height_pt",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200
+        },
+        "children": [
+          {
+            "style": {
+              "min_height": 70
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            300,
+            70
+          ],
+          [
+            0,
+            70,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "min_height_pct",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200
+        },
+        "children": [
+          {
+            "style": {
+              "min_height": "40%"
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            300,
+            80
+          ],
+          [
+            0,
+            80,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "max_height_pt",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200
+        },
+        "children": [
+          {
+            "style": {
+              "flex_grow": 1,
+              "max_height": 60
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            300,
+            60
+          ],
+          [
+            0,
+            60,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "max_height_pct",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200
+        },
+        "children": [
+          {
+            "style": {
+              "flex_grow": 1,
+              "max_height": "15%"
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            300,
+            30
+          ],
+          [
+            0,
+            30,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "margin_pt_edges",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30,
+              "margin": {
+                "left": 10,
+                "top": 5,
+                "right": 20,
+                "bottom": 15
+              }
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            10,
+            5,
+            50,
+            30
+          ],
+          [
+            0,
+            50,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "margin_pct",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30,
+              "margin": {
+                "horizontal": "10%",
+                "vertical": "5%"
+              }
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            30,
+            15,
+            50,
+            30
+          ],
+          [
+            0,
+            60,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "margin_auto_pushes_right",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30,
+              "margin": {
+                "left": "auto"
+              }
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            250,
+            0,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "margin_start_end_all",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30,
+              "margin": {
+                "start": 12,
+                "end": 8
+              }
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30,
+              "margin": {
+                "all": 4
+              }
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            12,
+            0,
+            50,
+            30
+          ],
+          [
+            74,
+            4,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "padding_pt_edges",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "padding": {
+            "left": 10,
+            "top": 20,
+            "right": 5,
+            "bottom": 0
+          }
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            10,
+            20,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "padding_pct_and_all",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "padding": {
+            "all": "5%"
+          }
+        },
+        "children": [
+          {
+            "style": {
+              "padding": {
+                "vertical": 6,
+                "start": 3
+              }
+            },
+            "children": [
+              {
+                "style": {
+                  "width": 50,
+                  "height": 30
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            300,
+            42
+          ],
+          [
+            3,
+            6,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "border_edges",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "border": {
+            "start": 4,
+            "end": 2,
+            "top": 3,
+            "bottom": 1
+          }
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            4,
+            3,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "border_all_horizontal",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "border": {
+            "all": 2,
+            "horizontal": 6
+          }
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            6,
+            2,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "gap_row_column_pt",
+      "root": {
+        "style": {
+          "width": 120,
+          "height": 200,
+          "flex_direction": "row",
+          "flex_wrap": "wrap",
+          "gap": {
+            "row": 10,
+            "column": 6
+          }
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            120,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            56,
+            0,
+            50,
+            30
+          ],
+          [
+            0,
+            40,
+            50,
+            30
+          ],
+          [
+            56,
+            40,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "gap_pct",
+      "root": {
+        "style": {
+          "width": 120,
+          "height": 200,
+          "flex_direction": "row",
+          "flex_wrap": "wrap",
+          "gap": {
+            "column": "5%"
+          }
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            120,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            56,
+            0,
+            50,
+            30
+          ],
+          [
+            0,
+            30,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "gap_all",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "gap": {
+            "all": 8
+          }
+        },
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            0,
+            38,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "aspect_ratio",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "align_items": "flex-start"
+        },
+        "children": [
+          {
+            "style": {
+              "width": 100,
+              "aspect_ratio": 2
+            }
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            100,
+            50
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "measure_in_row",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200,
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "flex_grow": 1
+            }
+          },
+          {
+            "measure": [
+              120,
+              30
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            180,
+            200
+          ],
+          [
+            180,
+            0,
+            120,
+            200
+          ]
+        ],
+        "measure_calls": 1
+      }
+    },
+    {
+      "name": "measure_at_most_wraps_in_column",
+      "root": {
+        "style": {
+          "width": 100,
+          "height": 200,
+          "align_items": "flex-start"
+        },
+        "children": [
+          {
+            "measure": [
+              180,
+              40
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            100,
+            200
+          ],
+          [
+            0,
+            0,
+            100,
+            40
+          ]
+        ],
+        "measure_calls": 1
+      }
+    },
+    {
+      "name": "measure_exact_width",
+      "root": {
+        "style": {
+          "width": 300,
+          "height": 200
+        },
+        "children": [
+          {
+            "measure": [
+              30,
+              50
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            300,
+            200
+          ],
+          [
+            0,
+            0,
+            300,
+            50
+          ]
+        ],
+        "measure_calls": 1
+      }
+    },
+    {
+      "name": "available_width_only",
+      "root": {
+        "style": {
+          "flex_direction": "row"
+        },
+        "children": [
+          {
+            "style": {
+              "flex_grow": 1,
+              "height": 20
+            }
+          },
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          }
+        ]
+      },
+      "available": [
+        400,
+        null
+      ],
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            400,
+            30
+          ],
+          [
+            0,
+            0,
+            350,
+            20
+          ],
+          [
+            350,
+            0,
+            50,
+            30
+          ]
+        ],
+        "measure_calls": 0
+      }
+    },
+    {
+      "name": "available_none",
+      "root": {
+        "style": {},
+        "children": [
+          {
+            "style": {
+              "width": 50,
+              "height": 30
+            }
+          },
+          {
+            "measure": [
+              90,
+              25
+            ]
+          }
+        ]
+      },
+      "expected": {
+        "boxes": [
+          [
+            0,
+            0,
+            90,
+            55
+          ],
+          [
+            0,
+            0,
+            50,
+            30
+          ],
+          [
+            0,
+            30,
+            90,
+            25
+          ]
+        ],
+        "measure_calls": 1
+      }
+    }
+  ]
+}

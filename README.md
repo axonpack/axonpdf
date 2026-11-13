@@ -49,6 +49,22 @@ emcc --version
 node --version
 ```
 
+## Build and test
+
+```sh
+cargo test                                      # native
+source .tools/emsdk/emsdk_env.sh
+cargo test --target wasm32-unknown-emscripten   # WebAssembly, run in Node
+```
+
+The layout tests in `crates/engine/tests/yoga.rs` compare the engine's boxes with those from
+`yoga-layout` 3.2.1, Meta's own build of the same Yoga release. The expected boxes are stored in
+`crates/engine/tests/fixtures/yoga.json`. After adding or changing a case there, write them again:
+
+```sh
+cd parity && npm ci && npm run yoga
+```
+
 ## License
 
 MIT
