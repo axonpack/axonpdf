@@ -3,3 +3,4 @@ node_modules/
 target/
 # Other projects' sources, cloned locally for study only
 examples/
+.tools/
