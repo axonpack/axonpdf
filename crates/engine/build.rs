@@ -1,7 +1,12 @@
 use std::path::{Path, PathBuf};
 
+#[path = "src/consts/yoga.rs"]
+mod yoga_consts;
+
 fn main() {
-    let yoga = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../vendor/yoga");
+    let yoga = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../vendor/yoga")
+        .join(yoga_consts::YOGA_VERSION);
     let mut sources = Vec::new();
     collect_cpp(&yoga.join("yoga"), &mut sources);
     cc::Build::new()
@@ -22,10 +27,17 @@ fn main() {
         println!("cargo:rustc-link-arg=-sDEFAULT_TO_CXX");
     }
     println!("cargo:rerun-if-changed={}", yoga.display());
+    println!("cargo:rerun-if-changed=src/consts");
+    // Picks the matching binding in src/layout/yoga/.
+    println!("cargo::rustc-check-cfg=cfg(yoga_version, values(any()))");
+    println!(
+        "cargo::rustc-cfg=yoga_version=\"{}\"",
+        yoga_consts::YOGA_VERSION
+    );
 }
 
 fn collect_cpp(dir: &Path, out: &mut Vec<PathBuf>) {
-    for entry in std::fs::read_dir(dir).expect("vendor/yoga is missing") {
+    for entry in std::fs::read_dir(dir).expect("the vendored Yoga version is missing") {
         let path = entry.unwrap().path();
         if path.is_dir() {
             collect_cpp(&path, out);

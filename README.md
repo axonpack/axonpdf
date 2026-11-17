@@ -57,9 +57,11 @@ source .tools/emsdk/emsdk_env.sh
 cargo test --target wasm32-unknown-emscripten   # WebAssembly, run in Node
 ```
 
-The layout tests in `crates/engine/tests/yoga.rs` compare the engine's boxes with those from
-`yoga-layout` 3.2.1, Meta's own build of the same Yoga release. The expected boxes are stored in
-`crates/engine/tests/fixtures/yoga.json`. After adding or changing a case there, write them again:
+The layout tests in `crates/engine/tests/yoga.rs` compare the engine with `yoga-layout` 3.2.1,
+Meta's own build of the same Yoga release: every box, and every call Yoga makes to measure a leaf,
+must be identical. `crates/engine/tests/fixtures/yoga.json` has one case per Yoga setting, and
+`yoga-random.json` has 300 random trees from a fixed seed. After adding or changing a case in
+`yoga.json`, write the expected results again:
 
 ```sh
 cd parity && npm ci && npm run yoga

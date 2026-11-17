@@ -2,7 +2,7 @@
 //! (`parity/yoga.mjs` writes those answers), and every Yoga style binding must be exercised by at
 //! least one case.
 
-use std::cell::Cell;
+use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
@@ -10,7 +10,8 @@ use axonpdf::layout::yoga::*;
 use serde_json::Value;
 
 const FIXTURES: &str = include_str!("fixtures/yoga.json");
-const BINDINGS: &str = include_str!("../src/layout/yoga.rs");
+const RANDOM: &str = include_str!("fixtures/yoga-random.json");
+const BINDINGS: &str = include_str!("../src/layout/yoga/v3_2_1.rs");
 
 const FLEX_DIRECTIONS: [(&str, FlexDirection); 4] = [
     ("column", FlexDirection::Column),
@@ -210,7 +211,7 @@ fn build(
     t: &mut Tree,
     spec: &Value,
     order: &mut Vec<NodeId>,
-    calls: &Rc<Cell<u32>>,
+    calls: &Calls,
     seen: &mut Seen,
 ) -> NodeId {
     let id = t.node();
@@ -226,7 +227,9 @@ fn build(
         t.set_measure(
             id,
             Box::new(move |w, wm, h, hm| {
-                calls.set(calls.get() + 1);
+                calls
+                    .borrow_mut()
+                    .push([f64::from(w), mode(wm), f64::from(h), mode(hm)]);
                 (fit(w, wm, mw), fit(h, hm, mh))
             }),
         );
@@ -238,18 +241,40 @@ fn build(
     id
 }
 
-#[test]
-fn every_case_matches_yoga_layout_and_every_binding_is_covered() {
-    let doc: Value = serde_json::from_str(FIXTURES).unwrap();
-    let mut seen = Seen::default();
-    let mut failures = Vec::new();
+/// Every measure call's `[width, width mode, height, height mode]`, in the order Yoga made them.
+type Calls = Rc<RefCell<Vec<[f64; 4]>>>;
 
+fn mode(m: MeasureMode) -> f64 {
+    match m {
+        MeasureMode::Undefined => 0.0,
+        MeasureMode::Exactly => 1.0,
+        MeasureMode::AtMost => 2.0,
+    }
+}
+
+/// JSON has no NaN, so yoga-layout's NaN (an undefined size or position) is stored as null.
+fn numbers(v: &Value) -> Vec<f64> {
+    v.as_array()
+        .unwrap()
+        .iter()
+        .map(|x| x.as_f64().unwrap_or(f64::NAN))
+        .collect()
+}
+
+fn same(a: f64, b: f64) -> bool {
+    a == b || (a.is_nan() && b.is_nan())
+}
+
+/// Lays out every case in `json` and lists each box or measure count that differs from yoga-layout.
+fn differences(json: &str, seen: &mut Seen) -> Vec<String> {
+    let doc: Value = serde_json::from_str(json).unwrap();
+    let mut failures = Vec::new();
     for case in doc["cases"].as_array().unwrap() {
         let name = case["name"].as_str().unwrap();
         let mut t = Tree::new();
         let mut order = Vec::new();
-        let calls = Rc::new(Cell::new(0));
-        let root = build(&mut t, &case["root"], &mut order, &calls, &mut seen);
+        let calls = Calls::default();
+        let root = build(&mut t, &case["root"], &mut order, &calls, seen);
         let side = |i: usize| {
             case["available"]
                 .get(i)
@@ -262,26 +287,38 @@ fn every_case_matches_yoga_layout_and_every_binding_is_covered() {
         for (i, &id) in order.iter().enumerate() {
             let r = t.layout(id);
             let got = [r.left, r.top, r.width, r.height].map(f64::from);
-            let want: Vec<f64> = expected["boxes"][i]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|x| x.as_f64().unwrap())
-                .collect();
-            if got[..] != want[..] {
+            let want = numbers(&expected["boxes"][i]);
+            if !got.iter().zip(&want).all(|(&g, &w)| same(g, w)) {
                 failures.push(format!(
                     "{name}: node {i} is {got:?}, yoga-layout has {want:?}"
                 ));
             }
         }
-        if u64::from(calls.get()) != expected["measure_calls"].as_u64().unwrap() {
+        let want: Vec<Vec<f64>> = expected["measure_calls"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(numbers)
+            .collect();
+        let got = calls.borrow();
+        let calls_match = got.len() == want.len()
+            && got
+                .iter()
+                .zip(&want)
+                .all(|(g, w)| g.iter().zip(w).all(|(&a, &b)| same(a, b)));
+        if !calls_match {
             failures.push(format!(
-                "{name}: {} measure calls, yoga-layout made {}",
-                calls.get(),
-                expected["measure_calls"]
+                "{name}: measure calls {got:?}, yoga-layout made {want:?}"
             ));
         }
     }
+    failures
+}
+
+#[test]
+fn every_case_matches_yoga_layout_and_every_binding_is_covered() {
+    let mut seen = Seen::default();
+    let failures = differences(FIXTURES, &mut seen);
     assert!(
         failures.is_empty(),
         "{} differences:\n{}",
@@ -315,4 +352,17 @@ fn every_case_matches_yoga_layout_and_every_binding_is_covered() {
         );
     }
     assert!(missing.is_empty(), "no fixture uses: {missing:?}");
+}
+
+/// 300 seeded random trees (`parity/yoga.mjs`) use the bindings together: deep nesting, many
+/// properties on one node, negative margins, measured leaves inside wrapping rows.
+#[test]
+fn random_trees_match_yoga_layout() {
+    let failures = differences(RANDOM, &mut Seen::default());
+    assert!(
+        failures.is_empty(),
+        "{} differences:\n{}",
+        failures.len(),
+        failures.join("\n")
+    );
 }

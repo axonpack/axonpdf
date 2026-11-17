@@ -1,3 +1,3 @@
-//! Layout, computed by Yoga 3.2.1.
+//! Layout, computed by Yoga.
 
 pub mod yoga;

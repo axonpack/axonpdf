@@ -1,185 +1,20 @@
-//! Yoga 3.2.1 from `vendor/yoga`, set up for PDF layout.
+//! Yoga, set up for PDF layout.
 //!
-//! A [`Tree`] owns one Yoga config and every node made from it. Enum values match `YGEnums.h`.
+//! A [`Tree`] owns one Yoga config and every node made from it. The C API and enum values come
+//! from the binding of the Yoga version being built (`YOGA_VERSION` in `consts/yoga.rs`); this
+//! file works with any binding that has the same items.
 
+#[cfg(yoga_version = "3.2.1")]
+#[path = "v3_2_1.rs"]
+mod binding;
+#[cfg(not(yoga_version = "3.2.1"))]
+compile_error!("no binding for this Yoga version; add one next to v3_2_1.rs");
+
+use binding::*;
+pub use binding::{
+    Align, Display, Edge, FlexDirection, Gutter, Justify, MeasureMode, Overflow, PositionType, Wrap,
+};
 use std::ffi::c_void;
-
-type YgNode = *mut c_void;
-type YgConfig = *mut c_void;
-
-#[repr(C)]
-struct YgSize {
-    width: f32,
-    height: f32,
-}
-
-type YgMeasureFunc = extern "C" fn(YgNode, f32, i32, f32, i32) -> YgSize;
-
-unsafe extern "C" {
-    fn YGConfigNew() -> YgConfig;
-    fn YGConfigFree(config: YgConfig);
-    fn YGConfigSetPointScaleFactor(config: YgConfig, pixels_in_point: f32);
-    fn YGNodeNewWithConfig(config: YgConfig) -> YgNode;
-    fn YGNodeFree(node: YgNode);
-    fn YGNodeInsertChild(node: YgNode, child: YgNode, index: usize);
-    fn YGNodeGetChildCount(node: YgNode) -> usize;
-    fn YGNodeSetContext(node: YgNode, context: *mut c_void);
-    fn YGNodeGetContext(node: YgNode) -> *mut c_void;
-    fn YGNodeSetMeasureFunc(node: YgNode, measure: YgMeasureFunc);
-    fn YGNodeCalculateLayout(node: YgNode, width: f32, height: f32, direction: i32);
-    fn YGNodeLayoutGetLeft(node: YgNode) -> f32;
-    fn YGNodeLayoutGetTop(node: YgNode) -> f32;
-    fn YGNodeLayoutGetWidth(node: YgNode) -> f32;
-    fn YGNodeLayoutGetHeight(node: YgNode) -> f32;
-
-    fn YGNodeStyleSetFlexDirection(node: YgNode, v: i32);
-    fn YGNodeStyleSetJustifyContent(node: YgNode, v: i32);
-    fn YGNodeStyleSetAlignContent(node: YgNode, v: i32);
-    fn YGNodeStyleSetAlignItems(node: YgNode, v: i32);
-    fn YGNodeStyleSetAlignSelf(node: YgNode, v: i32);
-    fn YGNodeStyleSetPositionType(node: YgNode, v: i32);
-    fn YGNodeStyleSetFlexWrap(node: YgNode, v: i32);
-    fn YGNodeStyleSetOverflow(node: YgNode, v: i32);
-    fn YGNodeStyleSetDisplay(node: YgNode, v: i32);
-    fn YGNodeStyleSetFlexGrow(node: YgNode, v: f32);
-    fn YGNodeStyleSetFlexShrink(node: YgNode, v: f32);
-    fn YGNodeStyleSetFlexBasis(node: YgNode, v: f32);
-    fn YGNodeStyleSetFlexBasisPercent(node: YgNode, v: f32);
-    fn YGNodeStyleSetFlexBasisAuto(node: YgNode);
-    fn YGNodeStyleSetWidth(node: YgNode, v: f32);
-    fn YGNodeStyleSetWidthPercent(node: YgNode, v: f32);
-    fn YGNodeStyleSetWidthAuto(node: YgNode);
-    fn YGNodeStyleSetHeight(node: YgNode, v: f32);
-    fn YGNodeStyleSetHeightPercent(node: YgNode, v: f32);
-    fn YGNodeStyleSetHeightAuto(node: YgNode);
-    fn YGNodeStyleSetMinWidth(node: YgNode, v: f32);
-    fn YGNodeStyleSetMinWidthPercent(node: YgNode, v: f32);
-    fn YGNodeStyleSetMinHeight(node: YgNode, v: f32);
-    fn YGNodeStyleSetMinHeightPercent(node: YgNode, v: f32);
-    fn YGNodeStyleSetMaxWidth(node: YgNode, v: f32);
-    fn YGNodeStyleSetMaxWidthPercent(node: YgNode, v: f32);
-    fn YGNodeStyleSetMaxHeight(node: YgNode, v: f32);
-    fn YGNodeStyleSetMaxHeightPercent(node: YgNode, v: f32);
-    fn YGNodeStyleSetMargin(node: YgNode, edge: i32, v: f32);
-    fn YGNodeStyleSetMarginPercent(node: YgNode, edge: i32, v: f32);
-    fn YGNodeStyleSetMarginAuto(node: YgNode, edge: i32);
-    fn YGNodeStyleSetPadding(node: YgNode, edge: i32, v: f32);
-    fn YGNodeStyleSetPaddingPercent(node: YgNode, edge: i32, v: f32);
-    fn YGNodeStyleSetBorder(node: YgNode, edge: i32, v: f32);
-    fn YGNodeStyleSetPosition(node: YgNode, edge: i32, v: f32);
-    fn YGNodeStyleSetPositionPercent(node: YgNode, edge: i32, v: f32);
-    fn YGNodeStyleSetPositionAuto(node: YgNode, edge: i32);
-    fn YGNodeStyleSetGap(node: YgNode, gutter: i32, v: f32);
-    fn YGNodeStyleSetGapPercent(node: YgNode, gutter: i32, v: f32);
-    fn YGNodeStyleSetAspectRatio(node: YgNode, v: f32);
-}
-
-const DIRECTION_LTR: i32 = 1;
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[repr(i32)]
-pub enum FlexDirection {
-    Column,
-    ColumnReverse,
-    Row,
-    RowReverse,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[repr(i32)]
-pub enum Justify {
-    FlexStart,
-    Center,
-    FlexEnd,
-    SpaceBetween,
-    SpaceAround,
-    SpaceEvenly,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[repr(i32)]
-pub enum Align {
-    Auto,
-    FlexStart,
-    Center,
-    FlexEnd,
-    Stretch,
-    Baseline,
-    SpaceBetween,
-    SpaceAround,
-    SpaceEvenly,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[repr(i32)]
-pub enum PositionType {
-    Static,
-    Relative,
-    Absolute,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[repr(i32)]
-pub enum Wrap {
-    NoWrap,
-    Wrap,
-    WrapReverse,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[repr(i32)]
-pub enum Overflow {
-    Visible,
-    Hidden,
-    Scroll,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[repr(i32)]
-pub enum Display {
-    Flex,
-    None,
-    Contents,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[repr(i32)]
-pub enum Edge {
-    Left,
-    Top,
-    Right,
-    Bottom,
-    Start,
-    End,
-    Horizontal,
-    Vertical,
-    All,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-#[repr(i32)]
-pub enum Gutter {
-    Column,
-    Row,
-    All,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum MeasureMode {
-    Undefined,
-    Exactly,
-    AtMost,
-}
-
-impl MeasureMode {
-    fn from_raw(v: i32) -> Self {
-        match v {
-            1 => Self::Exactly,
-            2 => Self::AtMost,
-            _ => Self::Undefined,
-        }
-    }
-}
 
 /// A length that may also be `auto`.
 #[derive(Clone, Copy, Debug, PartialEq)]
