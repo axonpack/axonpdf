@@ -11,7 +11,7 @@ use serde_json::Value;
 
 const FIXTURES: &str = include_str!("fixtures/yoga.json");
 const RANDOM: &str = include_str!("fixtures/yoga-random.json");
-const BINDINGS: &str = include_str!("../src/layout/yoga.rs");
+const BINDINGS: &str = include_str!("../src/layout/yoga/v3_2_1.rs");
 
 const FLEX_DIRECTIONS: [(&str, FlexDirection); 4] = [
     ("column", FlexDirection::Column),
