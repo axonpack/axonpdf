@@ -1,4 +1,4 @@
-//! Yoga 3.2.1 from `vendor/yoga`, set up for PDF layout.
+//! Yoga 3.2.1 from `vendor/yoga/3.2.1`, set up for PDF layout.
 //!
 //! A [`Tree`] owns one Yoga config and every node made from it. Enum values match `YGEnums.h`.
 

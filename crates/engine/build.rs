@@ -1,7 +1,12 @@
 use std::path::{Path, PathBuf};
 
+/// The folder under `vendor/yoga/` to build. Each Yoga version sits in a folder of its own.
+const YOGA_VERSION: &str = "3.2.1";
+
 fn main() {
-    let yoga = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../vendor/yoga");
+    let yoga = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../vendor/yoga")
+        .join(YOGA_VERSION);
     let mut sources = Vec::new();
     collect_cpp(&yoga.join("yoga"), &mut sources);
     cc::Build::new()
@@ -25,7 +30,7 @@ fn main() {
 }
 
 fn collect_cpp(dir: &Path, out: &mut Vec<PathBuf>) {
-    for entry in std::fs::read_dir(dir).expect("vendor/yoga is missing") {
+    for entry in std::fs::read_dir(dir).expect("the vendored Yoga version is missing") {
         let path = entry.unwrap().path();
         if path.is_dir() {
             collect_cpp(&path, out);

@@ -1,5 +1,5 @@
 // Lays out every case in crates/engine/tests/fixtures/yoga.json with yoga-layout 3.2.1, Meta's own
-// build of the Yoga release in vendor/yoga, and writes the boxes back as each case's `expected`.
+// build of the Yoga release in vendor/yoga/3.2.1, and writes the boxes back as each case's `expected`.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { loadYoga } from 'yoga-layout/load';
 
