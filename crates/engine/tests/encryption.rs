@@ -2,7 +2,8 @@ mod common;
 
 use axonpdf::writer::{Encryption, PdfVersion, Permissions, Printing, Writer};
 
-/// Writes the sample with `version`'s method; qpdf must open it with each password and find
+/// Writes the sample with `version`'s method; qpdf must report `method` (the cipher, or the
+/// revision for RC4), open it with each password and find
 /// no errors, and the text must not be readable without decrypting.
 fn check(version: PdfVersion, method: &str) {
     let mut a = common::assets();
@@ -34,7 +35,7 @@ fn check(version: PdfVersion, method: &str) {
         "title in the clear"
     );
     let path = std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-        .join(format!("encrypted-{method}.pdf"));
+        .join(format!("encrypted-{version:?}.pdf"));
     std::fs::write(&path, &pdf).unwrap();
     let p = path.to_str().unwrap();
     for password in ["reader", "owner"] {
@@ -65,12 +66,12 @@ fn check(version: PdfVersion, method: &str) {
 
 #[test]
 fn rc4_40() {
-    check(PdfVersion::V1_3, "RC4");
+    check(PdfVersion::V1_3, "R = 2");
 }
 
 #[test]
 fn rc4_128() {
-    check(PdfVersion::V1_4, "RC4");
+    check(PdfVersion::V1_4, "R = 3");
 }
 
 #[test]

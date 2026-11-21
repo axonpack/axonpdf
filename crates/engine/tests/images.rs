@@ -95,3 +95,32 @@ fn placement_turns_the_image_into_its_box() {
         );
     }
 }
+
+#[test]
+fn gif_and_webp_decode_to_samples() {
+    let mut gif_bytes = Vec::new();
+    {
+        let mut enc = gif::Encoder::new(&mut gif_bytes, 2, 1, &[0, 0, 0, 255, 255, 255]).unwrap();
+        let mut frame = gif::Frame::default();
+        (frame.width, frame.height, frame.buffer) =
+            (2, 1, std::borrow::Cow::Borrowed(&[0u8, 1][..]));
+        enc.write_frame(&frame).unwrap();
+    }
+    let mut webp_bytes = Vec::new();
+    image_webp::WebPEncoder::new(&mut webp_bytes)
+        .encode(&[255, 0, 0, 0, 0, 255], 2, 1, image_webp::ColorType::Rgb8)
+        .unwrap();
+    let mut store = ImageStore::new();
+    for bytes in [gif_bytes, webp_bytes] {
+        let id = store.add(&bytes).unwrap();
+        assert_eq!(store.size(id), (2, 1));
+        assert!(matches!(
+            store.get(id).data,
+            ImageData::Raw {
+                gray: false,
+                alpha: None,
+                ..
+            }
+        ));
+    }
+}
