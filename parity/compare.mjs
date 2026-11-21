@@ -29,8 +29,10 @@ const fixtures = positionals.length
   ? positionals
   : readdirSync(join(ROOT, 'fixtures')).filter((f) => existsSync(join(ROOT, 'fixtures', f, 'document.tsx')));
 
+const warnings = new Set();
 function render(name, engine, pdf) {
   const run = spawnSync(process.execPath, [join(import.meta.dirname, 'render.mjs'), name, pdf, '--engine', engine], { encoding: 'utf8' });
+  for (const line of run.stderr.match(/^warning: .*$/gm) ?? []) warnings.add(line);
   if (run.status !== 0) return { error: (run.stderr.match(/^\w*Error.*$/m) ?? [run.stderr.trim().split('\n').at(-1)])[0] };
   return JSON.parse(run.stdout.trim().split('\n').at(-1));
 }
@@ -82,5 +84,6 @@ for (const name of fixtures) {
   if (!pass) failed++;
 }
 
+for (const w of warnings) console.log(`\n${w}`);
 console.log(`\n${fixtures.length - failed} of ${fixtures.length} fixtures pass; diffs in local/diff/`);
 process.exitCode = failed ? 1 : 0;
