@@ -35,14 +35,10 @@
     "check-types": "tsc --noEmit -p tsconfig.check.json"
   },
   "dependencies": {
-    "@axonpdf/font": "*",
-    "@axonpdf/stylesheet": "*"
+    "@axonpdf/font": "*"
   },
   "devDependencies": {
     "@axonpdf/react": "*",
     "@types/node": "^24.0.0"
-  },
-  "peerDependencies": {
-    "@axonpdf/react": "*"
   }
 }

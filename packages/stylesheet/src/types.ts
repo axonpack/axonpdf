@@ -1,4 +1,4 @@
-export type { Style, StyleProp, Styles, Transform } from "@axonpdf/react";
+export type { Style, StyleProp, Styles, Transform } from "@axonpdf/types";
 
 /** The box styles resolve against: the page, in points. */
 export interface Container {
