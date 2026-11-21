@@ -15,7 +15,13 @@ pub struct Container {
 
 impl Default for Container {
     fn default() -> Self {
-        Self { width: 0.0, height: 0.0, landscape: false, dpi: 72.0, rem_base: 18.0 }
+        Self {
+            width: 0.0,
+            height: 0.0,
+            landscape: false,
+            dpi: 72.0,
+            rem_base: 18.0,
+        }
     }
 }
 
@@ -46,7 +52,9 @@ pub fn split_number(s: &str) -> Option<(f64, &str)> {
     let valid = !body.is_empty()
         && body.matches('.').count() <= 1
         && body.ends_with(|c: char| c.is_ascii_digit());
-    valid.then(|| num.parse().ok().map(|n: f64| (n, unit))).flatten()
+    valid
+        .then(|| num.parse().ok().map(|n: f64| (n, unit)))
+        .flatten()
 }
 
 /// Turns a style value into points against `c`. Unknown strings pass through unchanged.
@@ -144,7 +152,12 @@ mod tests {
     use serde_json::json;
 
     fn c() -> Container {
-        Container { width: 600.0, height: 800.0, dpi: 144.0, ..Default::default() }
+        Container {
+            width: 600.0,
+            height: 800.0,
+            dpi: 144.0,
+            ..Default::default()
+        }
     }
 
     #[test]

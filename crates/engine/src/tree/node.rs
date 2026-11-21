@@ -84,7 +84,10 @@ impl Node {
         let kind = Kind::from(&raw.kind);
         let mut style = if kind == Kind::Link {
             // Links are blue and underlined unless styled otherwise.
-            style::resolve(c, &json!([{"color": "blue", "textDecoration": "underline"}, raw.style]))
+            style::resolve(
+                c,
+                &json!([{"color": "blue", "textDecoration": "underline"}, raw.style]),
+            )
         } else {
             style::resolve(c, &raw.style)
         };
@@ -136,7 +139,10 @@ impl Node {
 
     /// Whether the node may split across pages. Images, SVGs, notes and canvases never do.
     pub fn can_wrap(&self) -> bool {
-        if matches!(self.kind, Kind::Svg | Kind::Note | Kind::Image | Kind::Canvas) {
+        if matches!(
+            self.kind,
+            Kind::Svg | Kind::Note | Kind::Image | Kind::Canvas
+        ) {
             return false;
         }
         self.props.get("wrap").is_none_or(truthy)

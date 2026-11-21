@@ -152,16 +152,30 @@ fn align(v: &str) -> Option<Align> {
 
 fn font_weight(v: &Value) -> u16 {
     const NAMES: [(&str, u16); 14] = [
-        ("thin", 100), ("hairline", 100), ("ultralight", 200), ("extralight", 200),
-        ("light", 300), ("normal", 400), ("medium", 500), ("semibold", 600), ("demibold", 600),
-        ("bold", 700), ("ultrabold", 800), ("extrabold", 800), ("heavy", 900), ("black", 900),
+        ("thin", 100),
+        ("hairline", 100),
+        ("ultralight", 200),
+        ("extralight", 200),
+        ("light", 300),
+        ("normal", 400),
+        ("medium", 500),
+        ("semibold", 600),
+        ("demibold", 600),
+        ("bold", 700),
+        ("ultrabold", 800),
+        ("extrabold", 800),
+        ("heavy", 900),
+        ("black", 900),
     ];
     match v {
         Value::Number(n) => n.as_f64().map_or(400, |n| n as u16),
         Value::String(s) if s.is_empty() => 400,
         Value::String(s) => {
             let l = s.to_lowercase();
-            NAMES.iter().find(|(n, _)| *n == l).map_or_else(|| parse_float(v).map_or(400, |n| n as u16), |w| w.1)
+            NAMES
+                .iter()
+                .find(|(n, _)| *n == l)
+                .map_or_else(|| parse_float(v).map_or(400, |n| n as u16), |w| w.1)
         }
         _ => 400,
     }
@@ -170,7 +184,10 @@ fn font_weight(v: &Value) -> u16 {
 /// Unitless and percent line heights scale the font size this same style sets (18 when it sets
 /// none, even if a parent sets one).
 fn line_height(c: &Container, v: &Value, flat: &Map<String, Value>) -> Option<f64> {
-    let font_size = flat.get("fontSize").filter(|f| super::super::tree::truthy(f)).cloned();
+    let font_size = flat
+        .get("fontSize")
+        .filter(|f| super::super::tree::truthy(f))
+        .cloned();
     let font_size = match unit(c, &font_size.unwrap_or(Value::from(18))) {
         Some(V::Num(n)) => n,
         _ => f64::NAN,

@@ -20,9 +20,21 @@ pub fn finalize(mut line: Line, last_in_paragraph: bool) -> Line {
     line.overflow_left = overflow_left;
     line.overflow_right = overflow_right;
 
-    let align = &line.runs.first().map_or("left".to_string(), |r| r.attrs.align.clone());
-    let align = if last_in_paragraph && align == "justify" { "left" } else { align.as_str() };
-    let width: f64 = line.runs.iter().flat_map(|r| &r.glyphs).map(|g| g.advance).sum();
+    let align = &line
+        .runs
+        .first()
+        .map_or("left".to_string(), |r| r.attrs.align.clone());
+    let align = if last_in_paragraph && align == "justify" {
+        "left"
+    } else {
+        align.as_str()
+    };
+    let width: f64 = line
+        .runs
+        .iter()
+        .flat_map(|r| &r.glyphs)
+        .map(|g| g.advance)
+        .sum();
     let factor = match align {
         "center" => 0.5,
         "right" => 1.0,
@@ -75,11 +87,31 @@ struct Factor {
 /// Spreads `gap` (negative to shrink) over the line: spaces first, then letters.
 fn justify(line: &mut Line, gap: f64) {
     let grow = gap > 0.0;
-    let space = if grow { Factor { before: 0.5, after: 0.5, priority: 1 } } else { Factor { before: -0.5, after: -0.5, priority: 1 } };
-    let letter = if grow {
-        Factor { before: 37.0 / 256.0, after: 37.0 / 256.0, priority: 2 }
+    let space = if grow {
+        Factor {
+            before: 0.5,
+            after: 0.5,
+            priority: 1,
+        }
     } else {
-        Factor { before: -11.0 / 256.0, after: -11.0 / 256.0, priority: 2 }
+        Factor {
+            before: -0.5,
+            after: -0.5,
+            priority: 1,
+        }
+    };
+    let letter = if grow {
+        Factor {
+            before: 37.0 / 256.0,
+            after: 37.0 / 256.0,
+            priority: 2,
+        }
+    } else {
+        Factor {
+            before: -11.0 / 256.0,
+            after: -11.0 / 256.0,
+            priority: 2,
+        }
     };
     let mut factors: Vec<Factor> = Vec::new();
     for run in &line.runs {
@@ -96,7 +128,9 @@ fn justify(line: &mut Line, gap: f64) {
             factors.push(f);
         }
     }
-    let Some(first) = factors.first_mut() else { return };
+    let Some(first) = factors.first_mut() else {
+        return;
+    };
     first.before = 0.0;
     factors.last_mut().unwrap().after = 0.0;
 

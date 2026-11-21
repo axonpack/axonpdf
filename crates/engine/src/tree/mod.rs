@@ -93,7 +93,10 @@ pub fn parse(json: &str) -> Result<RawNode, String> {
         return Err(format!("unsupported document version {}", doc.v));
     }
     if doc.root.kind != "DOCUMENT" {
-        return Err(format!("the root must be a DOCUMENT, not {}", doc.root.kind));
+        return Err(format!(
+            "the root must be a DOCUMENT, not {}",
+            doc.root.kind
+        ));
     }
     Ok(doc.root)
 }

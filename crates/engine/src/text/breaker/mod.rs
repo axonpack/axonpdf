@@ -13,10 +13,24 @@ pub const INFINITY: f64 = 10000.0;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Item {
     /// A syllable. `start..end` are character offsets in the paragraph.
-    Box { width: f64, start: usize, end: usize },
+    Box {
+        width: f64,
+        start: usize,
+        end: usize,
+    },
     /// A run of spaces.
-    Glue { width: f64, start: usize, end: usize, stretch: f64, shrink: f64 },
-    Penalty { width: f64, penalty: f64, flagged: f64 },
+    Glue {
+        width: f64,
+        start: usize,
+        end: usize,
+        stretch: f64,
+        shrink: f64,
+    },
+    Penalty {
+        width: f64,
+        penalty: f64,
+        flagged: f64,
+    },
 }
 
 #[derive(Clone, Copy, Default)]
@@ -36,10 +50,21 @@ struct Breakpoint {
 }
 
 fn line_length(widths: &[f64], line: usize) -> f64 {
-    if line < widths.len() { widths[line - 1] } else { widths[widths.len() - 1] }
+    if line < widths.len() {
+        widths[line - 1]
+    } else {
+        widths[widths.len() - 1]
+    }
 }
 
-fn cost(items: &[Item], widths: &[f64], sum: Sum, end: usize, active: &Breakpoint, line: usize) -> f64 {
+fn cost(
+    items: &[Item],
+    widths: &[f64],
+    sum: Sum,
+    end: usize,
+    active: &Breakpoint,
+    line: usize,
+) -> f64 {
     let mut width = sum.width - active.totals.width;
     if let Item::Penalty { width: w, .. } = items[end] {
         width += w;
@@ -47,11 +72,19 @@ fn cost(items: &[Item], widths: &[f64], sum: Sum, end: usize, active: &Breakpoin
     let length = line_length(widths, line);
     if width < length {
         let stretch = sum.stretch - active.totals.stretch;
-        return if stretch > 0.0 { (length - width) / stretch } else { INFINITY };
+        return if stretch > 0.0 {
+            (length - width) / stretch
+        } else {
+            INFINITY
+        };
     }
     if width > length {
         let shrink = sum.shrink - active.totals.shrink;
-        return if shrink > 0.0 { (length - width) / shrink } else { INFINITY };
+        return if shrink > 0.0 {
+            (length - width) / shrink
+        } else {
+            INFINITY
+        };
     }
     0.0
 }
@@ -61,7 +94,12 @@ fn sum_after(items: &[Item], sum: Sum, index: usize) -> Sum {
     let mut r = sum;
     for (i, item) in items.iter().enumerate().skip(index) {
         match *item {
-            Item::Glue { width, stretch, shrink, .. } => {
+            Item::Glue {
+                width,
+                stretch,
+                shrink,
+                ..
+            } => {
                 r.width += width;
                 r.stretch += stretch;
                 r.shrink += shrink;
@@ -76,7 +114,14 @@ fn sum_after(items: &[Item], sum: Sum, index: usize) -> Sum {
 
 /// Item indices of the breaks, starting with 0. Empty when no set of breaks fits `tolerance`.
 pub fn knuth_plass(items: &[Item], widths: &[f64], tolerance: f64) -> Vec<usize> {
-    let mut nodes = vec![Breakpoint { position: 0, demerits: 0.0, line: 0, fitness: 0, totals: Sum::default(), previous: None }];
+    let mut nodes = vec![Breakpoint {
+        position: 0,
+        demerits: 0.0,
+        line: 0,
+        fitness: 0,
+        totals: Sum::default(),
+        previous: None,
+    }];
     // The active list, in order, as indices into `nodes`.
     let mut active: Vec<usize> = vec![0];
     let mut sum = Sum::default();
@@ -91,9 +136,23 @@ pub fn knuth_plass(items: &[Item], widths: &[f64], tolerance: f64) -> Vec<usize>
             Item::Penalty { penalty, .. } => penalty != INFINITY,
         };
         if breakable {
-            consider(items, widths, tolerance, index, sum, &mut nodes, &mut active);
+            consider(
+                items,
+                widths,
+                tolerance,
+                index,
+                sum,
+                &mut nodes,
+                &mut active,
+            );
         }
-        if let Item::Glue { width, stretch, shrink, .. } = *item {
+        if let Item::Glue {
+            width,
+            stretch,
+            shrink,
+            ..
+        } = *item
+        {
             sum.width += width;
             sum.stretch += stretch;
             sum.shrink += shrink;
@@ -137,7 +196,10 @@ fn consider(
             if (-1.0..=tolerance).contains(&ratio) {
                 let badness = 100.0 * ratio.abs().powi(3);
                 let mut demerits = (10.0 + badness) * (10.0 + badness);
-                if let Item::Penalty { penalty, flagged, .. } = item {
+                if let Item::Penalty {
+                    penalty, flagged, ..
+                } = item
+                {
                     if penalty >= 0.0 {
                         demerits += penalty * penalty;
                     } else if penalty != -INFINITY {
@@ -177,7 +239,14 @@ fn consider(
         let totals = sum_after(items, sum, index);
         for (fitness, (a, demerits)) in candidates.into_iter().enumerate() {
             let Some(a) = a else { continue };
-            nodes.push(Breakpoint { position: index, demerits, line: nodes[a].line + 1, fitness, totals, previous: Some(a) });
+            nodes.push(Breakpoint {
+                position: index,
+                demerits,
+                line: nodes[a].line + 1,
+                fitness,
+                totals,
+                previous: Some(a),
+            });
             active.insert(i, nodes.len() - 1);
             i += 1;
         }

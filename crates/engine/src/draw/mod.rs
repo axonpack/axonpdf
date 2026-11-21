@@ -14,11 +14,20 @@ pub type ImageLookup<'a> = dyn Fn(u32) -> Option<crate::display::ImageId> + 'a;
 pub fn page(page: &Node, width: f64, height: f64, images: &ImageLookup) -> PageOut {
     let mut ops = Vec::new();
     node(&mut ops, page, 0.0, 0.0, images);
-    PageOut { width: width as f32, height: height as f32, ops }
+    PageOut {
+        width: width as f32,
+        height: height as f32,
+        ops,
+    }
 }
 
 fn rect(x: f64, y: f64, w: f64, h: f64) -> Rect {
-    Rect { x: x as f32, y: y as f32, w: w as f32, h: h as f32 }
+    Rect {
+        x: x as f32,
+        y: y as f32,
+        w: w as f32,
+        h: h as f32,
+    }
 }
 
 /// Corner radii in points; percentages are of the shorter side.
@@ -31,7 +40,10 @@ fn radii(s: &Style, w: f64, h: f64) -> [f32; 4] {
 }
 
 fn with_alpha(c: Color, a: f64) -> Color {
-    Color { a: c.a.min(a as f32), ..c }
+    Color {
+        a: c.a.min(a as f32),
+        ..c
+    }
 }
 
 /// Draws `n`, whose parent's border box starts at (`ox`, `oy`).
@@ -43,13 +55,23 @@ fn node(ops: &mut Vec<Op>, n: &Node, ox: f64, oy: f64, images: &ImageLookup) {
     let r = radii(s, w, h);
     ops.push(Op::Save);
     if s.overflow == Some(crate::layout::yoga::Overflow::Hidden) {
-        ops.push(Op::Clip { path: rounded(x, y, w, h, r), rule: Default::default() });
+        ops.push(Op::Clip {
+            path: rounded(x, y, w, h, r),
+            rule: Default::default(),
+        });
     }
     if let Some(bg) = s.background_color {
-        ops.push(Op::Rect { rect: rect(x, y, w, h), radii: r, fill: Some(Paint::Solid(with_alpha(bg, opacity))), stroke: None });
+        ops.push(Op::Rect {
+            rect: rect(x, y, w, h),
+            radii: r,
+            fill: Some(Paint::Solid(with_alpha(bg, opacity))),
+            stroke: None,
+        });
     }
     if l.border.iter().any(|b| *b > 0.0) {
-        let colors = s.border_color.map(|c| with_alpha(c.unwrap_or(Color::BLACK), opacity));
+        let colors = s
+            .border_color
+            .map(|c| with_alpha(c.unwrap_or(Color::BLACK), opacity));
         ops.push(Op::Border(Border {
             rect: rect(x, y, w, h),
             widths: l.border.map(|b| b as f32),
@@ -64,13 +86,24 @@ fn node(ops: &mut Vec<Op>, n: &Node, ox: f64, oy: f64, images: &ImageLookup) {
             if let Some(id) = asset(n).and_then(images) {
                 let p = l.padding;
                 let area = rect(x + p[3], y + p[0], w - p[1] - p[3], h - p[0] - p[2]);
-                ops.push(Op::Image { id, rect: area, opacity: opacity as f32 });
+                ops.push(Op::Image {
+                    id,
+                    rect: area,
+                    opacity: opacity as f32,
+                });
             }
         }
         Kind::Link => {
-            let href = n.props.get("src").or(n.props.get("href")).and_then(|v| v.as_str());
+            let href = n
+                .props
+                .get("src")
+                .or(n.props.get("href"))
+                .and_then(|v| v.as_str());
             if let Some(href) = href {
-                ops.push(Op::Link { rect: rect(x, y, w, h), target: text::target(href) });
+                ops.push(Op::Link {
+                    rect: rect(x, y, w, h),
+                    target: text::target(href),
+                });
             }
         }
         _ => {}
@@ -83,7 +116,11 @@ fn node(ops: &mut Vec<Op>, n: &Node, ox: f64, oy: f64, images: &ImageLookup) {
         }
     }
     if let Some(id) = n.props.get("id").and_then(|v| v.as_str()) {
-        ops.push(Op::Dest { name: id.to_string(), x: x as f32, y: y as f32 });
+        ops.push(Op::Dest {
+            name: id.to_string(),
+            x: x as f32,
+            y: y as f32,
+        });
     }
     ops.push(Op::Restore);
 }
@@ -97,11 +134,32 @@ fn rounded(x: f64, y: f64, w: f64, h: f64, r: [f32; 4]) -> Vec<Seg> {
     vec![
         Seg::Move(f(x + r[0]), f(y)),
         Seg::Line(f(x + w - r[1]), f(y)),
-        Seg::Cubic(f(x + w - c[1]), f(y), f(x + w), f(y + c[1]), f(x + w), f(y + r[1])),
+        Seg::Cubic(
+            f(x + w - c[1]),
+            f(y),
+            f(x + w),
+            f(y + c[1]),
+            f(x + w),
+            f(y + r[1]),
+        ),
         Seg::Line(f(x + w), f(y + h - r[2])),
-        Seg::Cubic(f(x + w), f(y + h - c[2]), f(x + w - c[2]), f(y + h), f(x + w - r[2]), f(y + h)),
+        Seg::Cubic(
+            f(x + w),
+            f(y + h - c[2]),
+            f(x + w - c[2]),
+            f(y + h),
+            f(x + w - r[2]),
+            f(y + h),
+        ),
         Seg::Line(f(x + r[3]), f(y + h)),
-        Seg::Cubic(f(x + c[3]), f(y + h), f(x), f(y + h - c[3]), f(x), f(y + h - r[3])),
+        Seg::Cubic(
+            f(x + c[3]),
+            f(y + h),
+            f(x),
+            f(y + h - c[3]),
+            f(x),
+            f(y + h - r[3]),
+        ),
         Seg::Line(f(x), f(y + r[0])),
         Seg::Cubic(f(x), f(y + c[0]), f(x + c[0]), f(y), f(x + r[0]), f(y)),
         Seg::Close,

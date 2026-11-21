@@ -44,7 +44,9 @@ pub fn media(c: &Container, style: Map<String, Value>) -> Map<String, Value> {
 /// `@media min-width: 300 and orientation: landscape, max-height: 500`: queries joined by
 /// `and` and `,`, read left to right. Sizes are plain numbers in points.
 fn matches(c: &Container, query: &str) -> bool {
-    let body = query.trim_start_matches('@').trim_start_matches(|ch: char| ch.is_ascii_alphabetic());
+    let body = query
+        .trim_start_matches('@')
+        .trim_start_matches(|ch: char| ch.is_ascii_alphabetic());
     let mut result: Option<bool> = None;
     let mut op = "and";
     for token in tokens(body) {
@@ -71,7 +73,10 @@ enum Token {
 fn tokens(s: &str) -> Vec<Token> {
     let mut out = Vec::new();
     let mut pending_key: Option<String> = None;
-    let words = s.replace(['(', ')'], " ").replace(',', " , ").replace(':', " : ");
+    let words = s
+        .replace(['(', ')'], " ")
+        .replace(',', " , ")
+        .replace(':', " : ");
     let mut it = words.split_whitespace().peekable();
     while let Some(w) = it.next() {
         match w {
@@ -110,13 +115,19 @@ mod tests {
 
     #[test]
     fn flattens_arrays() {
-        let s = flatten(&json!([{"margin": 1, "color": "red"}, null, false, [{"color": "blue", "padding": null}]]));
+        let s = flatten(
+            &json!([{"margin": 1, "color": "red"}, null, false, [{"color": "blue", "padding": null}]]),
+        );
         assert_eq!(Value::Object(s), json!({"margin": 1, "color": "blue"}));
     }
 
     #[test]
     fn media_queries() {
-        let c = Container { width: 400.0, height: 600.0, ..Default::default() };
+        let c = Container {
+            width: 400.0,
+            height: 600.0,
+            ..Default::default()
+        };
         let style = flatten(&json!({
             "color": "red",
             "@media max-width: 500": {"color": "blue"},
@@ -124,6 +135,9 @@ mod tests {
             "@media (orientation: portrait) and (min-height: 600)": {"padding": 2},
             "@media min-width: 900, max-height: 700": {"top": 1}
         }));
-        assert_eq!(Value::Object(media(&c, style)), json!({"color": "blue", "padding": 2, "top": 1}));
+        assert_eq!(
+            Value::Object(media(&c, style)),
+            json!({"color": "blue", "padding": 2, "top": 1})
+        );
     }
 }

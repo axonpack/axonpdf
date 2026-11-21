@@ -19,19 +19,23 @@ pub fn measure(n: &Node, page_area: Option<f64>, a: &Assets) -> Option<Box<Measu
         _ => 0.0,
     };
     let area = page_area.map_or(f64::INFINITY, |h| h - margin(0) - margin(2) - 10.0);
-    Some(Box::new(move |w: f32, wm: MeasureMode, h: f32, hm: MeasureMode| {
-        use MeasureMode::*;
-        let Some((iw, ih)) = size else { return (0.0, 0.0) };
-        let ratio = iw / ih;
-        let (w, h) = (w as f64, h as f64);
-        let (rw, rh) = match (wm, hm) {
-            (Exactly, Undefined) => (f64::NAN, area.min(w / ratio)),
-            (AtMost | Undefined, Exactly) => ((h * ratio).min(w), f64::NAN),
-            (Exactly, AtMost) => (f64::NAN, h.min(area).min(w / ratio)),
-            (AtMost, AtMost) if ratio > 1.0 => (w, (w / ratio).min(h)),
-            (AtMost, AtMost) => ((h * ratio).min(w), h),
-            _ => (w, h),
-        };
-        (rw as f32, rh as f32)
-    }))
+    Some(Box::new(
+        move |w: f32, wm: MeasureMode, h: f32, hm: MeasureMode| {
+            use MeasureMode::*;
+            let Some((iw, ih)) = size else {
+                return (0.0, 0.0);
+            };
+            let ratio = iw / ih;
+            let (w, h) = (w as f64, h as f64);
+            let (rw, rh) = match (wm, hm) {
+                (Exactly, Undefined) => (f64::NAN, area.min(w / ratio)),
+                (AtMost | Undefined, Exactly) => ((h * ratio).min(w), f64::NAN),
+                (Exactly, AtMost) => (f64::NAN, h.min(area).min(w / ratio)),
+                (AtMost, AtMost) if ratio > 1.0 => (w, (w / ratio).min(h)),
+                (AtMost, AtMost) => ((h * ratio).min(w), h),
+                _ => (w, h),
+            };
+            (rw as f32, rh as f32)
+        },
+    ))
 }

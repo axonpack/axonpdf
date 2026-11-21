@@ -6,14 +6,34 @@ fn words(ws: &[f64]) -> Vec<Item> {
     let mut at = 0;
     for (i, &w) in ws.iter().enumerate() {
         if i > 0 {
-            items.push(Item::Glue { width: 3.0, start: at, end: at + 1, stretch: 1.5, shrink: 1.0 });
+            items.push(Item::Glue {
+                width: 3.0,
+                start: at,
+                end: at + 1,
+                stretch: 1.5,
+                shrink: 1.0,
+            });
             at += 1;
         }
-        items.push(Item::Box { width: w, start: at, end: at + 1 });
+        items.push(Item::Box {
+            width: w,
+            start: at,
+            end: at + 1,
+        });
         at += 1;
     }
-    items.push(Item::Glue { width: 0.0, start: at, end: at, stretch: INFINITY, shrink: 0.0 });
-    items.push(Item::Penalty { width: 0.0, penalty: -INFINITY, flagged: 1.0 });
+    items.push(Item::Glue {
+        width: 0.0,
+        start: at,
+        end: at,
+        stretch: INFINITY,
+        shrink: 0.0,
+    });
+    items.push(Item::Penalty {
+        width: 0.0,
+        penalty: -INFINITY,
+        flagged: 1.0,
+    });
     items
 }
 
@@ -38,13 +58,45 @@ fn nothing_fits_a_narrow_line() {
 fn hyphenation_points() {
     // "aaaa-bbbb cc": a penalty between the two syllables of the first word.
     let items = vec![
-        Item::Box { width: 10.0, start: 0, end: 4 },
-        Item::Penalty { width: 5.0, penalty: 600.0, flagged: 1.0 },
-        Item::Box { width: 10.0, start: 4, end: 8 },
-        Item::Glue { width: 3.0, start: 8, end: 9, stretch: 1.5, shrink: 1.0 },
-        Item::Box { width: 2.0, start: 9, end: 11 },
-        Item::Glue { width: 0.0, start: 11, end: 11, stretch: INFINITY, shrink: 0.0 },
-        Item::Penalty { width: 0.0, penalty: -INFINITY, flagged: 1.0 },
+        Item::Box {
+            width: 10.0,
+            start: 0,
+            end: 4,
+        },
+        Item::Penalty {
+            width: 5.0,
+            penalty: 600.0,
+            flagged: 1.0,
+        },
+        Item::Box {
+            width: 10.0,
+            start: 4,
+            end: 8,
+        },
+        Item::Glue {
+            width: 3.0,
+            start: 8,
+            end: 9,
+            stretch: 1.5,
+            shrink: 1.0,
+        },
+        Item::Box {
+            width: 2.0,
+            start: 9,
+            end: 11,
+        },
+        Item::Glue {
+            width: 0.0,
+            start: 11,
+            end: 11,
+            stretch: INFINITY,
+            shrink: 0.0,
+        },
+        Item::Penalty {
+            width: 0.0,
+            penalty: -INFINITY,
+            flagged: 1.0,
+        },
     ];
     assert_eq!(knuth_plass(&items, &[15.0], 4.0), vec![0, 1, 6]);
 }

@@ -37,7 +37,12 @@ fn next_break(sub: &[Item], widths: &[f64], line: usize) -> Option<usize> {
     for i in 0..sub.len() {
         match sub[i] {
             Item::Box { width, .. } => sum.width += width,
-            Item::Glue { width, stretch, shrink, .. } => {
+            Item::Glue {
+                width,
+                stretch,
+                shrink,
+                ..
+            } => {
                 sum.width += width;
                 sum.stretch += stretch;
                 sum.shrink += shrink;
@@ -65,7 +70,9 @@ fn next_break(sub: &[Item], widths: &[f64], line: usize) -> Option<usize> {
         }
         if is_gap(&sub[i]) {
             let (stretch, shrink, penalty) = match sub[i] {
-                Item::Glue { stretch, shrink, .. } => (Some(stretch), Some(shrink), 0.0),
+                Item::Glue {
+                    stretch, shrink, ..
+                } => (Some(stretch), Some(shrink), 0.0),
                 Item::Penalty { penalty, .. } => (None, None, penalty),
                 Item::Box { .. } => unreachable!(),
             };
@@ -89,5 +96,9 @@ fn next_break(sub: &[Item], widths: &[f64], line: usize) -> Option<usize> {
             }
         }
     }
-    if sum.width - sum.shrink + hyphen_width > length { position } else { None }
+    if sum.width - sum.shrink + hyphen_width > length {
+        position
+    } else {
+        None
+    }
 }

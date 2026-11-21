@@ -52,7 +52,12 @@ fn fill_text(n: &mut Node, a: &Assets) -> Result<(), String> {
             let height = l.height - l.padding[0] - l.padding[2];
             let mut frags = Vec::new();
             text::fragments(a.fonts, n, None, 0, &mut frags)?;
-            let lines = crate::text::layout(&prepare(a.fonts, &frags), width, Some(height), &text::options(n));
+            let lines = crate::text::layout(
+                &prepare(a.fonts, &frags),
+                width,
+                Some(height),
+                &text::options(n),
+            );
             state.borrow_mut().lines = Some(lines);
         }
         return Ok(());
@@ -66,7 +71,10 @@ fn fill_text(n: &mut Node, a: &Assets) -> Result<(), String> {
 }
 
 fn is_container(n: &Node) -> bool {
-    !matches!(n.kind, Kind::Text | Kind::Note | Kind::Svg | Kind::TextInstance)
+    !matches!(
+        n.kind,
+        Kind::Text | Kind::Note | Kind::Svg | Kind::TextInstance
+    )
 }
 
 fn build(
@@ -80,11 +88,18 @@ fn build(
 ) -> Result<NodeId, String> {
     let id = t.node();
     ids.push(id);
-    let height = if is_page { page_height.map(Dim::Pt) } else { n.style.height };
+    let height = if is_page {
+        page_height.map(Dim::Pt)
+    } else {
+        n.style.height
+    };
     apply::apply(t, id, &n.style, height);
     match n.kind {
         Kind::Text => {
-            let state = n.text.get_or_insert_with(|| Rc::new(RefCell::new(TextBox::default()))).clone();
+            let state = n
+                .text
+                .get_or_insert_with(|| Rc::new(RefCell::new(TextBox::default())))
+                .clone();
             let paragraphs = if state.borrow().lines.is_none() {
                 let mut frags = Vec::new();
                 text::fragments(a.fonts, n, None, 0, &mut frags)?;
@@ -92,7 +107,12 @@ fn build(
             } else {
                 None
             };
-            let m = text::measure(state, paragraphs, text::options(n), n.style.text_align.clone());
+            let m = text::measure(
+                state,
+                paragraphs,
+                text::options(n),
+                n.style.text_align.clone(),
+            );
             t.set_measure(id, Box::new(m));
         }
         Kind::Image => {
@@ -124,13 +144,20 @@ fn write_back(t: &Tree, n: &mut Node, ids: &mut impl Iterator<Item = NodeId>) {
         height: r.height as f64,
         ..Layout::default()
     };
-    for (i, edge) in [Edge::Top, Edge::Right, Edge::Bottom, Edge::Left].into_iter().enumerate() {
+    for (i, edge) in [Edge::Top, Edge::Right, Edge::Bottom, Edge::Left]
+        .into_iter()
+        .enumerate()
+    {
         let (m, p, b) = t.edges(id, edge);
         (l.margin[i], l.padding[i], l.border[i]) = (m as f64, p as f64, b as f64);
     }
     n.layout = l;
     if is_container(n) {
-        for child in n.children.iter_mut().filter(|c| c.kind != Kind::TextInstance) {
+        for child in n
+            .children
+            .iter_mut()
+            .filter(|c| c.kind != Kind::TextInstance)
+        {
             write_back(t, child, ids);
         }
     }

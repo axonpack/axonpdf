@@ -22,7 +22,11 @@ fn attrs(size: f64, align: &str) -> Rc<Attrs> {
 fn lines(text: &str, align: &str, width: f64) -> Vec<Line> {
     let fonts = FontStore::new();
     let helvetica = fonts.resolve("Helvetica", 400, false).unwrap();
-    let frags = [Fragment { text: text.into(), attrs: attrs(12.0, align), fonts: vec![helvetica] }];
+    let frags = [Fragment {
+        text: text.into(),
+        attrs: attrs(12.0, align),
+        fonts: vec![helvetica],
+    }];
     layout(&prepare(&fonts, &frags), width, None, &Options::default())
 }
 
@@ -30,13 +34,17 @@ fn text(l: &Line) -> String {
     l.runs.iter().map(|r| r.text.as_str()).collect()
 }
 
-const QUICK: &str = "The quick brown fox jumps over the lazy dog. Typesetting hyphenation extraordinarily well.";
+const QUICK: &str =
+    "The quick brown fox jumps over the lazy dog. Typesetting hyphenation extraordinarily well.";
 
 // Expected values are what the reference engine lays out for the same text.
 #[test]
 fn breaks_and_hyphenates_like_the_reference() {
     let ls = lines(QUICK, "left", 200.0);
-    let got: Vec<_> = ls.iter().map(|l| (text(l), l.x_advance, l.width, l.y, l.height)).collect();
+    let got: Vec<_> = ls
+        .iter()
+        .map(|l| (text(l), l.x_advance, l.width, l.y, l.height))
+        .collect();
     let close = |a: f64, b: f64| (a - b).abs() < 1e-9;
     assert_eq!(got.len(), 3);
     assert_eq!(got[0].0, "The quick brown fox jumps over the ");

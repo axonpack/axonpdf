@@ -18,7 +18,12 @@ pub fn split_nodes(height: f64, content_area: f64, nodes: Vec<Node>) -> (Vec<Nod
     let mut current: Vec<Node> = Vec::new();
     let mut next: Vec<Node> = Vec::new();
     let mut rest: VecDeque<Node> = nodes.into();
-    let future_fixed = |rest: &VecDeque<Node>| rest.iter().filter(|n| n.is_fixed()).cloned().collect::<Vec<_>>();
+    let future_fixed = |rest: &VecDeque<Node>| {
+        rest.iter()
+            .filter(|n| n.is_fixed())
+            .cloned()
+            .collect::<Vec<_>>()
+    };
     while let Some(mut child) = rest.pop_front() {
         let top = child.layout.top;
         let h = child.layout.height;
@@ -34,7 +39,10 @@ pub fn split_nodes(height: f64, content_area: f64, nodes: Vec<Node>) -> (Vec<Nod
         }
         let can_wrap = child.can_wrap();
         if h > content_area && !can_wrap {
-            eprintln!("Node of type {:?} can't wrap between pages and it's bigger than available page height", child.kind);
+            eprintln!(
+                "Node of type {:?} can't wrap between pages and it's bigger than available page height",
+                child.kind
+            );
             current.push(child);
             next.extend(rest);
             break;
@@ -82,7 +90,8 @@ fn should_break(child: &Node, future: &VecDeque<Node>, height: f64, previous: &[
     }
     let l = &child.layout;
     let crosses = height < l.top + l.height;
-    let presence = l.top + l.height + l.margin[BOTTOM] + child.number("minPresenceAhead").unwrap_or(0.0);
+    let presence =
+        l.top + l.height + l.margin[BOTTOM] + child.number("minPresenceAhead").unwrap_or(0.0);
     let furthest = future
         .iter()
         .filter(|n| !n.has("fixed"))
@@ -95,7 +104,11 @@ fn should_break(child: &Node, future: &VecDeque<Node>, height: f64, previous: &[
 }
 
 fn split(node: Node, height: f64, content_area: f64) -> (Node, Node) {
-    if node.kind == Kind::Text { split_text(node, height) } else { split_view(node, height, content_area) }
+    if node.kind == Kind::Text {
+        split_text(node, height)
+    } else {
+        split_view(node, height, content_area)
+    }
 }
 
 /// Drops the edges that fall inside the break: the bottom ones above it, the top ones below.
@@ -124,7 +137,8 @@ fn split_view(mut node: Node, height: f64, content_area: f64) -> (Node, Node) {
     let mut next = node;
     cut_edges(&mut next, TOP);
     next.layout.top = 0.0;
-    next.props.insert("bookmark".into(), serde_json::Value::Null);
+    next.props
+        .insert("bookmark".into(), serde_json::Value::Null);
     let rest = next.layout.height - (height - top);
     if fixed_height && rest != 0.0 {
         next.style.height = Some(Dim::Pt(rest));
@@ -136,7 +150,11 @@ fn split_view(mut node: Node, height: f64, content_area: f64) -> (Node, Node) {
 /// Text splits between lines, keeping `orphans` lines above and `widows` below (2 each when
 /// unset or 0).
 fn split_text(node: Node, height: f64) -> (Node, Node) {
-    let lines = node.text.as_ref().and_then(|t| t.borrow().lines.clone()).unwrap_or_default();
+    let lines = node
+        .text
+        .as_ref()
+        .and_then(|t| t.borrow().lines.clone())
+        .unwrap_or_default();
     let align_offset = node.text.as_ref().map_or(0.0, |t| t.borrow().align_offset);
     let top_of = |i: usize| -> f64 {
         if lines.is_empty() || i == 0 {
@@ -150,7 +168,9 @@ fn split_text(node: Node, height: f64) -> (Node, Node) {
     };
     let at = {
         let limit = height - node.layout.top;
-        (0..lines.len()).find(|&i| top_of(i) + lines[i].height > limit).unwrap_or(lines.len())
+        (0..lines.len())
+            .find(|&i| top_of(i) + lines[i].height > limit)
+            .unwrap_or(lines.len())
     };
     let n = lines.len();
     let widows = node.number("widows").filter(|w| *w != 0.0).unwrap_or(2.0) as usize;
@@ -169,7 +189,12 @@ fn split_text(node: Node, height: f64) -> (Node, Node) {
         at
     };
     let current_height = top_of(cut);
-    let piece = |ls: Vec<crate::text::Line>| Some(Rc::new(RefCell::new(TextBox { lines: Some(ls), align_offset })));
+    let piece = |ls: Vec<crate::text::Line>| {
+        Some(Rc::new(RefCell::new(TextBox {
+            lines: Some(ls),
+            align_offset,
+        })))
+    };
 
     let mut cur = node.clone();
     cut_edges(&mut cur, BOTTOM);

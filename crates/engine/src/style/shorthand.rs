@@ -9,13 +9,24 @@ use crate::display::BorderStyle;
 
 /// `margin: "10 auto"` and friends. A value with too many parts, or a unit the box model does
 /// not take, sets nothing.
-pub(super) fn box_model(edges: &mut [Option<Dim>; 4], c: &Container, key: &str, base: &str, v: &Value, auto: bool) {
+pub(super) fn box_model(
+    edges: &mut [Option<Dim>; 4],
+    c: &Container,
+    key: &str,
+    base: &str,
+    v: &Value,
+    auto: bool,
+) {
     let t = as_text(v).unwrap_or_default();
     let parts: Vec<&str> = t.split_whitespace().collect();
     let ok = |p: &&str| {
         (auto && *p == "auto")
             || p.strip_suffix('%').map_or_else(
-                || split_number(p).is_some_and(|(_, u)| ["", "px", "in", "mm", "cm", "pt", "vw", "vh", "rem"].contains(&u)),
+                || {
+                    split_number(p).is_some_and(|(_, u)| {
+                        ["", "px", "in", "mm", "cm", "pt", "vw", "vh", "rem"].contains(&u)
+                    })
+                },
                 |n| n.parse::<f64>().is_ok(),
             )
     };
@@ -55,8 +66,18 @@ pub(super) fn flex(s: &mut Style, c: &Container, v: &Value) {
         "initial" => ["0", "1", "auto"],
         _ => ["1", "1", "0"],
     };
-    let parts: Vec<&str> = if defaults[2] == "auto" { vec![] } else { t.split(' ').collect() };
-    let part = |i: usize| parts.get(i).copied().filter(|p| !p.is_empty()).unwrap_or(defaults[i]);
+    let parts: Vec<&str> = if defaults[2] == "auto" {
+        vec![]
+    } else {
+        t.split(' ').collect()
+    };
+    let part = |i: usize| {
+        parts
+            .get(i)
+            .copied()
+            .filter(|p| !p.is_empty())
+            .unwrap_or(defaults[i])
+    };
     s.flex_grow = parse_float(&Value::String(part(0).into()));
     s.flex_shrink = parse_float(&Value::String(part(1).into()));
     s.flex_basis = dim(&unit_str(c, part(2)));
@@ -79,8 +100,12 @@ pub(super) fn border(s: &mut Style, c: &Container, key: &str, v: &Value) {
         None => ((0..4).collect(), rest),
     };
     match prop {
-        "Color" => sides.iter().for_each(|&i| s.border_color[i] = Some(color::parse(&t))),
-        "Style" => sides.iter().for_each(|&i| s.border_style[i] = Some(border_style(&t))),
+        "Color" => sides
+            .iter()
+            .for_each(|&i| s.border_color[i] = Some(color::parse(&t))),
+        "Style" => sides
+            .iter()
+            .for_each(|&i| s.border_style[i] = Some(border_style(&t))),
         "Width" => {
             let w = unit(c, v).and_then(|v| if let V::Num(n) = v { Some(n) } else { None });
             sides.iter().for_each(|&i| s.border_width[i] = w);
@@ -91,7 +116,10 @@ pub(super) fn border(s: &mut Style, c: &Container, key: &str, v: &Value) {
         }
         "" => {
             // "width style color", e.g. "1pt solid red".
-            let mut words = t.trim().splitn(3, char::is_whitespace).filter(|w| !w.is_empty());
+            let mut words = t
+                .trim()
+                .splitn(3, char::is_whitespace)
+                .filter(|w| !w.is_empty());
             let (Some(w), Some(st), Some(col)) = (words.next(), words.next(), words.next()) else {
                 return;
             };

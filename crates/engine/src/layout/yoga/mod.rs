@@ -108,7 +108,13 @@ impl Tree {
     /// Computed margin, padding and border of one edge.
     pub fn edges(&self, id: NodeId, edge: Edge) -> (f32, f32, f32) {
         let (n, e) = (self.nodes[id], edge as i32);
-        unsafe { (YGNodeLayoutGetMargin(n, e), YGNodeLayoutGetPadding(n, e), YGNodeLayoutGetBorder(n, e)) }
+        unsafe {
+            (
+                YGNodeLayoutGetMargin(n, e),
+                YGNodeLayoutGetPadding(n, e),
+                YGNodeLayoutGetBorder(n, e),
+            )
+        }
     }
 
     pub fn flex_direction(&mut self, id: NodeId, v: FlexDirection) {

@@ -8,23 +8,57 @@ use crate::tree::{Node, RawNode, truthy};
 
 /// Paper sizes in points.
 const SIZES: [(&str, f64, f64); 51] = [
-    ("4A0", 4767.87, 6740.79), ("2A0", 3370.39, 4767.87), ("A0", 2383.94, 3370.39),
-    ("A1", 1683.78, 2383.94), ("A2", 1190.55, 1683.78), ("A3", 841.89, 1190.55),
-    ("A4", 595.28, 841.89), ("A5", 419.53, 595.28), ("A6", 297.64, 419.53),
-    ("A7", 209.76, 297.64), ("A8", 147.4, 209.76), ("A9", 104.88, 147.4), ("A10", 73.7, 104.88),
-    ("B0", 2834.65, 4008.19), ("B1", 2004.09, 2834.65), ("B2", 1417.32, 2004.09),
-    ("B3", 1000.63, 1417.32), ("B4", 708.66, 1000.63), ("B5", 498.9, 708.66),
-    ("B6", 354.33, 498.9), ("B7", 249.45, 354.33), ("B8", 175.75, 249.45),
-    ("B9", 124.72, 175.75), ("B10", 87.87, 124.72), ("C0", 2599.37, 3676.54),
-    ("C1", 1836.85, 2599.37), ("C2", 1298.27, 1836.85), ("C3", 918.43, 1298.27),
-    ("C4", 649.13, 918.43), ("C5", 459.21, 649.13), ("C6", 323.15, 459.21),
-    ("C7", 229.61, 323.15), ("C8", 161.57, 229.61), ("C9", 113.39, 161.57),
-    ("C10", 79.37, 113.39), ("RA0", 2437.8, 3458.27), ("RA1", 1729.13, 2437.8),
-    ("RA2", 1218.9, 1729.13), ("RA3", 864.57, 1218.9), ("RA4", 609.45, 864.57),
-    ("SRA0", 2551.18, 3628.35), ("SRA1", 1814.17, 2551.18), ("SRA2", 1275.59, 1814.17),
-    ("SRA3", 907.09, 1275.59), ("SRA4", 637.8, 907.09), ("EXECUTIVE", 521.86, 756.0),
-    ("FOLIO", 612.0, 936.0), ("LEGAL", 612.0, 1008.0), ("LETTER", 612.0, 792.0),
-    ("TABLOID", 792.0, 1224.0), ("ID1", 153.0, 243.0),
+    ("4A0", 4767.87, 6740.79),
+    ("2A0", 3370.39, 4767.87),
+    ("A0", 2383.94, 3370.39),
+    ("A1", 1683.78, 2383.94),
+    ("A2", 1190.55, 1683.78),
+    ("A3", 841.89, 1190.55),
+    ("A4", 595.28, 841.89),
+    ("A5", 419.53, 595.28),
+    ("A6", 297.64, 419.53),
+    ("A7", 209.76, 297.64),
+    ("A8", 147.4, 209.76),
+    ("A9", 104.88, 147.4),
+    ("A10", 73.7, 104.88),
+    ("B0", 2834.65, 4008.19),
+    ("B1", 2004.09, 2834.65),
+    ("B2", 1417.32, 2004.09),
+    ("B3", 1000.63, 1417.32),
+    ("B4", 708.66, 1000.63),
+    ("B5", 498.9, 708.66),
+    ("B6", 354.33, 498.9),
+    ("B7", 249.45, 354.33),
+    ("B8", 175.75, 249.45),
+    ("B9", 124.72, 175.75),
+    ("B10", 87.87, 124.72),
+    ("C0", 2599.37, 3676.54),
+    ("C1", 1836.85, 2599.37),
+    ("C2", 1298.27, 1836.85),
+    ("C3", 918.43, 1298.27),
+    ("C4", 649.13, 918.43),
+    ("C5", 459.21, 649.13),
+    ("C6", 323.15, 459.21),
+    ("C7", 229.61, 323.15),
+    ("C8", 161.57, 229.61),
+    ("C9", 113.39, 161.57),
+    ("C10", 79.37, 113.39),
+    ("RA0", 2437.8, 3458.27),
+    ("RA1", 1729.13, 2437.8),
+    ("RA2", 1218.9, 1729.13),
+    ("RA3", 864.57, 1218.9),
+    ("RA4", 609.45, 864.57),
+    ("SRA0", 2551.18, 3628.35),
+    ("SRA1", 1814.17, 2551.18),
+    ("SRA2", 1275.59, 1814.17),
+    ("SRA3", 907.09, 1275.59),
+    ("SRA4", 637.8, 907.09),
+    ("EXECUTIVE", 521.86, 756.0),
+    ("FOLIO", 612.0, 936.0),
+    ("LEGAL", 612.0, 1008.0),
+    ("LETTER", 612.0, 792.0),
+    ("TABLOID", 792.0, 1224.0),
+    ("ID1", 153.0, 243.0),
 ];
 
 /// A page dimension: points, `in`, `mm`, `cm` or `px` (at the page's dpi). `None` is auto.
@@ -48,12 +82,25 @@ fn length(v: &Value, dpi: f64) -> Result<Option<f64>, String> {
 
 /// Width and height (None: grows with content) of a page, orientation applied.
 pub fn size(raw: &RawNode) -> Result<(f64, Option<f64>, bool), String> {
-    let dpi = raw.props.get("dpi").and_then(Value::as_f64).filter(|d| *d != 0.0).unwrap_or(72.0);
-    let size = raw.props.get("size").filter(|v| truthy(v)).cloned().unwrap_or(json!("A4"));
+    let dpi = raw
+        .props
+        .get("dpi")
+        .and_then(Value::as_f64)
+        .filter(|d| *d != 0.0)
+        .unwrap_or(72.0);
+    let size = raw
+        .props
+        .get("size")
+        .filter(|v| truthy(v))
+        .cloned()
+        .unwrap_or(json!("A4"));
     let (w, h) = match &size {
         Value::String(s) => {
             let up = s.to_uppercase();
-            let (_, w, h) = SIZES.iter().find(|(n, ..)| *n == up).ok_or_else(|| format!("Invalid page size: {s}"))?;
+            let (_, w, h) = SIZES
+                .iter()
+                .find(|(n, ..)| *n == up)
+                .ok_or_else(|| format!("Invalid page size: {s}"))?;
             (*w, Some(*h))
         }
         Value::Array(a) => (
@@ -71,7 +118,11 @@ pub fn size(raw: &RawNode) -> Result<(f64, Option<f64>, bool), String> {
         _ => (595.28, Some(841.89)),
     };
     let landscape = raw.props.get("orientation").and_then(Value::as_str) == Some("landscape");
-    Ok(if landscape { (h.unwrap_or(0.0), Some(w).filter(|w| *w != 0.0), true) } else { (w, h, false) })
+    Ok(if landscape {
+        (h.unwrap_or(0.0), Some(w).filter(|w| *w != 0.0), true)
+    } else {
+        (w, h, false)
+    })
 }
 
 /// Builds a page node: the size overrides the style's width and height, percentages of page
@@ -84,9 +135,24 @@ pub fn build(mut raw: RawNode) -> Result<(Node, Container), String> {
         Some(h) => style.insert("height".into(), json!(h)),
         None => style.shift_remove("height"),
     };
-    let rem_base = style.get("fontSize").and_then(Value::as_f64).filter(|f| *f != 0.0).unwrap_or(18.0);
-    let dpi = raw.props.get("dpi").and_then(Value::as_f64).filter(|d| *d != 0.0).unwrap_or(72.0);
-    let c = Container { width, height: height.unwrap_or(f64::NAN), landscape, dpi, rem_base };
+    let rem_base = style
+        .get("fontSize")
+        .and_then(Value::as_f64)
+        .filter(|f| *f != 0.0)
+        .unwrap_or(18.0);
+    let dpi = raw
+        .props
+        .get("dpi")
+        .and_then(Value::as_f64)
+        .filter(|d| *d != 0.0)
+        .unwrap_or(72.0);
+    let c = Container {
+        width,
+        height: height.unwrap_or(f64::NAN),
+        landscape,
+        dpi,
+        rem_base,
+    };
     raw.style = Value::Object(style);
     let mut page = Node::build(raw, &c, None);
 

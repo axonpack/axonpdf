@@ -57,7 +57,14 @@ pub fn apply(t: &mut Tree, id: NodeId, s: &Style, height: Option<Dim>) {
     if let Some(p) = s.position {
         t.position_type(id, p);
     }
-    t.display(id, if s.display_none { Display::None } else { Display::Flex });
+    t.display(
+        id,
+        if s.display_none {
+            Display::None
+        } else {
+            Display::Flex
+        },
+    );
     t.flex_direction(id, s.flex_direction.unwrap_or(FlexDirection::Column));
     t.align_self(id, s.align_self.unwrap_or(Align::Auto));
     t.align_content(id, s.align_content.unwrap_or(Align::Auto));

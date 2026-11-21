@@ -11,9 +11,18 @@ use crate::tree::node::TextBox;
 use crate::tree::{Kind, Node};
 
 /// The styled pieces of a `Text` and everything nested in it.
-pub fn fragments(fonts: &FontStore, node: &Node, link: Option<&str>, level: usize, out: &mut Vec<Fragment>) -> Result<(), String> {
+pub fn fragments(
+    fonts: &FontStore,
+    node: &Node,
+    link: Option<&str>,
+    level: usize,
+    out: &mut Vec<Fragment>,
+) -> Result<(), String> {
     let s = &node.style;
-    let families = s.font_family.clone().unwrap_or_else(|| vec!["Helvetica".into()]);
+    let families = s
+        .font_family
+        .clone()
+        .unwrap_or_else(|| vec!["Helvetica".into()]);
     let weight = s.font_weight.unwrap_or(400);
     let italic = matches!(s.font_style.as_deref(), Some("italic" | "oblique"));
     let stack = families
@@ -25,7 +34,11 @@ pub fn fragments(fonts: &FontStore, node: &Node, link: Option<&str>, level: usiz
     let decoration = s.text_decoration.as_deref().unwrap_or("");
     let color = s.color.unwrap_or(Color::BLACK);
     let link = link.map(str::to_string).or_else(|| {
-        node.props.get("src").or(node.props.get("href")).and_then(|v| v.as_str()).map(str::to_string)
+        node.props
+            .get("src")
+            .or(node.props.get("href"))
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
     });
     let attrs = Rc::new(Attrs {
         size: s.font_size.unwrap_or(18.0),
@@ -33,13 +46,26 @@ pub fn fragments(fonts: &FontStore, node: &Node, link: Option<&str>, level: usiz
         opacity: s.opacity,
         letter_spacing: s.letter_spacing.unwrap_or(0.0),
         line_height: s.line_height,
-        underline: matches!(decoration, "underline" | "underline line-through" | "line-through underline"),
-        strike: matches!(decoration, "line-through" | "underline line-through" | "line-through underline"),
+        underline: matches!(
+            decoration,
+            "underline" | "underline line-through" | "line-through underline"
+        ),
+        strike: matches!(
+            decoration,
+            "line-through" | "underline line-through" | "line-through underline"
+        ),
         decoration_color: s.text_decoration_color.unwrap_or(color),
-        decoration_style: s.text_decoration_style.clone().unwrap_or_else(|| "solid".into()),
+        decoration_style: s
+            .text_decoration_style
+            .clone()
+            .unwrap_or_else(|| "solid".into()),
         link: link.clone(),
         align: s.text_align.clone().unwrap_or_else(|| {
-            if s.direction.as_deref() == Some("rtl") { "right".into() } else { "left".into() }
+            if s.direction.as_deref() == Some("rtl") {
+                "right".into()
+            } else {
+                "left".into()
+            }
         }),
         // The outer text's own background is drawn as a box, not per run.
         background: if level == 0 { None } else { s.background_color },
@@ -70,13 +96,18 @@ fn transform(text: &str, how: Option<&str>) -> String {
                 .map(|c| {
                     let up = prev_space && !c.is_whitespace();
                     prev_space = c.is_whitespace();
-                    if up { c.to_uppercase().collect::<String>() } else { c.to_string() }
+                    if up {
+                        c.to_uppercase().collect::<String>()
+                    } else {
+                        c.to_string()
+                    }
                 })
                 .collect()
         }
         Some("upperfirst") => {
             let mut cs = text.chars();
-            cs.next().map_or(String::new(), |f| f.to_uppercase().chain(cs).collect())
+            cs.next()
+                .map_or(String::new(), |f| f.to_uppercase().chain(cs).collect())
         }
         _ => text.to_string(),
     }
@@ -84,7 +115,11 @@ fn transform(text: &str, how: Option<&str>) -> String {
 
 pub fn options(node: &Node) -> Options {
     Options {
-        max_lines: node.style.max_lines.filter(|m| *m >= 0.0).map(|m| m as usize),
+        max_lines: node
+            .style
+            .max_lines
+            .filter(|m| *m >= 0.0)
+            .map(|m| m as usize),
         ellipsis: node.style.text_overflow.as_deref() == Some("ellipsis"),
         hyphenation_penalty: node.number("hyphenationPenalty"),
     }
@@ -110,8 +145,16 @@ pub fn measure(
             }
             false
         };
-        let height = |st: &TextBox| st.lines.as_ref().map_or(-1.0, |ls| ls.iter().map(|l| l.height).sum());
-        let width = |st: &TextBox| st.lines.as_ref().map_or(0.0, |ls| ls.iter().map(|l| l.x_advance).fold(0.0, f64::max));
+        let height = |st: &TextBox| {
+            st.lines
+                .as_ref()
+                .map_or(-1.0, |ls| ls.iter().map(|l| l.height).sum())
+        };
+        let width = |st: &TextBox| {
+            st.lines
+                .as_ref()
+                .map_or(0.0, |ls| ls.iter().map(|l| l.x_advance).fold(0.0, f64::max))
+        };
         match wm {
             MeasureMode::Exactly => {
                 layout(&mut st);

@@ -33,7 +33,12 @@ pub type Done<'a, 'b> = dyn FnMut(&mut Pager<'a, 'b>, Finished) -> Result<(), St
 impl<'a, 'b> Pager<'a, 'b> {
     /// Cuts one `<Page>` into pages, handing each to `done` as soon as it is cut. Returns how
     /// many pages it made. `first` is the document page number of the first one.
-    pub fn paginate(&mut self, mut page: Node, first: u32, done: &mut Done<'a, 'b>) -> Result<u32, String> {
+    pub fn paginate(
+        &mut self,
+        mut page: Node,
+        first: u32,
+        done: &mut Done<'a, 'b>,
+    ) -> Result<u32, String> {
         layout_page(&mut page, None, self.assets)?;
         if page.props.get("wrap") == Some(&serde_json::Value::Bool(false)) {
             done(self, Finished { page, sub_index: 0 })?;
@@ -43,7 +48,13 @@ impl<'a, 'b> Pager<'a, 'b> {
         let mut rest = Some(page);
         while let Some(p) = rest {
             let (current, next) = self.split_page(p, first + count)?;
-            done(self, Finished { page: current, sub_index: count })?;
+            done(
+                self,
+                Finished {
+                    page: current,
+                    sub_index: count,
+                },
+            )?;
             count += 1;
             rest = next;
         }
@@ -54,16 +65,26 @@ impl<'a, 'b> Pager<'a, 'b> {
         let (height, pad_top, pad_bottom) = page::heights(&page);
         let height = height.unwrap_or(f64::NAN);
         if has_dynamic(&page) {
-            let args = RenderArgs { page_number: number, total_pages: None, sub_page_number: None, sub_page_total_pages: None };
+            let args = RenderArgs {
+                page_number: number,
+                total_pages: None,
+                sub_page_number: None,
+                sub_page_total_pages: None,
+            };
             self.resolve_dynamic(&mut page, &args)?;
             layout_page(&mut page, None, self.assets)?;
         }
         let children = std::mem::take(&mut page.children);
-        let (cur, next) = split::split_nodes(height - pad_bottom, height - pad_top - pad_bottom, children);
+        let (cur, next) =
+            split::split_nodes(height - pad_bottom, height - pad_top - pad_bottom, children);
 
         let mut current = page.clone();
         current.children = cur;
-        layout_page(&mut current, Some(height).filter(|h| !h.is_nan()), self.assets)?;
+        layout_page(
+            &mut current,
+            Some(height).filter(|h| !h.is_nan()),
+            self.assets,
+        )?;
         if next.iter().all(Node::is_fixed) {
             return Ok((current, None));
         }
@@ -79,7 +100,8 @@ impl<'a, 'b> Pager<'a, 'b> {
         if has_dynamic(page) {
             self.resolve_dynamic(page, args)?;
             let (height, ..) = page::heights(page);
-            let height = height.filter(|_| page.props.get("wrap") != Some(&serde_json::Value::Bool(false)));
+            let height =
+                height.filter(|_| page.props.get("wrap") != Some(&serde_json::Value::Bool(false)));
             layout_page(page, height, self.assets)?;
         }
         Ok(())

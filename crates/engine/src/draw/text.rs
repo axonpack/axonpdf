@@ -12,7 +12,10 @@ pub fn target(href: &str) -> LinkTarget {
 }
 
 fn alpha(c: Color, opacity: Option<f64>) -> Color {
-    Color { a: opacity.map_or(c.a, |o| o as f32), ..c }
+    Color {
+        a: opacity.map_or(c.a, |o| o as f32),
+        ..c
+    }
 }
 
 /// Draws the lines of a text whose border box starts at (`x`, `y`).
@@ -43,7 +46,15 @@ fn draw_line(ops: &mut Vec<Op>, line: &Line, lx: f64, ly: f64) {
             });
         }
         if let Some(href) = &run.attrs.link {
-            ops.push(Op::Link { rect: rect(pen, baseline - run.height - run.descent, run.x_advance, run.height), target: target(href) });
+            ops.push(Op::Link {
+                rect: rect(
+                    pen,
+                    baseline - run.height - run.descent,
+                    run.x_advance,
+                    run.height,
+                ),
+                target: target(href),
+            });
         }
         ops.push(Op::Text(glyphs(run, pen, baseline)));
         pen += run.x_advance;
@@ -52,7 +63,12 @@ fn draw_line(ops: &mut Vec<Op>, line: &Line, lx: f64, ly: f64) {
 }
 
 fn rect(x: f64, y: f64, w: f64, h: f64) -> display::Rect {
-    display::Rect { x: x as f32, y: y as f32, w: w as f32, h: h as f32 }
+    display::Rect {
+        x: x as f32,
+        y: y as f32,
+        w: w as f32,
+        h: h as f32,
+    }
 }
 
 fn glyphs(run: &LineRun, x: f64, y: f64) -> TextRun {
@@ -62,7 +78,10 @@ fn glyphs(run: &LineRun, x: f64, y: f64) -> TextRun {
         .iter()
         .map(|g| display::Glyph {
             id: g.id,
-            cluster: offsets.get(g.index - run.start).copied().unwrap_or(run.text.len()) as u32,
+            cluster: offsets
+                .get(g.index - run.start)
+                .copied()
+                .unwrap_or(run.text.len()) as u32,
             x_advance: g.advance as f32,
             x_offset: g.x_offset as f32,
             y_offset: g.y_offset as f32,

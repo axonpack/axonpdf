@@ -35,18 +35,17 @@ pub fn prepare(fonts: &FontStore, fragments: &[Fragment]) -> Vec<Paragraph> {
     let mut out = Vec::new();
     let mut start = 0;
     while start < chars.len() {
-        let end = chars[start..].iter().position(|(c, _)| *c == '\n').map_or(chars.len(), |p| start + p + 1);
+        let end = chars[start..]
+            .iter()
+            .position(|(c, _)| *c == '\n')
+            .map_or(chars.len(), |p| start + p + 1);
         out.push(paragraph(fonts, fragments, &chars[start..end]));
         start = end;
     }
     out
 }
 
-fn paragraph(
-    fonts: &FontStore,
-    fragments: &[Fragment],
-    chars: &[(char, usize)],
-) -> Paragraph {
+fn paragraph(fonts: &FontStore, fragments: &[Fragment], chars: &[(char, usize)]) -> Paragraph {
     let mut last_font: Option<FontId> = None;
     // Runs: same fragment, same font.
     let mut pieces: Vec<(usize, FontId, String)> = Vec::new();
@@ -86,7 +85,13 @@ fn paragraph(
             }
         }
         let run_text: String = p.chars[start..].iter().collect();
-        p.runs.push(shape(fonts, fragments[frag].attrs.clone(), font, start, &run_text));
+        p.runs.push(shape(
+            fonts,
+            fragments[frag].attrs.clone(),
+            font,
+            start,
+            &run_text,
+        ));
     }
     p
 }
@@ -130,8 +135,22 @@ fn shape(fonts: &FontStore, attrs: Rc<Attrs>, font: FontId, start: usize, text: 
         .collect();
     // The hyphen added at a break. The Standard 14 give it a fixed 400 units.
     let mut hyphen = fonts.shape(font, "-", em, 0.0, &[]).first().map_or(
-        Glyph { id: 0x2d, index: 0, advance: 0.0, x_offset: 0.0, y_offset: 0.0, whitespace: false },
-        |g| Glyph { id: g.id, index: 0, advance: g.x_advance as f64 * scale, x_offset: 0.0, y_offset: 0.0, whitespace: false },
+        Glyph {
+            id: 0x2d,
+            index: 0,
+            advance: 0.0,
+            x_offset: 0.0,
+            y_offset: 0.0,
+            whitespace: false,
+        },
+        |g| Glyph {
+            id: g.id,
+            index: 0,
+            advance: g.x_advance as f64 * scale,
+            x_offset: 0.0,
+            y_offset: 0.0,
+            whitespace: false,
+        },
     );
     if matches!(fonts.font(font), Font::Standard(_)) {
         hyphen.advance = 400.0 * scale;

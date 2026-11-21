@@ -11,9 +11,16 @@ const SHRINK: f64 = 3.0 / 9.0;
 const HYPHEN_WIDTH: f64 = 5.0;
 
 /// Lays out every paragraph in a box `width` wide and `height` tall (`None` or 0: unbounded).
-pub fn layout(paragraphs: &[Paragraph], width: f64, height: Option<f64>, opts: &Options) -> Vec<Line> {
+pub fn layout(
+    paragraphs: &[Paragraph],
+    width: f64,
+    height: Option<f64>,
+    opts: &Options,
+) -> Vec<Line> {
     let mut lines = Vec::new();
-    let mut room = height.filter(|h| *h != 0.0 && !h.is_nan()).unwrap_or(f64::INFINITY);
+    let mut room = height
+        .filter(|h| *h != 0.0 && !h.is_nan())
+        .unwrap_or(f64::INFINITY);
     let mut y = 0.0;
     let mut left = opts.max_lines.unwrap_or(usize::MAX);
     for p in paragraphs {
@@ -47,7 +54,9 @@ pub fn layout(paragraphs: &[Paragraph], width: f64, height: Option<f64>, opts: &
 }
 
 fn paragraph_lines(p: &Paragraph, width: f64, top: f64, opts: &Options) -> Vec<Line> {
-    let Some(first) = p.runs.first() else { return Vec::new() };
+    let Some(first) = p.runs.first() else {
+        return Vec::new();
+    };
     let indent = first.attrs.indent;
     let widths = [width - indent, width];
     let items = items(p, opts);
@@ -117,25 +126,52 @@ fn items(p: &Paragraph, opts: &Options) -> Vec<Item> {
             .sum()
     };
     let align = &p.runs[0].attrs.align;
-    let penalty = opts.hyphenation_penalty.filter(|x| *x != 0.0).unwrap_or(if align == "justify" { 100.0 } else { 600.0 });
+    let penalty = opts
+        .hyphenation_penalty
+        .filter(|x| *x != 0.0)
+        .unwrap_or(if align == "justify" { 100.0 } else { 600.0 });
     let mut items = Vec::new();
     for (i, &(s, e)) in p.syllables.iter().enumerate() {
         let width = advance(s, e);
         if p.chars[s..e].iter().all(|c| c.is_whitespace()) {
-            items.push(Item::Glue { width, start: s, end: e, stretch: width * STRETCH, shrink: width * SHRINK });
+            items.push(Item::Glue {
+                width,
+                start: s,
+                end: e,
+                stretch: width * STRETCH,
+                shrink: width * SHRINK,
+            });
         } else {
-            items.push(Item::Box { width, start: s, end: e });
+            items.push(Item::Box {
+                width,
+                start: s,
+                end: e,
+            });
             // Another syllable of the same word follows (anything but a single space).
             if let Some(&(ns, ne)) = p.syllables.get(i + 1)
                 && p.chars[ns..ne] != [' ']
             {
-                items.push(Item::Penalty { width: HYPHEN_WIDTH, penalty, flagged: 1.0 });
+                items.push(Item::Penalty {
+                    width: HYPHEN_WIDTH,
+                    penalty,
+                    flagged: 1.0,
+                });
             }
         }
     }
     let end = p.chars.len();
-    items.push(Item::Glue { width: 0.0, start: end, end, stretch: INFINITY, shrink: 0.0 });
-    items.push(Item::Penalty { width: 0.0, penalty: -INFINITY, flagged: 1.0 });
+    items.push(Item::Glue {
+        width: 0.0,
+        start: end,
+        end,
+        stretch: INFINITY,
+        shrink: 0.0,
+    });
+    items.push(Item::Penalty {
+        width: 0.0,
+        penalty: -INFINITY,
+        flagged: 1.0,
+    });
     items
 }
 
@@ -147,7 +183,12 @@ fn slice(p: &Paragraph, s: usize, e: usize, hyphen: bool) -> Vec<LineRun> {
         .filter(|r| r.start < e && r.end > s)
         .map(|r| {
             let (a, b) = (r.start.max(s), r.end.min(e));
-            let glyphs: Vec<Glyph> = r.glyphs.iter().filter(|g| g.index >= a && g.index < b).copied().collect();
+            let glyphs: Vec<Glyph> = r
+                .glyphs
+                .iter()
+                .filter(|g| g.index >= a && g.index < b)
+                .copied()
+                .collect();
             LineRun {
                 attrs: r.attrs.clone(),
                 start: a,
@@ -163,7 +204,10 @@ fn slice(p: &Paragraph, s: usize, e: usize, hyphen: bool) -> Vec<LineRun> {
         .collect();
     if hyphen && let Some(last) = out.last_mut() {
         let run = p.runs.iter().rfind(|r| r.start < e && r.end > s).unwrap();
-        last.glyphs.push(Glyph { index: e, ..run.hyphen });
+        last.glyphs.push(Glyph {
+            index: e,
+            ..run.hyphen
+        });
         last.text.push('-');
     }
     out

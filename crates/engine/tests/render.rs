@@ -5,10 +5,15 @@ use serde_json::{Value, json};
 
 fn render(doc: Value, engine: &mut Engine) -> Vec<u8> {
     let mut pdf = Vec::new();
-    engine.render(&doc.to_string(), &mut |b| pdf.extend_from_slice(b)).unwrap();
+    engine
+        .render(&doc.to_string(), &mut |b| pdf.extend_from_slice(b))
+        .unwrap();
     // Set AXONPDF_OUT to a folder to look at the files.
     if let Ok(dir) = std::env::var("AXONPDF_OUT") {
-        let name = std::thread::current().name().unwrap_or("out").replace("::", "-");
+        let name = std::thread::current()
+            .name()
+            .unwrap_or("out")
+            .replace("::", "-");
         std::fs::write(format!("{dir}/{name}.pdf"), &pdf).unwrap();
     }
     pdf
@@ -16,7 +21,9 @@ fn render(doc: Value, engine: &mut Engine) -> Vec<u8> {
 
 fn pages(pdf: &[u8]) -> usize {
     let text = String::from_utf8_lossy(pdf);
-    text.matches("/Type /Page\n").count() + text.matches("/Type /Page ").count() + text.matches("/Type /Page/").count()
+    text.matches("/Type /Page\n").count()
+        + text.matches("/Type /Page ").count()
+        + text.matches("/Type /Page/").count()
 }
 
 fn text(s: &str) -> Value {
@@ -25,7 +32,9 @@ fn text(s: &str) -> Value {
 
 #[test]
 fn long_page_wraps_onto_several_pages() {
-    let rows: Vec<Value> = (0..120).map(|i| text(&format!("Row {i} of a long list that runs over pages."))).collect();
+    let rows: Vec<Value> = (0..120)
+        .map(|i| text(&format!("Row {i} of a long list that runs over pages.")))
+        .collect();
     let doc = json!({"v": 1, "type": "DOCUMENT", "props": {"title": "Long"}, "children": [
         {"type": "PAGE", "props": {"size": "A4"}, "style": {"padding": 30}, "children": [
             {"type": "VIEW", "props": {"fixed": true}, "style": {"height": 20, "backgroundColor": "#eee"}, "children": []},
@@ -55,11 +64,19 @@ fn render_props_get_page_numbers_and_the_total() {
         assert_eq!(id, 7);
         seen.borrow_mut().push(args.clone());
         let label = format!("{} / {:?}", args.page_number, args.total_pages);
-        json!({"children": [{"type": "TEXT_INSTANCE", "value": label}], "readsTotal": true}).to_string()
+        json!({"children": [{"type": "TEXT_INSTANCE", "value": label}], "readsTotal": true})
+            .to_string()
     }));
     let pdf = render(doc, &mut engine);
     assert_eq!(pages(&pdf), 3);
-    let finals: Vec<(u32, Option<u32>)> =
-        calls.borrow().iter().filter(|a| a.sub_page_number.is_some()).map(|a| (a.page_number, a.total_pages)).collect();
-    assert_eq!(finals[finals.len() - 3..], [(1, Some(3)), (2, Some(3)), (3, Some(3))]);
+    let finals: Vec<(u32, Option<u32>)> = calls
+        .borrow()
+        .iter()
+        .filter(|a| a.sub_page_number.is_some())
+        .map(|a| (a.page_number, a.total_pages))
+        .collect();
+    assert_eq!(
+        finals[finals.len() - 3..],
+        [(1, Some(3)), (2, Some(3)), (3, Some(3))]
+    );
 }

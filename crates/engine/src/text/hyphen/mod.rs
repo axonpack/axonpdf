@@ -20,12 +20,19 @@ fn table() -> &'static (Table, usize) {
     TABLE.get_or_init(|| {
         let mut map: Table = HashMap::new();
         let mut longest = 0;
-        for line in PATTERNS.lines().filter(|l| !l.starts_with('%') && !l.trim().is_empty()) {
+        for line in PATTERNS
+            .lines()
+            .filter(|l| !l.starts_with('%') && !l.trim().is_empty())
+        {
             let (mut text, mut levels) = (Vec::new(), Vec::new());
             let (mut anchor_start, mut anchor_end, mut after_level) = (false, false, false);
             for (i, ch) in line.chars().enumerate() {
                 if ch == '.' {
-                    if i == 0 { anchor_start = true } else { anchor_end = true }
+                    if i == 0 {
+                        anchor_start = true
+                    } else {
+                        anchor_end = true
+                    }
                     after_level = false;
                 } else if let Some(d) = ch.to_digit(10) {
                     levels.push(d as u8);
@@ -43,7 +50,12 @@ fn table() -> &'static (Table, usize) {
             }
             longest = longest.max(text.len());
             let len = text.len();
-            map.entry(text).or_default().push(Entry { levels, anchor_start, anchor_end, len });
+            map.entry(text).or_default().push(Entry {
+                levels,
+                anchor_start,
+                anchor_end,
+                len,
+            });
         }
         (map, longest)
     })
@@ -96,7 +108,9 @@ fn split_word(word: &[char]) -> Vec<String> {
     let mut levels = vec![0u8; n + 1];
     for start in 0..n {
         for end in start + 1..=n.min(start + longest) {
-            let Some(entries) = map.get(&lower[start..end]) else { continue };
+            let Some(entries) = map.get(&lower[start..end]) else {
+                continue;
+            };
             for e in entries {
                 if (e.anchor_start && start != 0) || (e.anchor_end && start + e.len != n) {
                     continue;
@@ -134,7 +148,13 @@ mod tests {
         assert_eq!(syllables("word"), ["word"]);
         assert_eq!(syllables("  "), ["  "]);
         assert_eq!(syllables("pre-processing"), ["pre-pro", "cess", "ing"]);
-        assert_eq!(syllables("extraordinary"), ["ex", "tra", "or", "di", "nary"]);
-        assert_eq!(syllables("responsibilities"), ["re", "spon", "si", "bil", "i", "ties"]);
+        assert_eq!(
+            syllables("extraordinary"),
+            ["ex", "tra", "or", "di", "nary"]
+        );
+        assert_eq!(
+            syllables("responsibilities"),
+            ["re", "spon", "si", "bil", "i", "ties"]
+        );
     }
 }
