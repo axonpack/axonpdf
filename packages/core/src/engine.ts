@@ -1,11 +1,12 @@
 import createModule, { type AxonpdfModule } from "../wasm/axonpdf.mjs";
 
-/** What the engine knows about the page when it calls a `render` function. */
+/** What the engine knows about the page when it calls a `render` function. While pages are
+ * being cut only `pageNumber` is known; the rest are `undefined` until the final call. */
 export interface RenderArgs {
   pageNumber: number;
   /** Undefined until the page count is known. */
   totalPages: number | undefined;
-  subPageNumber: number;
+  subPageNumber: number | undefined;
   subPageTotalPages: number | undefined;
 }
 
@@ -53,7 +54,7 @@ function load(): Promise<Loaded> {
           run.onRender(id, {
             pageNumber: page,
             totalPages: total < 0 ? undefined : total,
-            subPageNumber: subPage,
+            subPageNumber: subPage < 0 ? undefined : subPage,
             subPageTotalPages: subTotal < 0 ? undefined : subTotal,
           }),
         );

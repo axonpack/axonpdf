@@ -37,7 +37,6 @@ name = "axonpdf-ffi"
 version = "0.0.0"
 dependencies = [
  "axonpdf",
- "serde_json",
 ]
 
 [[package]]

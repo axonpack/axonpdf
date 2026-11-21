@@ -5,17 +5,13 @@
 //! and -1 on failure; `axonpdf_last_error` then gives the message. Byte buffers handed to the
 //! engine (fonts, images) must come from `axonpdf_alloc`, and the engine takes ownership of them.
 
-mod stub;
-
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr;
 
-// ponytail: the stub stands in until the engine crate exports `Engine`; then this becomes
-// `use axonpdf::{Engine, RenderArgs};` and stub.rs goes.
-use stub::{Engine, RenderArgs};
+use axonpdf::{Engine, RenderArgs};
 
-/// Called during layout for a node with a `render` id. A total of -1 means "not known yet".
+/// Called during layout for a node with a `render` id. -1 means "not known yet" (`undefined`).
 /// Returns a NUL-terminated UTF-8 string allocated with `axonpdf_alloc` (the engine frees it), or
 /// null for no output. The string is `{"children":[nodes],"readsTotal":bool}`.
 pub type RenderCallback = extern "C" fn(
@@ -23,7 +19,7 @@ pub type RenderCallback = extern "C" fn(
     id: u32,
     page_number: u32,
     total_pages: i32,
-    sub_page_number: u32,
+    sub_page_number: i32,
     sub_page_total_pages: i32,
 ) -> *mut c_char;
 
@@ -117,7 +113,7 @@ pub unsafe extern "C" fn axonpdf_set_render_callback(
                 id,
                 args.page_number,
                 total(args.total_pages),
-                args.sub_page_number,
+                total(args.sub_page_number),
                 total(args.sub_page_total_pages),
             );
             if out.is_null() {
