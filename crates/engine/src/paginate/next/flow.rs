@@ -131,19 +131,28 @@ pub(super) fn flagged(node: Node) -> Item {
 /// Children down a column: a forced break before a `break` node, the space before each, and a
 /// window after a `minPresenceAhead` node where no break may fall.
 ///
-/// Absolutely placed children take no room and stay out of the spacing; those that are `fixed`
-/// go first, so they are on every page whatever their place among the others.
-fn items_of(children: Vec<Node>) -> Vec<ItemRef> {
-    let (mut children, rest): (Vec<Node>, Vec<Node>) = children
-        .into_iter()
-        .partition(|c| is_absolute(c) && c.is_fixed());
-    children.extend(rest);
-    let flow: Vec<&Node> = children.iter().filter(|c| !is_absolute(c)).collect();
+/// A static absolutely placed child takes no room and stays out of the spacing. A `fixed` one that
+/// comes after other children is moved first, so it is on every page, and stays out too.
+fn items_of(mut children: Vec<Node>) -> Vec<ItemRef> {
+    let pinned = |c: &Node| is_absolute(c) && c.is_fixed();
+    let lead = children.iter().take_while(|c| pinned(c)).count();
+    let (moved, rest): (Vec<Node>, Vec<Node>) =
+        children.split_off(lead).into_iter().partition(pinned);
+    let children: Vec<(Node, bool)> = (children.into_iter().map(|c| (c, false)))
+        .chain(moved.into_iter().map(|c| (c, true)))
+        .chain(rest.into_iter().map(|c| (c, false)))
+        .collect();
+    let spaced = |c: &Node, moved: bool| !moved && (!is_absolute(c) || c.dynamic);
+    let flow: Vec<&Node> = children
+        .iter()
+        .filter(|(c, m)| spaced(c, *m))
+        .map(|(c, _)| c)
+        .collect();
     let mut gap = gaps(&flow).into_iter();
     let mut index = 0;
     let mut out = Vec::new();
-    for child in children {
-        if is_absolute(&child) {
+    for (child, moved) in children {
+        if !spaced(&child, moved) {
             out.push(Rc::new(flagged(child)));
             continue;
         }
@@ -197,7 +206,9 @@ pub(super) fn with_edges(
 }
 
 fn column(mut node: Node) -> Item {
-    let flow: Vec<&Node> = node.children.iter().filter(|c| !is_absolute(c)).collect();
+    let flow: Vec<&Node> = (node.children.iter())
+        .filter(|c| !is_absolute(c) || c.dynamic)
+        .collect();
     // Children that overlap wrapped into columns of their own: there is no line to break at.
     if gaps(&flow).iter().any(|g| *g < -0.001) {
         return Item::Leaf(Leaf {

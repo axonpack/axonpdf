@@ -8,9 +8,8 @@
 //! page's own children; a page with no height grows instead of failing for lack of room; and a
 //! `render` node is measured under its own parents' styles, not the page's. A `fixed` absolutely
 //! placed node is on every page even when it comes after the content (it is moved first, so it
-//! paints under what follows), and absolutely placed nodes never count in the spacing between
-//! their siblings. A positioned `render` node is laid out at its real width when its page is
-//! finished, not at the width its insets left it while it was measured.
+//! paints under what follows). A positioned `render` node is laid out at its real width when its
+//! page is finished, not at the width its insets left it while it was measured.
 //!
 //! ponytail: one `<Page>`'s whole content is laid out and held while it is cut (about 0.7 MB a
 //! page of dense table), since its first boxes decide every break. A layout window like the
