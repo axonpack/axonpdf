@@ -3,19 +3,21 @@ import { createElement, isValidElement, type ReactNode } from "react";
 
 import { imageBytes } from "../assets/image-bytes.js";
 import { Font } from "../font/font-store.js";
-import type { Child, Instance, TextInstance } from "../types/instance.type.js";
+import type { Item, TextInstance } from "../types/instance.type.js";
 import type { TreeDocument, TreeNode, TreeText } from "../types/tree.type.js";
 import { recordPaint } from "./canvas-painter.js";
-import { elementToInstances } from "./element-to-instances.js";
+import { rootScope } from "./dispatcher.js";
 import { rows } from "./rows.js";
 import type { Session } from "./session.js";
+import { walk } from "./walk.js";
 
 type Mark = () => void;
+type Host = Exclude<Item, TextInstance>;
 
 const EMOJI = /\p{RGI_Emoji}/gv;
 
 /** The tree JSON for a committed `Document` (shape in `types/tree.type.ts`). */
-export function serializeDocument(document: Instance, session: Session): TreeDocument {
+export function serializeDocument(document: Host, session: Session): TreeDocument {
   const hyphenationCallback = Font.getHyphenationCallback() ?? undefined;
   const props: Record<string, unknown> = {
     creationDate: new Date(),
@@ -26,17 +28,20 @@ export function serializeDocument(document: Instance, session: Session): TreeDoc
     // The engine has no random source: these seed the encryption keys, salts and IVs.
     props.encryptionSeed = Array.from(crypto.getRandomValues(new Uint8Array(32)));
   }
-  return { v: 1, ...(serialize({ ...document, props }, session) as TreeNode) } as TreeDocument;
+  return {
+    v: 1,
+    ...(serialize({ ...document, props } as Item, session) as TreeNode),
+  } as TreeDocument;
 }
 
-export function serialize(child: Child, session: Session): TreeNode | TreeText {
+export function serialize(child: Item, session: Session): TreeNode | TreeText {
   if (child.type === "TEXT_INSTANCE") {
     const { value } = child as TextInstance;
     for (const [emoji] of value.matchAll(EMOJI)) session.emoji.add(emoji);
     return { type: "TEXT_INSTANCE", value };
   }
-  const { type, props: all, children } = child as Instance;
-  if (type === "ROWS") return rows(all, session);
+  const { type, props: all, children, scope } = child as Host;
+  if (type === "ROWS") return rows(all, session, scope ?? rootScope());
 
   const node: TreeNode = { type, props: {}, children: [] };
   for (const [key, value] of Object.entries(all)) {
@@ -67,7 +72,7 @@ export function serialize(child: Child, session: Session): TreeNode | TreeText {
       node.props[key] = value;
     }
   }
-  node.children = children.map((c) => serialize(c, session));
+  for (const c of children) node.children.push(serialize(c, session));
   return node;
 }
 
@@ -114,7 +119,7 @@ function callback(
     session.inCallback = true;
     try {
       const output = fn(toArgs(args, () => (readsTotal = true)));
-      const children = elementToInstances(output).map((c) => serialize(c, session));
+      const children = [...walk(output, rootScope())].map((c) => serialize(c, session));
       return JSON.stringify({ children, readsTotal });
     } finally {
       session.inCallback = false;
@@ -125,7 +130,7 @@ function callback(
 
 function band(element: unknown, session: Session) {
   if (!isValidElement(element)) return null;
-  const [first] = elementToInstances(element);
+  const [first] = walk(element, rootScope());
   return first ? serialize(first, session) : null;
 }
 

@@ -5,7 +5,7 @@ import { Font } from "../font/font-store.js";
 import { addFonts } from "../font/load-fonts.js";
 import { serializeDocument } from "../tree/serialize.js";
 import { createSession, settle, type Session } from "../tree/session.js";
-import type { Container } from "../types/instance.type.js";
+import type { Item } from "../types/instance.type.js";
 import type { Recorder } from "../types/profile.type.js";
 import type { TreeDocument } from "../types/tree.type.js";
 
@@ -20,13 +20,12 @@ function inCallback<T>(session: Session, fn: () => T): T {
   }
 }
 
-/** The committed `Document` as the engine's tree, read here so no async frame holds it. */
-function serializeRoot(container: Container, session: Session) {
-  const document = container.document;
+/** The root host item as the engine's tree; the root must be a `Document`. */
+export function serializeRoot(document: Item | null | undefined, session: Session) {
   if (!document || document.type !== "DOCUMENT") {
     throw new Error("The root element must be a <Document>.");
   }
-  return serializeDocument(document, session);
+  return serializeDocument(document as Exclude<Item, { type: "TEXT_INSTANCE" }>, session);
 }
 
 /**
@@ -34,7 +33,8 @@ function serializeRoot(container: Container, session: Session) {
  * `Rows`, pages leave between batches; otherwise the engine runs in one go.
  */
 export async function renderDocument(
-  container: Container,
+  /** Builds the tree: from the reconciler's container, or walking the elements. */
+  build: (session: Session) => TreeDocument,
   onChunk: (chunk: Uint8Array) => void,
   /** Awaited before each async batch: a stream's reader can hold the render back. */
   wait?: () => Promise<void>,
@@ -45,7 +45,7 @@ export async function renderDocument(
 ) {
   recorder?.mark("tree");
   const session = createSession();
-  let tree: TreeDocument | undefined = serializeRoot(container, session);
+  let tree: TreeDocument | undefined = build(session);
   release?.();
   recorder?.mark("assets");
   await settle(session);

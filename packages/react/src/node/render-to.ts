@@ -21,11 +21,10 @@ async function once<T>(element: Element, run: (instance: ReturnType<typeof pdf>)
 
 /** A live stream: it resolves with the first chunk, and pages flow out as they are laid out. */
 export function renderToStream(element: Element): Promise<NodeJS.ReadableStream> {
-  const { container, updateContainer, render } = mount(element);
-  const onRender = container.document?.props.onRender;
+  const { documentProps, updateContainer, render } = mount(element);
   const run: Run = (write, wait) =>
     render(write, wait, true)
-      .then(() => onRender?.({}))
+      .then(() => documentProps()?.onRender?.({}))
       .finally(() => updateContainer(null));
   return startStream(nodeSink(), run);
 }
@@ -47,8 +46,7 @@ export async function renderToFile(
   filePath: string,
   callback?: (output: NodeJS.ReadableStream, filePath: string) => any,
 ): Promise<NodeJS.ReadableStream> {
-  const { container, updateContainer, render } = mount(element);
-  const onRender = container.document?.props.onRender;
+  const { documentProps, updateContainer, render } = mount(element);
   const fd = openSync(filePath, "w");
   try {
     await render((chunk) => writeSync(fd, chunk), undefined, true);
@@ -56,7 +54,7 @@ export async function renderToFile(
     closeSync(fd);
     updateContainer(null);
   }
-  onRender?.({});
+  documentProps()?.onRender?.({});
   // Opened only if someone reads it.
   const output = Readable.from(
     (async function* () {
