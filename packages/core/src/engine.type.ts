@@ -76,6 +76,8 @@ export interface Engine {
   profile(on: boolean): void;
   /** What phase timing measured since it was turned on. */
   profileReport(): EngineProfile;
+  /** The width and height in points of each page the current or last render wrote, in order. */
+  pages(): { width: number; height: number }[];
   /** The size of the WebAssembly memory in bytes: the most it has grown to, as it never shrinks. */
   memoryBytes(): number;
   /** Frees the engine's memory. The engine can't be used afterwards. */

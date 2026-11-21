@@ -16,7 +16,7 @@ const tree = {
 };
 
 describe("createEngine", () => {
-  it("streams a PDF and calls render functions by id", async () => {
+  it("streams a PDF, calls render functions by id, and lists the pages it wrote", async () => {
     const engine = await createEngine();
     const chunks: Uint8Array[] = [];
     const calls: unknown[] = [];
@@ -29,6 +29,7 @@ describe("createEngine", () => {
         });
       },
     });
+    expect(engine.pages()).toEqual([{ width: 595.28, height: 841.89 }]);
     engine.free();
 
     const pdf = Buffer.concat(chunks).toString("latin1");

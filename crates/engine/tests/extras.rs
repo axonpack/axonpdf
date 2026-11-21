@@ -228,6 +228,7 @@ fn pushed_rows_resume_the_render() {
     engine
         .render(&json, &mut |b| pulled.extend_from_slice(b))
         .unwrap();
+    let pulled_pages = engine.pages().to_vec();
 
     let mut pushed = Vec::new();
     let mut engine = Engine::new();
@@ -246,6 +247,9 @@ fn pushed_rows_resume_the_render() {
     assert_eq!(from, 1000);
     assert!(waits >= 20);
     assert_eq!(pushed, pulled);
+    // Both ways list the same pages.
+    assert!(pulled_pages.len() > 1);
+    assert_eq!(engine.pages(), pulled_pages);
 }
 
 #[test]

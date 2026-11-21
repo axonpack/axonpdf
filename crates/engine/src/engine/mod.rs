@@ -51,6 +51,8 @@ pub struct Engine {
     hooks: Hooks,
     /// A resumable render waiting for rows.
     job: Option<job::Job>,
+    /// The width and height of each page the current or last render wrote.
+    pages: Vec<[f64; 2]>,
 }
 
 impl Default for Engine {
@@ -68,6 +70,7 @@ impl Engine {
             callback: None,
             hooks: Hooks::default(),
             job: None,
+            pages: Vec::new(),
         }
     }
 
@@ -88,6 +91,11 @@ impl Engine {
         let image = self.images.add(&bytes).map_err(|e| format!("{e:?}"))?;
         self.assets.insert(id, image);
         Ok(())
+    }
+
+    /// The width and height of each page the current or last render wrote, in order.
+    pub fn pages(&self) -> &[[f64; 2]] {
+        &self.pages
     }
 
     pub fn set_render_callback(&mut self, cb: RenderCallback) {
@@ -132,6 +140,8 @@ impl Engine {
         writer.begin(out);
         let sizes = self.image_sizes();
         let (fonts, images, assets) = (&self.fonts, &mut self.images, &self.assets);
+        let pages = &mut self.pages;
+        pages.clear();
         let lookup = |id: u32| Some((*assets.get(&id)?, *sizes.get(&id)?));
         let hooks = &self.hooks;
         let paint = |id: u32, w: f64, h: f64| hooks.paint(id, w, h);
@@ -146,6 +156,7 @@ impl Engine {
             let display = paint_page(page, width, height, &cx);
             let _time = profile::enter(Phase::Write);
             writer.write_page(&display, fonts, images, out);
+            pages.push([width, height]);
             profile::page();
         };
         layout_pages(fonts, &sizes, hooks, &mut self.callback, doc, &mut sink)?;

@@ -64,4 +64,32 @@ describe("pdf() instance", () => {
     expect(file).not.toContain("/FlateDecode");
     expect(file).toMatch(/\[\(Plain w\) [\d.]+ \(ords\)\] TJ/);
   });
+
+  it("gives onRender the pages written, from toBlob, and from toBuffer before the stream", async () => {
+    type Layout = { children: { type: string; box: { width: number; height: number } }[] };
+    const layouts: Layout[] = [];
+    const instance = pdf(
+      <Document onRender={(params: any) => layouts.push(params._INTERNAL__LAYOUT__DATA_)}>
+        <Page size="A4">
+          <Text>One</Text>
+          <Text break>Two</Text>
+        </Page>
+        <Page size="A6" orientation="landscape">
+          <Text>Three</Text>
+        </Page>
+      </Document>,
+    );
+    await instance.toBlob();
+    const stream = await instance.toBuffer();
+    // Called before the caller has read a byte.
+    expect(layouts).toHaveLength(2);
+    expect((await read(stream)).trimEnd().endsWith("%%EOF")).toBe(true);
+    for (const layout of layouts) {
+      expect(layout.children.map((page) => [page.type, page.box.width, page.box.height])).toEqual([
+        ["PAGE", 595.28, 841.89],
+        ["PAGE", 595.28, 841.89],
+        ["PAGE", 419.53, 297.64],
+      ]);
+    }
+  });
 });

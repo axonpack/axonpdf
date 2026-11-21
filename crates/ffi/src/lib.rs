@@ -126,6 +126,20 @@ pub extern "C" fn axonpdf_profile_report() -> *mut c_char {
     out.cast()
 }
 
+/// The width and height of each page the current or last render wrote, as JSON
+/// (`[[width, height], ...]`), NUL-terminated, from `axonpdf_alloc`; free it with
+/// `axonpdf_dealloc(ptr, strlen + 1)`.
+///
+/// # Safety
+/// `handle` comes from `axonpdf_new`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn axonpdf_pages(handle: *const Handle) -> *mut c_char {
+    let json = serde_json::to_string(unsafe { &*handle }.engine.pages()).unwrap_or_default();
+    let out = axonpdf_alloc(json.len() + 1);
+    unsafe { ptr::copy_nonoverlapping(json.as_ptr(), out, json.len()) };
+    out.cast()
+}
+
 /// The message of the last failed call, or null. Valid until the next call on this handle.
 ///
 /// # Safety

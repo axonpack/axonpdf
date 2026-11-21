@@ -16,6 +16,20 @@ import type { TreeDocument } from "./types/tree.type.js";
 let renderer: Renderer | undefined;
 const listeners = new WeakMap<Container, (() => void)[]>();
 
+/**
+ * What `onRender` gets after a render besides the blob: the pages written, each with its box,
+ * under the name tools that count a document's pages already read.
+ */
+export const layoutData = (pages: { width: number; height: number }[]) => ({
+  _INTERNAL__LAYOUT__DATA_: {
+    type: "DOCUMENT",
+    children: pages.map(({ width, height }) => ({
+      type: "PAGE",
+      box: { left: 0, top: 0, width, height },
+    })),
+  },
+});
+
 /** The bytes as a string, one character per byte. */
 export const latin1 = (chunks: Uint8Array[]) =>
   chunks.map((chunk) => Array.from(chunk, (byte) => String.fromCharCode(byte)).join("")).join("");
@@ -102,7 +116,7 @@ export function mount(initialValue?: ReactElement) {
       return settings(serializeRoot(container.document, session));
     };
     const unmount = release ? () => update(null) : undefined;
-    await renderDocument(build, onChunk, wait, unmount, recorder);
+    return renderDocument(build, onChunk, wait, unmount, recorder);
   };
   return {
     get container() {
@@ -120,10 +134,16 @@ export function pdf(initialValue?: ReactElement<DocumentProps>) {
   const { changeListeners, updateContainer, render: renderTo } = root;
   const render = async (compress?: boolean) => {
     const chunks: Uint8Array[] = [];
-    await renderTo((chunk) => chunks.push(chunk), undefined, undefined, undefined, compress);
-    return chunks;
+    const pages = await renderTo(
+      (chunk) => chunks.push(chunk),
+      undefined,
+      undefined,
+      undefined,
+      compress,
+    );
+    return { chunks, pages };
   };
-  const callOnRender = (params: { blob?: Blob } = {}) => root.documentProps()?.onRender?.(params);
+  const callOnRender = (params: object = {}) => root.documentProps()?.onRender?.(params);
 
   return {
     get container() {
@@ -131,13 +151,24 @@ export function pdf(initialValue?: ReactElement<DocumentProps>) {
     },
     updateContainer: updateContainer as (document: ReactElement, callback?: () => void) => void,
     async toBlob(): Promise<Blob> {
-      const blob = new Blob((await render()) as BlobPart[], { type: "application/pdf" });
-      callOnRender({ blob });
+      const { chunks, pages } = await render();
+      const blob = new Blob(chunks as BlobPart[], { type: "application/pdf" });
+      callOnRender({ blob, ...layoutData(pages) });
       return blob;
     },
-    /** A live stream of the PDF (a Node `Readable` in Node), as the name has always meant. */
+    /**
+     * A live stream of the PDF (a Node `Readable` in Node), as the name has always meant. With an
+     * `onRender`, it is called with the pages before the stream is handed out, so the bytes wait
+     * for the last page.
+     */
     toBuffer(): Promise<NodeJS.ReadableStream> {
-      const run: Run = (write, wait) => renderTo(write, wait).then(() => callOnRender());
+      const run: Run = async (write, wait) => {
+        const held: Uint8Array[] = [];
+        const hold = (chunk: Uint8Array) =>
+          root.documentProps()?.onRender ? held.push(chunk) : write(chunk);
+        callOnRender(layoutData(await renderTo(hold, wait)));
+        held.forEach(write);
+      };
       return startStream(platform.sink(), run) as Promise<NodeJS.ReadableStream>;
     },
     /** @deprecated use `toBuffer` or `toBlob`. Its streams are left undeflated. */
@@ -145,7 +176,7 @@ export function pdf(initialValue?: ReactElement<DocumentProps>) {
       if (globalThis.process?.env?.NODE_ENV === "development") {
         console.warn("`toString` is deprecated and will be removed in next major release");
       }
-      const chunks = await render(false);
+      const { chunks } = await render(false);
       callOnRender();
       return latin1(chunks);
     },

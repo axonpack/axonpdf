@@ -159,6 +159,10 @@ export async function createEngine(): Promise<Engine> {
     profileReport() {
       return JSON.parse(takeString(module._axonpdf_profile_report()));
     },
+    pages() {
+      const sizes: [number, number][] = JSON.parse(takeString(module._axonpdf_pages(handle)));
+      return sizes.map(([width, height]) => ({ width, height }));
+    },
     memoryBytes() {
       return module.HEAPU8.buffer.byteLength;
     },

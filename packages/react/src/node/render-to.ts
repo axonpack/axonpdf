@@ -3,7 +3,7 @@ import { Readable } from "node:stream";
 import type { ReactElement } from "react";
 
 import { startStream, type Run } from "../live-stream.js";
-import { latin1, mount } from "../pdf.js";
+import { latin1, layoutData, mount } from "../pdf.js";
 import type { DocumentProps } from "../types/props.type.js";
 import { nodeSink } from "./node-sink.js";
 
@@ -14,7 +14,7 @@ export function renderToStream(element: Element): Promise<NodeJS.ReadableStream>
   const { documentProps, updateContainer, render } = mount(element);
   const run: Run = (write, wait) =>
     render(write, wait, true)
-      .then(() => documentProps()?.onRender?.({}))
+      .then((pages) => documentProps()?.onRender?.(layoutData(pages)))
       .finally(() => updateContainer(null));
   return startStream(nodeSink(), run);
 }
@@ -35,12 +35,13 @@ export async function renderToString(element: Element): Promise<string> {
   }
   const { documentProps, updateContainer, render } = mount(element);
   const chunks: Uint8Array[] = [];
+  let pages;
   try {
-    await render((chunk) => chunks.push(chunk), undefined, true, undefined, false);
+    pages = await render((chunk) => chunks.push(chunk), undefined, true, undefined, false);
   } finally {
     updateContainer(null);
   }
-  documentProps()?.onRender?.({});
+  documentProps()?.onRender?.(layoutData(pages));
   return latin1(chunks);
 }
 
@@ -52,13 +53,14 @@ export async function renderToFile(
 ): Promise<NodeJS.ReadableStream> {
   const { documentProps, updateContainer, render } = mount(element);
   const fd = openSync(filePath, "w");
+  let pages;
   try {
-    await render((chunk) => writeSync(fd, chunk), undefined, true);
+    pages = await render((chunk) => writeSync(fd, chunk), undefined, true);
   } finally {
     closeSync(fd);
     updateContainer(null);
   }
-  documentProps()?.onRender?.({});
+  documentProps()?.onRender?.(layoutData(pages));
   // Opened only if someone reads it.
   const output = Readable.from(
     (async function* () {

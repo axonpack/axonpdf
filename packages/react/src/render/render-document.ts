@@ -32,7 +32,8 @@ export function serializeRoot(document: Item | null | undefined, session: Sessio
 
 /**
  * Renders the committed `Document`; `onChunk` gets each piece of the PDF in order. With an async
- * `Rows`, pages leave between batches; otherwise the engine runs in one go.
+ * `Rows`, pages leave between batches; otherwise the engine runs in one go. Resolves with the
+ * size of each page written.
  *
  * Lazy children are built while the engine counts the pages, before any page is written, so a
  * try that meets an image not loaded yet can still be dropped: the images load and it starts
@@ -76,10 +77,10 @@ async function tries(
   for (let tries = 0; ; tries++) {
     session = createSession(carried);
     try {
-      await renderOnce(build, session, out, wait, release, recorder);
+      const pages = await renderOnce(build, session, out, wait, release, recorder);
       if (session.restart) throw new Restart();
       held?.forEach(onChunk);
-      return;
+      return pages;
     } catch (error) {
       if (!(error instanceof Restart || error instanceof Fallback)) throw error;
       if (!held)
@@ -177,7 +178,7 @@ async function renderOnce(
           }
         });
       engine.render(json, onChunk, { ...callbacks, rows });
-      return;
+      return engine.pages();
     }
     // An async Rows: the engine stops whenever it needs a batch, and carries on once it's pushed.
     // Batches are made between engine calls, so images in rows can load then.
@@ -192,6 +193,7 @@ async function renderOnce(
       recorder?.mark("engine");
       id = engine.pushRows(id, batch);
     }
+    return engine.pages();
   } finally {
     recorder?.engine(engine, true);
     engine.free();

@@ -55,6 +55,7 @@ impl Engine {
         self.hooks.reset();
         self.hooks.pushed.borrow_mut().clear();
         style::take_error().ok();
+        self.pages.clear();
         let json = Json::new(tree_json);
         let doc = parse(&json)?;
         let base = json.get().as_ptr() as usize;
@@ -108,6 +109,7 @@ impl Engine {
         let mut job = self.job.take().ok_or("no render has begun")?;
         let (fonts, images, ids, hooks) =
             (&self.fonts, &mut self.images, &self.assets, &self.hooks);
+        let pages = &mut self.pages;
         let callback = &mut self.callback;
         let result = with_assets(fonts, &sizes, hooks, &job.props, |assets| {
             let lookup = |id: u32| Some((*ids.get(&id)?, *sizes.get(&id)?));
@@ -172,6 +174,7 @@ impl Engine {
                 drop(f);
                 let _time = profile::enter(Phase::Write);
                 job.writer.write_page(&display, fonts, images, &mut *out);
+                pages.push([container.width, height]);
                 profile::page();
             }
         });
