@@ -13,7 +13,7 @@ use crate::display::{Bookmark, Color, LinkTarget};
 #[derive(Default)]
 pub struct Nav {
     dests: Vec<(String, Ref, f32, f32)>,
-    bookmarks: Vec<(Bookmark, Ref, f32, f32)>,
+    bookmarks: Vec<(Bookmark, Ref, f32)>,
 }
 
 pub struct NavRefs {
@@ -29,8 +29,8 @@ impl Writer {
         self.nav.dests.push((name.to_string(), page, x, height - y));
     }
 
-    pub(super) fn add_bookmark(&mut self, b: &Bookmark, page: Ref, width: f32, height: f32) {
-        self.nav.bookmarks.push((b.clone(), page, width, height));
+    pub(super) fn add_bookmark(&mut self, b: &Bookmark, page: Ref, height: f32) {
+        self.nav.bookmarks.push((b.clone(), page, height));
     }
 
     /// A link annotation over `rect` (`[x0 y0 x1 y1]` in PDF space).
@@ -134,7 +134,7 @@ impl Writer {
             d.pair(Name(b"First"), refs[top[0]])
                 .pair(Name(b"Last"), refs[*top.last().unwrap()]);
         });
-        for (i, (b, page, width, height)) in items.iter().enumerate() {
+        for (i, (b, page, height)) in items.iter().enumerate() {
             let parent = b
                 .parent
                 .and_then(|p| index.get(&p).copied())
@@ -165,9 +165,8 @@ impl Writer {
                 if b.fit {
                     dest.item(Name(b"Fit"));
                 } else {
-                    // Left is measured from the right edge, as documents have always been written.
                     dest.item(Name(b"XYZ"))
-                        .item(width - b.left)
+                        .item(b.left)
                         .item(height - b.top)
                         .item(b.zoom.unwrap_or(0.0));
                 }

@@ -101,7 +101,7 @@ impl Writer {
                     p.annots.push(a);
                 }
                 Op::Dest { name, x, y } => self.add_dest(name, page_ref, *x, *y, page.height),
-                Op::Bookmark(b) => self.add_bookmark(b, page_ref, page.width, page.height),
+                Op::Bookmark(b) => self.add_bookmark(b, page_ref, page.height),
                 Op::Note { x, y, text, color } => {
                     let (px, py) = apply(p.gfx.ctm, *x, *y);
                     let a = self.note((px, py), text, *color, out);

@@ -52,3 +52,10 @@ fn images_and_fonts_are_written_once() {
     assert_eq!(count(b"/Type /Page\n"), 5);
     assert_eq!(count(b"/FontFile2"), 1);
 }
+
+#[test]
+fn bookmarks_point_at_their_left_and_top() {
+    let pdf = common::render(1);
+    // The sample's first bookmark sits at left 0, top 0 of an 841.89pt page.
+    assert!(String::from_utf8_lossy(&pdf).contains("/XYZ 0 841.89 0]"));
+}
