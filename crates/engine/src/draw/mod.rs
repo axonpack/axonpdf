@@ -127,8 +127,9 @@ fn node(ops: &mut Vec<Op>, n: &Node, ox: f64, oy: f64, cx: &Ctx) {
                 .or(n.props.get("href"))
                 .and_then(|v| v.as_str());
             if let Some(href) = href {
+                let [st, sr, sb, sl] = debug::hit_slop(n);
                 ops.push(Op::Link {
-                    rect: rect(x, y, w, h),
+                    rect: rect(x - sl, y - st, w + sl + sr, h + st + sb),
                     target: text::target(href),
                 });
             }

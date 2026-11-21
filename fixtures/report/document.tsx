@@ -87,7 +87,9 @@ export default function Report() {
         </View>
 
         <Text style={s.h1} bookmark={{ title: 'Summary', fit: true }}>Summary</Text>
-        <Field label="Home" value="Willow House" />
+        <Link src="https://example.com/homes/willow" hitSlop={{ top: 3, left: 6, bottom: 1 }}>
+          <Field label="Home" value="Willow House" />
+        </Link>
         <Field label="Period" value="1 to 30 November 2026" />
         <Field label="Lines" value={String(LINES.length)} />
         <Field label="Order total" value={money(total)} />

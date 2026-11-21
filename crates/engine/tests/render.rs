@@ -144,3 +144,19 @@ fn bookmarks_make_an_outline() {
     assert!(text.contains("/Outlines"));
     assert!(text.matches("/Parent").count() >= 2);
 }
+
+#[test]
+fn hit_slop_enlarges_a_link() {
+    let link = |slop: Value| {
+        json!({"v": 1, "type": "DOCUMENT", "props": {}, "children": [
+            {"type": "PAGE", "props": {"size": [200, 200]}, "children": [
+                {"type": "LINK", "props": {"src": "https://axonpack.dev", "hitSlop": slop},
+                 "style": {"width": 100, "height": 20, "margin": 10}, "children": []}
+            ]}
+        ]})
+    };
+    let pdf = render(link(json!({"left": 4, "bottom": 2})), &mut Engine::new());
+    assert!(String::from_utf8_lossy(&pdf).contains("/Rect [6 168 110 190]"));
+    let pdf = render(link(json!(5)), &mut Engine::new());
+    assert!(String::from_utf8_lossy(&pdf).contains("/Rect [5 165 115 195]"));
+}

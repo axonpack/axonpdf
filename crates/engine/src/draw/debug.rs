@@ -1,4 +1,4 @@
-//! `debug`: content, padding and margin tinted, the outer size printed, the origin marked.
+//! `debug`: content, padding, margin and `hitSlop` tinted, the outer size printed, the origin marked.
 
 use super::rect;
 use crate::display::{Color, Op, Paint, Stroke, TextRun};
@@ -6,9 +6,19 @@ use crate::fonts::FontStore;
 use crate::path::ellipse;
 use crate::tree::Node;
 
-fn tint(rgb: u32) -> Paint {
+fn tint(rgb: u32, a: f32) -> Paint {
     let c = |s: u32| ((rgb >> s) & 0xff) as f32 / 255.0;
-    Paint::Solid(Color { r: c(16), g: c(8), b: c(0), a: 0.5 })
+    Paint::Solid(Color { r: c(16), g: c(8), b: c(0), a })
+}
+
+/// `hitSlop` (a number, or `top`, `right`, `bottom` and `left`) as `[top, right, bottom, left]`.
+pub fn hit_slop(n: &Node) -> [f64; 4] {
+    match n.props.get("hitSlop") {
+        Some(serde_json::Value::Number(v)) => [v.as_f64().unwrap_or(0.0); 4],
+        Some(serde_json::Value::Object(o)) => ["top", "right", "bottom", "left"]
+            .map(|k| o.get(k).and_then(|v| v.as_f64()).unwrap_or(0.0)),
+        _ => [0.0; 4],
+    }
 }
 
 fn fill(ops: &mut Vec<Op>, paint: &Paint, x: f64, y: f64, w: f64, h: f64) {
@@ -21,17 +31,29 @@ pub fn draw(ops: &mut Vec<Op>, n: &Node, x: f64, y: f64, origin: (f64, f64), fon
     let [pt, pr, pb, pl] = l.padding;
     let [bt, br, bb, bl] = l.border;
     let [mt, mr, mb, ml] = l.margin;
-    fill(ops, &tint(0xa1c6e7), x + pl + bl, y + pt + bt, w - pl - pr - br - bl, h - pt - pb - bt - bb);
-    let pad = tint(0xc4deb9);
+    fill(ops, &tint(0xa1c6e7, 0.5), x + pl + bl, y + pt + bt, w - pl - pr - br - bl, h - pt - pb - bt - bb);
+    let pad = tint(0xc4deb9, 0.5);
     fill(ops, &pad, x + pl + bl, y + bt, w - pr - pl - bl - br, pt);
     fill(ops, &pad, x + bl, y + bt, pl, h - bt - bb);
     fill(ops, &pad, x + w - pr - br, y + bt, pr, h - bt - bb);
     fill(ops, &pad, x + pl + bl, y + h - pb - bb, w - pr - pl - bl - br, pb);
-    let margin = tint(0xf8cca1);
+    let margin = tint(0xf8cca1, 0.5);
     fill(ops, &margin, x, y - mt, w, mt);
     fill(ops, &margin, x - ml, y - mt, ml, h + mt + mb);
     fill(ops, &margin, x + w, y - mt, mr, h + mt + mb);
     fill(ops, &margin, x, y + h, w, mb);
+    let [st, sr, sb, sl] = hit_slop(n);
+    let slop = tint(0xd8b4fe, 0.35);
+    for (on, sx, sy, sw, sh) in [
+        (st, x - sl, y - st, w + sl + sr, st),
+        (sb, x - sl, y + h, w + sl + sr, sb),
+        (sl, x - sl, y, sl, h),
+        (sr, x + w, y, sr, h),
+    ] {
+        if on != 0.0 {
+            fill(ops, &slop, sx, sy, sw, sh);
+        }
+    }
 
     // The label sits on a 6pt Helvetica line whose top is 4pt above the margin box.
     let label = format!("{} x {}", (w + ml + mr).round(), (h + mt + mb).round());
