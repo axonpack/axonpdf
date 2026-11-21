@@ -1,4 +1,9 @@
-//! Path building: rounded boxes and ellipses.
+//! Path building: rounded boxes, ellipses, a canvas-style builder and SVG path data.
+
+mod builder;
+pub mod svg;
+
+pub use builder::PathBuilder;
 
 use crate::display::{Rect, Seg};
 
@@ -32,15 +37,16 @@ pub fn rounded_rect_xy(r: Rect, radii: [(f32, f32); 4]) -> Vec<Seg> {
     ]
 }
 
-/// An ellipse as four cubics, starting at its rightmost point.
+/// An ellipse as four cubics, starting at its leftmost point and running through the top.
 pub fn ellipse(cx: f32, cy: f32, rx: f32, ry: f32) -> Vec<Seg> {
     let (ox, oy) = (rx * KAPPA, ry * KAPPA);
+    let (x0, y0, x1, y1) = (cx - rx, cy - ry, cx + rx, cy + ry);
     vec![
-        Seg::Move(cx + rx, cy),
-        Seg::Cubic(cx + rx, cy + oy, cx + ox, cy + ry, cx, cy + ry),
-        Seg::Cubic(cx - ox, cy + ry, cx - rx, cy + oy, cx - rx, cy),
-        Seg::Cubic(cx - rx, cy - oy, cx - ox, cy - ry, cx, cy - ry),
-        Seg::Cubic(cx + ox, cy - ry, cx + rx, cy - oy, cx + rx, cy),
+        Seg::Move(x0, cy),
+        Seg::Cubic(x0, cy - oy, cx - ox, y0, cx, y0),
+        Seg::Cubic(cx + ox, y0, x1, cy - oy, x1, cy),
+        Seg::Cubic(x1, cy + oy, cx + ox, y1, cx, y1),
+        Seg::Cubic(cx - ox, y1, x0, cy + oy, x0, cy),
         Seg::Close,
     ]
 }

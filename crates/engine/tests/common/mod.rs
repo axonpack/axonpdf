@@ -300,6 +300,28 @@ pub fn sample_page(a: &Assets, n: usize) -> PageOut {
                 ..stroke(Color::BLACK, 4.0, vec![])
             }),
         },
+        Op::Path {
+            path: axonpdf::path::svg::parse(
+                "M300 600 a40 40 0 0 1 80 0 a40 40 0 0 1 80 0 q0 60 -80 100 q-80 -40 -80 -100z",
+            ),
+            fill: Some(Fill {
+                paint: Paint::Solid(rgb(0.85, 0.1, 0.3)),
+                rule: FillRule::NonZero,
+            }),
+            stroke: Some(stroke(rgb(0.4, 0.0, 0.1), 2.0, vec![])),
+        },
+        Op::Path {
+            path: axonpdf::path::svg::polyline(
+                &axonpdf::path::svg::points("40,700 80,620 120,700 160,620 200,700"),
+                false,
+            ),
+            fill: None,
+            stroke: Some(Stroke {
+                join: LineJoin::Miter,
+                cap: LineCap::Square,
+                ..stroke(rgb(0.1, 0.5, 0.1), 6.0, vec![])
+            }),
+        },
     ];
     ops.push(Op::Rect {
         rect: r(0.0, 0.0, 0.0, 0.0),
