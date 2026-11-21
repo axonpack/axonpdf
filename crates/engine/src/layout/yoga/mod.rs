@@ -49,10 +49,10 @@ pub struct Tree {
     config: YgConfig,
     nodes: Vec<YgNode>,
     // Yoga keeps a thin pointer to each closure in the node's context, so each closure is boxed
-    // twice and the outer box is kept here for as long as the node lives. Without the outer box the
-    // pointer would move whenever the Vec grows.
+    // twice and the outer box is kept here, by node, for as long as the node lives. Without the
+    // outer box the pointer would move whenever the Vec grows.
     #[allow(clippy::vec_box)]
-    measures: Vec<Box<Box<Measure>>>,
+    measures: Vec<Option<Box<Box<Measure>>>>,
 }
 
 impl Tree {
@@ -69,7 +69,28 @@ impl Tree {
 
     pub fn node(&mut self) -> NodeId {
         self.nodes.push(unsafe { YGNodeNewWithConfig(self.config) });
+        self.measures.push(None);
         self.nodes.len() - 1
+    }
+
+    /// Frees one node (not its children, which may live on elsewhere) and its measure. Its id
+    /// must not be used again.
+    pub fn free(&mut self, id: NodeId) {
+        let n = std::mem::replace(&mut self.nodes[id], std::ptr::null_mut());
+        if !n.is_null() {
+            unsafe { YGNodeFree(n) };
+        }
+        self.measures[id] = None;
+    }
+
+    /// Detaches every child; they stay alive to be inserted again.
+    pub fn clear_children(&mut self, id: NodeId) {
+        unsafe { YGNodeRemoveAllChildren(self.nodes[id]) }
+    }
+
+    /// Makes Yoga measure a leaf again on the next layout.
+    pub fn mark_dirty(&mut self, id: NodeId) {
+        unsafe { YGNodeMarkDirty(self.nodes[id]) }
     }
 
     pub fn push_child(&mut self, parent: NodeId, child: NodeId) {
@@ -84,7 +105,7 @@ impl Tree {
             YGNodeSetContext(self.nodes[id], context);
             YGNodeSetMeasureFunc(self.nodes[id], measure_trampoline);
         }
-        self.measures.push(boxed);
+        self.measures[id] = Some(boxed);
     }
 
     /// Lays out the tree under `root`. `None` leaves that side unconstrained.
@@ -272,7 +293,7 @@ impl Drop for Tree {
     fn drop(&mut self) {
         // YGNodeFree detaches a node from its owner and children, so freeing each one is safe in
         // any order. The closures in `measures` are dropped after the nodes that point at them.
-        for &n in &self.nodes {
+        for &n in self.nodes.iter().filter(|n| !n.is_null()) {
             unsafe { YGNodeFree(n) };
         }
         unsafe { YGConfigFree(self.config) };

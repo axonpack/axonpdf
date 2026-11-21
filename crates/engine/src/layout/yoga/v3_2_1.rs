@@ -21,6 +21,8 @@ unsafe extern "C" {
     pub fn YGNodeNewWithConfig(config: YgConfig) -> YgNode;
     pub fn YGNodeFree(node: YgNode);
     pub fn YGNodeInsertChild(node: YgNode, child: YgNode, index: usize);
+    pub fn YGNodeRemoveAllChildren(node: YgNode);
+    pub fn YGNodeMarkDirty(node: YgNode);
     pub fn YGNodeGetChildCount(node: YgNode) -> usize;
     pub fn YGNodeSetContext(node: YgNode, context: *mut c_void);
     pub fn YGNodeGetContext(node: YgNode) -> *mut c_void;
