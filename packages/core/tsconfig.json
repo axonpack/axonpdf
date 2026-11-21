@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "lib": ["esnext", "dom"],
-    "target": "es2022",
+    "target": "es2024",
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "moduleDetection": "force",

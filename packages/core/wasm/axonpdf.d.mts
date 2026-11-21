@@ -18,6 +18,9 @@ export interface AxonpdfModule {
   ): number;
   _axonpdf_add_image(handle: number, id: number, bytes: number, len: number): number;
   _axonpdf_set_render_callback(handle: number, callback: number, user: number): void;
+  _axonpdf_set_paint_callback(handle: number, callback: number, user: number): void;
+  _axonpdf_set_hyphenation_callback(handle: number, callback: number, user: number): void;
+  _axonpdf_hyphenate_builtin(word: number, wordLen: number): number;
   _axonpdf_render(handle: number, json: number, jsonLen: number, output: number, user: number): number;
   _axonpdf_last_error(handle: number): number;
 }
