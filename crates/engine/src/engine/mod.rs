@@ -14,7 +14,8 @@ use crate::draw;
 use crate::fonts::FontStore;
 use crate::hooks::{Hooks, HyphenationCallback, PaintCallback, RowsCallback};
 use crate::images::ImageStore;
-use crate::tree::{self, Node};
+use crate::profile::{self, Phase};
+use crate::tree::{self, Doc, Node};
 use crate::writer::{Writer, doc_info};
 
 /// What a `render` function is called with. `None` is `undefined` on the adapter's side: while
@@ -114,7 +115,8 @@ impl Engine {
     /// pages finish. When a `render` function reads the page total, pages are cut once to count
     /// them, then again to draw them.
     pub fn render(&mut self, tree_json: &str, out: &mut dyn FnMut(&[u8])) -> Result<(), String> {
-        let doc = tree::parse(tree_json)?;
+        let _time = profile::enter(Phase::Layout);
+        let doc = parse(tree_json)?;
         let mut writer = Writer::new(doc_info(&doc.props));
         writer.begin(out);
         let sizes = self.image_sizes();
@@ -130,10 +132,13 @@ impl Engine {
             outline: &Default::default(),
         };
         let mut sink = |page: &Node, width: f64, height: f64| {
-            let display = draw::page(page, width, height, &cx);
+            let display = paint_page(page, width, height, &cx);
+            let _time = profile::enter(Phase::Write);
             writer.write_page(&display, fonts, images, out);
+            profile::page();
         };
         layout_pages(fonts, &sizes, hooks, &mut self.callback, doc, &mut sink)?;
+        let _time = profile::enter(Phase::Write);
         writer.finish(&self.fonts, out);
         Ok(())
     }
@@ -163,4 +168,21 @@ impl Engine {
             })
             .collect()
     }
+}
+
+/// Reads the tree JSON, timed as its own phase.
+pub(super) fn parse(tree_json: &str) -> Result<Doc<'_>, String> {
+    let _time = profile::enter(Phase::Parse);
+    tree::parse(tree_json)
+}
+
+/// A finished page's drawing operations, timed as painting.
+pub(super) fn paint_page(
+    page: &Node,
+    width: f64,
+    height: f64,
+    cx: &draw::Ctx,
+) -> crate::display::PageOut {
+    let _time = profile::enter(Phase::Paint);
+    draw::page(page, width, height, cx)
 }

@@ -7,11 +7,12 @@ use std::ops::Range;
 use serde_json::{Map, Value};
 
 use super::run::{PAGE, call, count, with_assets};
-use super::{Engine, RenderArgs};
+use super::{Engine, RenderArgs, paint_page, parse};
 use crate::draw;
 use crate::hooks::waiting_for;
 use crate::layout::remainder::ROWS;
 use crate::paginate::{self, Cut, Pager, next, page};
+use crate::profile::{self, Phase};
 use crate::style::Container;
 use crate::tree::{self, RawNode};
 use crate::writer::{Out, Writer, doc_info};
@@ -50,9 +51,10 @@ impl Engine {
     /// Starts a render that stops when it needs rows nobody pushed yet: see
     /// [`Engine::push_rows`]. The bytes made so far go to `out`.
     pub fn render_begin(&mut self, tree_json: String, out: Out) -> Result<Step, String> {
+        let _time = profile::enter(Phase::Layout);
         self.hooks.reset();
         self.hooks.pushed.borrow_mut().clear();
-        let doc = tree::parse(&tree_json)?;
+        let doc = parse(&tree_json)?;
         let base = tree_json.as_ptr() as usize;
         #[derive(serde::Deserialize)]
         struct Kind {
@@ -97,6 +99,7 @@ impl Engine {
 
     /// Hands `Rows` `id` its next batch, `{"children": [...], "done": bool}`, and carries on.
     pub fn push_rows(&mut self, id: u32, batch_json: &str, out: Out) -> Result<Step, String> {
+        let _time = profile::enter(Phase::Layout);
         self.hooks.push_rows(id, batch_json)?;
         self.render_step(out)
     }
@@ -162,13 +165,18 @@ impl Engine {
                     forms: Default::default(),
                     outline: &job.outline,
                 };
-                let display = draw::page(&f.page, container.width, height, &cx);
+                let display = paint_page(&f.page, container.width, height, &cx);
                 drop(f);
+                let _time = profile::enter(Phase::Write);
                 job.writer.write_page(&display, fonts, images, &mut *out);
+                profile::page();
             }
         });
         match &result {
-            Ok(Step::Done) => job.writer.finish(fonts, out),
+            Ok(Step::Done) => {
+                let _time = profile::enter(Phase::Write);
+                job.writer.finish(fonts, out)
+            }
             Ok(_) => self.job = Some(job),
             Err(_) => {}
         }

@@ -10,6 +10,7 @@ use crate::hooks::Hooks;
 use crate::layout::Assets;
 use crate::layout::remainder::{ROWS, ROWS_DONE};
 use crate::paginate::{self, Finished, Pager, next, page};
+use crate::profile::{self, Phase};
 use crate::style::Container;
 use crate::tree::node::LAZY;
 use crate::tree::{self, Doc, Node, RawNode, RenderResult};
@@ -195,6 +196,7 @@ pub(super) fn call(
     id: u32,
     args: &RenderArgs,
 ) -> Result<RenderResult, String> {
+    let _time = profile::enter(Phase::Callbacks);
     let cb = callback
         .as_mut()
         .ok_or("a render function was used but no render callback is set")?;

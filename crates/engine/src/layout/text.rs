@@ -13,6 +13,7 @@ use crate::tree::{Kind, Node};
 
 /// A text node's paragraphs, ready to break, with its hyphenation callback or the document's.
 pub fn paragraphs(n: &Node, a: &Assets) -> Result<Vec<Paragraph>, String> {
+    let _time = crate::profile::enter(crate::profile::Phase::Text);
     let mut frags = Vec::new();
     fragments(a.fonts, n, None, 0, &mut frags)?;
     let frags = deferred_totals(emoji(frags, a.emoji), a.total_digits.get());

@@ -5,6 +5,8 @@ use std::collections::HashMap;
 
 use serde_json::value::RawValue;
 
+use crate::profile::{self, Phase};
+
 /// Runs a canvas's `paint` function by id at a width and height (NaN for both when the canvas
 /// is only being measured; the adapter passes `undefined`). Answers the painter calls as a JSON
 /// list of `[method, ...args]`.
@@ -33,6 +35,7 @@ pub struct Hooks {
 
 impl Hooks {
     pub fn paint(&self, id: u32, width: f64, height: f64) -> Option<String> {
+        let _time = profile::enter(Phase::Callbacks);
         let mut cb = self.paint.borrow_mut();
         Some(cb.as_mut()?(id, width as f32, height as f32))
     }
@@ -41,7 +44,10 @@ impl Hooks {
     /// nothing was pushed yet and more is to come.
     pub fn rows(&self, id: u32) -> Result<(Vec<Box<RawValue>>, bool), String> {
         if let Some(cb) = self.rows.borrow_mut().as_mut() {
-            let json = cb(id);
+            let json = {
+                let _time = profile::enter(Phase::Callbacks);
+                cb(id)
+            };
             let b: Batch = serde_json::from_str(&json).map_err(|e| format!("rows {id}: {e}"))?;
             return Ok((b.children, b.done));
         }
@@ -68,7 +74,10 @@ impl Hooks {
         if let Some(parts) = self.words.borrow().get(&key) {
             return Some(parts.clone());
         }
-        let json = self.hyphenate.borrow_mut().as_mut()?(id, word);
+        let json = {
+            let _time = profile::enter(Phase::Callbacks);
+            self.hyphenate.borrow_mut().as_mut()?(id, word)
+        };
         let parts: Vec<String> = serde_json::from_str(&json).ok()?;
         self.words.borrow_mut().insert(key, parts.clone());
         Some(parts)

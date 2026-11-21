@@ -19,6 +19,7 @@ pub fn layout(
     height: Option<f64>,
     opts: &Options,
 ) -> Vec<Line> {
+    let _time = crate::profile::enter(crate::profile::Phase::Text);
     let mut lines = Vec::new();
     let mut room = height
         .filter(|h| *h != 0.0 && !h.is_nan())
