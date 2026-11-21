@@ -42,6 +42,23 @@ impl Kind {
             other => Kind::Other(other.to_string()),
         }
     }
+
+    /// The type as the tree names it (`VIEW`), as warnings print it.
+    pub fn name(&self) -> &str {
+        match self {
+            Kind::Page => "PAGE",
+            Kind::View => "VIEW",
+            Kind::Text => "TEXT",
+            Kind::Link => "LINK",
+            Kind::Image => "IMAGE",
+            Kind::ImageBackground => "IMAGE_BACKGROUND",
+            Kind::Note => "NOTE",
+            Kind::Canvas => "CANVAS",
+            Kind::Svg => "SVG",
+            Kind::TextInstance => "TEXT_INSTANCE",
+            Kind::Other(other) => other,
+        }
+    }
 }
 
 /// A node's box after layout, relative to its parent's border box. Edges are top, right,

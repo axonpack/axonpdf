@@ -54,8 +54,8 @@ pub fn split_nodes(
         let can_wrap = child.can_wrap();
         if h > content_area && !can_wrap {
             eprintln!(
-                "Node of type {:?} can't wrap between pages and it's bigger than available page height",
-                child.kind
+                "Node of type {} can't wrap between pages and it's bigger than available page height",
+                child.kind.name()
             );
             ids(&child, gone);
             current.push(child);

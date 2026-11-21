@@ -19,7 +19,8 @@ const decoder = new TextDecoder();
 let loading: Promise<Loaded> | undefined;
 
 export function load(): Promise<Loaded> {
-  loading ??= createModule().then((module) => {
+  // The engine writes only warnings to stderr; they go out as warnings, as the components give them.
+  loading ??= createModule({ printErr: (text: string) => console.warn(text) }).then((module) => {
     const active = new Map<number, Active>();
     const cString = (text: string) => {
       const bytes = encoder.encode(text);
