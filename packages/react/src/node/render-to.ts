@@ -3,21 +3,11 @@ import { Readable } from "node:stream";
 import type { ReactElement } from "react";
 
 import { startStream, type Run } from "../live-stream.js";
-import { mount, pdf } from "../pdf.js";
+import { latin1, mount } from "../pdf.js";
 import type { DocumentProps } from "../types/props.type.js";
 import { nodeSink } from "./node-sink.js";
 
 type Element = ReactElement<DocumentProps>;
-
-/** Renders, then unmounts so the root doesn't outlive the call. */
-async function once<T>(element: Element, run: (instance: ReturnType<typeof pdf>) => Promise<T>) {
-  const instance = pdf(element);
-  try {
-    return await run(instance);
-  } finally {
-    instance.updateContainer(null as unknown as ReactElement);
-  }
-}
 
 /** A live stream: it resolves with the first chunk, and pages flow out as they are laid out. */
 export function renderToStream(element: Element): Promise<NodeJS.ReadableStream> {
@@ -36,9 +26,23 @@ export const renderToBuffer = async (element: Element): Promise<Buffer> => {
   return Buffer.concat(chunks);
 };
 
-/** @deprecated use `renderToBuffer`. */
-export const renderToString = (element: Element): Promise<string> =>
-  once(element, (instance) => instance.toString());
+/** @deprecated use `renderToBuffer`. The PDF as text, its streams undeflated as in `toString`. */
+export async function renderToString(element: Element): Promise<string> {
+  if (process.env.NODE_ENV === "development") {
+    console.warn(
+      "`renderToString` is deprecated and will be removed in next major release, use `renderToBuffer` instead",
+    );
+  }
+  const { documentProps, updateContainer, render } = mount(element);
+  const chunks: Uint8Array[] = [];
+  try {
+    await render((chunk) => chunks.push(chunk), undefined, true, undefined, false);
+  } finally {
+    updateContainer(null);
+  }
+  documentProps()?.onRender?.({});
+  return latin1(chunks);
+}
 
 /** Writes each chunk to the file as the engine produces it, so memory stays flat. */
 export async function renderToFile(

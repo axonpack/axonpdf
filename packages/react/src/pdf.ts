@@ -16,7 +16,8 @@ import type { TreeDocument } from "./types/tree.type.js";
 let renderer: Renderer | undefined;
 const listeners = new WeakMap<Container, (() => void)[]>();
 
-const latin1 = (chunks: Uint8Array[]) =>
+/** The bytes as a string, one character per byte. */
+export const latin1 = (chunks: Uint8Array[]) =>
   chunks.map((chunk) => Array.from(chunk, (byte) => String.fromCharCode(byte)).join("")).join("");
 
 /** A reconciler root holding `element`, for the cases the one-shot walk leaves to it. */
