@@ -6,15 +6,14 @@ use std::ops::Range;
 
 use serde_json::{Map, Value};
 
-use super::run::{PAGE, call, count, fill_page, with_assets};
+use super::run::{PAGE, call, count, deferred_total, fill_page, with_assets};
 use super::{Engine, RenderArgs, paint_page, parse};
 use crate::draw;
 use crate::hooks::waiting_for;
-use crate::layout::remainder::ROWS;
 use crate::paginate::{self, Cut, Pager, next, page};
 use crate::profile::{self, Phase};
 use crate::style::Container;
-use crate::tree::{self, Json, RawNode};
+use crate::tree::{Json, RawNode};
 use crate::writer::{Out, Writer, doc_info};
 
 /// What a resumable render needs next.
@@ -75,10 +74,7 @@ impl Engine {
         let counts = with_assets(&self.fonts, &sizes, &self.hooks, &doc.props, |a| {
             count(&self.hooks, a, &mut self.callback, &doc)
         })?;
-        let pending_total = counts.is_none()
-            && doc
-                .page_json()
-                .any(|j| !tree::numbers_at(j, ROWS).is_empty());
+        let pending_total = counts.is_none() && doc.page_json().any(deferred_total);
         let newer = doc.page_json().any(|j| next::Head::read(j).wants_next());
         let props = doc.props.clone();
         let mut writer = Writer::new(doc_info(&props));

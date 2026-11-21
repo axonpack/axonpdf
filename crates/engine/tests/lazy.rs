@@ -95,12 +95,16 @@ fn lazy_pages_are_filled_when_opened() {
         kids.extend(body(id as usize).as_array().unwrap().iter().cloned());
         json!({"children": kids, "done": true}).to_string()
     }));
-    let doc_of = |pages: Vec<Value>| {
-        json!({"v": 1, "type": "DOCUMENT", "props": {}, "children": pages}).to_string()
+    let doc_of = |pages: Vec<Value>, props: Value| {
+        json!({"v": 1, "type": "DOCUMENT", "props": props, "children": pages}).to_string()
     };
+    // The footers inside read the total, so the adapter asks for a count.
     let pdf = render(
         &mut lazy,
-        &doc_of(vec![page(json!([]), Some(1)), page(json!([]), Some(2))]),
+        &doc_of(
+            vec![page(json!([]), Some(1)), page(json!([]), Some(2))],
+            json!({"countPages": true}),
+        ),
     );
     assert_eq!(
         *fetched.borrow(),
@@ -109,7 +113,37 @@ fn lazy_pages_are_filled_when_opened() {
     );
     let eager = render(
         &mut engine(Rc::default()),
-        &doc_of(vec![page(body(1), None), page(body(2), None)]),
+        &doc_of(vec![page(body(1), None), page(body(2), None)], json!({})),
     );
     assert_eq!(pdf, eager, "the same file as with the children inline");
+}
+
+/// Uncounted, a document with lazy content leaves the total for the writer: whatever turns out
+/// to read it in content built later still gets the real number, never a missing one.
+#[test]
+fn uncounted_lazy_documents_defer_the_total() {
+    let calls = Rc::new(RefCell::new(Vec::new()));
+    let mut engine = Engine::new();
+    let log = calls.clone();
+    engine.set_render_callback(Box::new(move |_, a| {
+        if a.is_last.is_some() {
+            log.borrow_mut().push((a.total_pages, a.total_pending));
+        }
+        json!({"children": [{"type": "TEXT_INSTANCE", "value": "x"}], "readsTotal": false})
+            .to_string()
+    }));
+    engine.set_rows_callback(Box::new(|_| {
+        let footer = json!({"type": "TEXT", "props": {"fixed": true}, "render": 1, "children": []});
+        json!({"children": [footer, row(1)], "done": true}).to_string()
+    }));
+    let page = json!({"type": "PAGE", "props": {"lazy": 5}, "children": []});
+    let json = json!({"v": 1, "type": "DOCUMENT", "props": {}, "children": [page]}).to_string();
+    render(&mut engine, &json);
+    let calls = calls.borrow();
+    assert!(!calls.is_empty());
+    assert!(
+        calls
+            .iter()
+            .all(|&(total, pending)| total.is_none() && pending)
+    );
 }

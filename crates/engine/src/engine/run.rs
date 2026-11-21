@@ -112,18 +112,20 @@ fn reads_total(callback: &mut Option<RenderCallback>, doc: &Doc) -> Result<bool,
     // Read from each page's JSON without building it: `render` ids (bands' included), page
     // counts, and rows, which are fetched once and cannot be counted ahead.
     // ponytail: Rows documents get no totals; a deferred total drawn at the end would fix it.
-    let (mut found, mut count, mut lazy) = (Vec::new(), false, false);
+    // The adapter asks for a count when lazy content it has seen reads the total.
+    if doc.props.get("countPages").is_some_and(tree::truthy) {
+        return Ok(true);
+    }
+    let (mut found, mut count) = (Vec::new(), false);
     for json in doc.page_json() {
         if tree::has_type(json, "ROWS") && !tree::numbers_at(json, ROWS).is_empty() {
             return Ok(false);
         }
-        // Lazy children can hide what reads the total, so a page with them is always counted.
-        lazy |= !tree::numbers_at(json, LAZY_CHILDREN).is_empty();
         count |= tree::has_type(json, "PAGE_COUNT");
         found.extend(tree::numbers_at(json, "render"));
         found.extend(next::Head::read(json).layout);
     }
-    if count || lazy {
+    if count {
         return Ok(true);
     }
     let args = RenderArgs {
@@ -151,11 +153,9 @@ fn run(
     let mut call = |id: u32, args: &RenderArgs| call(callback, id, args);
     let mut made = Vec::new();
     let mut number = 1;
-    // Rows documents cannot be counted ahead; their total is filled in at the end.
-    let pending_total = total.is_none()
-        && doc
-            .page_json()
-            .any(|j| !tree::numbers_at(j, ROWS).is_empty());
+    // Rows documents cannot be counted ahead; their total is filled in at the end. So is that of
+    // an uncounted document with lazy content, which may hold something that reads it.
+    let pending_total = total.is_none() && doc.page_json().any(deferred_total);
     let pages = doc.pages().count();
     let newer = doc.page_json().any(|j| next::Head::read(j).wants_next());
     let page_list = doc.page_json().filter_map(|j| match doc.read(j) {
@@ -234,4 +234,12 @@ pub(super) fn fill_page(raw: &mut RawNode, a: &Assets) -> Result<(), String> {
             return Ok(());
         }
     }
+}
+
+/// Whether a page's total, when it was not counted, is left for the writer: the page has rows,
+/// or lazy content that may read it.
+pub(super) fn deferred_total(page_json: &str) -> bool {
+    [ROWS, LAZY_CHILDREN]
+        .iter()
+        .any(|key| !tree::numbers_at(page_json, key).is_empty())
 }
