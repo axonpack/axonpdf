@@ -20,12 +20,6 @@ pub(super) fn is_row(n: &Node) -> bool {
     )
 }
 
-/// Absolutely placed and static: a marker of no height where the flow reaches it, outside the
-/// spacing between its siblings.
-pub(super) fn is_marker(n: &Node) -> bool {
-    is_absolute(n) && !n.dynamic
-}
-
 /// The top of the margin box, and its height.
 pub(super) fn outer(n: &Node) -> (f64, f64) {
     let l = &n.layout;
@@ -136,13 +130,20 @@ pub(super) fn flagged(node: Node) -> Item {
 
 /// Children down a column: a forced break before a `break` node, the space before each, and a
 /// window after a `minPresenceAhead` node where no break may fall.
+///
+/// Absolutely placed children take no room and stay out of the spacing; those that are `fixed`
+/// go first, so they are on every page whatever their place among the others.
 fn items_of(children: Vec<Node>) -> Vec<ItemRef> {
-    let flow: Vec<&Node> = children.iter().filter(|c| !is_marker(c)).collect();
+    let (mut children, rest): (Vec<Node>, Vec<Node>) = children
+        .into_iter()
+        .partition(|c| is_absolute(c) && c.is_fixed());
+    children.extend(rest);
+    let flow: Vec<&Node> = children.iter().filter(|c| !is_absolute(c)).collect();
     let mut gap = gaps(&flow).into_iter();
     let mut index = 0;
     let mut out = Vec::new();
     for child in children {
-        if is_marker(&child) {
+        if is_absolute(&child) {
             out.push(Rc::new(flagged(child)));
             continue;
         }
@@ -196,7 +197,7 @@ pub(super) fn with_edges(
 }
 
 fn column(mut node: Node) -> Item {
-    let flow: Vec<&Node> = node.children.iter().filter(|c| !is_marker(c)).collect();
+    let flow: Vec<&Node> = node.children.iter().filter(|c| !is_absolute(c)).collect();
     // Children that overlap wrapped into columns of their own: there is no line to break at.
     if gaps(&flow).iter().any(|g| *g < -0.001) {
         return Item::Leaf(Leaf {

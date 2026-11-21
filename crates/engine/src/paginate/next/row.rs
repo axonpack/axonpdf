@@ -4,7 +4,7 @@
 use std::rc::Rc;
 
 use super::fill::fill;
-use super::flow::{edge_top, flagged, is_marker, outer, with_edges};
+use super::flow::{edge_top, flagged, is_absolute, outer, with_edges};
 use super::items::{FillResult, Fragment, Item, Materialize, Placed, Step, height, reach, space};
 use super::overflow::{repeats, split_leaf};
 use super::state::State;
@@ -149,7 +149,7 @@ pub fn item(mut node: Node) -> Item {
     let mut cells = Vec::new();
     let mut bottom = f64::NEG_INFINITY;
     for (i, child) in std::mem::take(&mut node.children).into_iter().enumerate() {
-        if is_marker(&child) {
+        if is_absolute(&child) {
             kept.push((i, child));
             continue;
         }
