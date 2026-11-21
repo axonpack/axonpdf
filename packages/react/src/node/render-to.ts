@@ -24,7 +24,7 @@ export function renderToStream(element: Element): Promise<NodeJS.ReadableStream>
   const { container, updateContainer, render } = mount(element);
   const onRender = container.document?.props.onRender;
   const run: Run = (write, wait) =>
-    render(write, wait)
+    render(write, wait, true)
       .then(() => onRender?.({}))
       .finally(() => updateContainer(null));
   return startStream(nodeSink(), run);
@@ -51,7 +51,7 @@ export async function renderToFile(
   const onRender = container.document?.props.onRender;
   const fd = openSync(filePath, "w");
   try {
-    await render((chunk) => writeSync(fd, chunk));
+    await render((chunk) => writeSync(fd, chunk), undefined, true);
   } finally {
     closeSync(fd);
     updateContainer(null);

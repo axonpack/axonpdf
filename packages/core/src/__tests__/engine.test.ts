@@ -37,6 +37,25 @@ describe("createEngine", () => {
     expect(calls[0]).toMatchObject({ id: 3, pageNumber: 1 });
   });
 
+  it("takes the JSON from a function, sized exactly for any UTF-8", async () => {
+    const engine = await createEngine();
+    const text = { type: "TEXT_INSTANCE", value: "£ • é 😀 \ud800 x" };
+    const json = JSON.stringify({
+      ...tree,
+      children: [
+        { type: "PAGE", props: {}, children: [{ type: "TEXT", props: {}, children: [text] }] },
+      ],
+    });
+    const chunks: Uint8Array[] = [];
+    // One byte short would cut the closing braces and fail to parse.
+    engine.render(
+      () => json,
+      (chunk) => chunks.push(chunk),
+    );
+    engine.free();
+    expect(Buffer.concat(chunks).toString("latin1").trimEnd().endsWith("%%EOF")).toBe(true);
+  });
+
   it("rethrows an error from a render function after the engine returns", async () => {
     const engine = await createEngine();
     const render = () =>

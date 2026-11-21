@@ -31,15 +31,22 @@ export interface Callbacks {
 export interface Engine {
   addFont(family: string, weight: number, italic: boolean, bytes: Uint8Array): void;
   addImage(id: number, bytes: Uint8Array): void;
-  /** Renders the tree; `onChunk` gets each piece of the PDF, in order, as it is written. */
-  render(treeJson: string, onChunk: (chunk: Uint8Array) => void, callbacks?: Callbacks): void;
+  /**
+   * Renders the tree; `onChunk` gets each piece of the PDF, in order, as it is written. Pass a
+   * function that makes the JSON to let a large string be freed while the engine runs.
+   */
+  render(
+    treeJson: string | (() => string),
+    onChunk: (chunk: Uint8Array) => void,
+    callbacks?: Callbacks,
+  ): void;
   /**
    * Starts a render that stops when it needs rows: returns the id of the `Rows` whose next batch
    * it needs (give it with `pushRows`), or `undefined` when the file is complete. Finished
    * pages go to `onChunk` during each call. Leave `callbacks.rows` out: rows are pushed.
    */
   begin(
-    treeJson: string,
+    treeJson: string | (() => string),
     onChunk: (chunk: Uint8Array) => void,
     callbacks?: Callbacks,
   ): number | undefined;

@@ -34,13 +34,23 @@ export function mount(initialValue?: ReactElement) {
     renderer!.updateContainer(root, document, callback);
   if (initialValue) updateContainer(initialValue);
 
-  const render = async (onChunk: (chunk: Uint8Array) => void, wait?: () => Promise<void>) => {
+  /** `release`: unmount once the tree is read, for a render that is the root's last. */
+  const render = async (
+    onChunk: (chunk: Uint8Array) => void,
+    wait?: () => Promise<void>,
+    release?: boolean,
+  ) => {
     if (error !== undefined) {
       const e = error;
       error = undefined;
       throw e;
     }
-    await renderDocument(container.document, onChunk, wait);
+    await renderDocument(
+      container,
+      onChunk,
+      wait,
+      release ? () => updateContainer(null) : undefined,
+    );
   };
   return { container, changeListeners, updateContainer, render };
 }

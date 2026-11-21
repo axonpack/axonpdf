@@ -5,7 +5,8 @@ import { Font } from "../font/font-store.js";
 import { addFonts } from "../font/load-fonts.js";
 import { serializeDocument } from "../tree/serialize.js";
 import { createSession, settle, type Session } from "../tree/session.js";
-import type { Instance } from "../types/instance.type.js";
+import type { Container } from "../types/instance.type.js";
+import type { TreeDocument } from "../types/tree.type.js";
 
 /** Runs `fn` as the engine's callback: nothing async (images) may start inside it. */
 function inCallback<T>(session: Session, fn: () => T): T {
@@ -18,23 +19,38 @@ function inCallback<T>(session: Session, fn: () => T): T {
   }
 }
 
-/**
- * Renders a committed `Document`; `onChunk` gets each piece of the PDF in order. With an async
- * `Rows`, pages leave between batches; otherwise the engine runs in one go.
- */
-export async function renderDocument(
-  document: Instance | null,
-  onChunk: (chunk: Uint8Array) => void,
-  /** Awaited before each async batch: a stream's reader can hold the render back. */
-  wait?: () => Promise<void>,
-) {
+/** The committed `Document` as the engine's tree, read here so no async frame holds it. */
+function serializeRoot(container: Container, session: Session) {
+  const document = container.document;
   if (!document || document.type !== "DOCUMENT") {
     throw new Error("The root element must be a <Document>.");
   }
+  return serializeDocument(document, session);
+}
+
+/**
+ * Renders the committed `Document`; `onChunk` gets each piece of the PDF in order. With an async
+ * `Rows`, pages leave between batches; otherwise the engine runs in one go.
+ */
+export async function renderDocument(
+  container: Container,
+  onChunk: (chunk: Uint8Array) => void,
+  /** Awaited before each async batch: a stream's reader can hold the render back. */
+  wait?: () => Promise<void>,
+  /** Called once the tree is read, so a caller done with React can unmount it before the engine runs. */
+  release?: () => void,
+) {
   const session = createSession();
-  const tree = serializeDocument(document, session);
+  let tree: TreeDocument | undefined = serializeRoot(container, session);
+  release?.();
   await settle(session);
   await addEmoji(tree, session);
+  // Made inside the engine call: the tree and the string are garbage while the engine runs.
+  const json = () => {
+    const text = JSON.stringify(tree);
+    tree = undefined;
+    return text;
+  };
   const engine = await createEngine();
   try {
     // ponytail: rows render after fonts are loaded, so with Rows every registered family loads.
@@ -57,7 +73,6 @@ export async function renderDocument(
       hyphenate: (id: number, word: string) =>
         JSON.stringify(session.hyphenators.get(id)!(word, builtin)),
     };
-    const json = JSON.stringify(tree);
     if (![...session.rows.values()].some((source) => source.async)) {
       // Every Rows is an array or other sync iterable: the engine pulls batches as it goes.
       const rows = (id: number) =>
