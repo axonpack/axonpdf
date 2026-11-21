@@ -137,7 +137,7 @@ fn split(node: Node, height: f64, content_area: f64, gone: &mut Vec<NodeId>) -> 
 
 /// Drops the edges that fall inside the break: the bottom ones above it, the top ones below.
 fn cut_edges(n: &mut Node, side: usize) {
-    let s = &mut n.style;
+    let s = Rc::make_mut(&mut n.style);
     s.margin[side] = Some(Dim::Pt(0.0));
     s.padding[side] = Some(Dim::Pt(0.0));
     s.border_width[side] = Some(0.0);
@@ -159,7 +159,7 @@ fn split_view(
 
     let mut cur = node.clone();
     cut_edges(&mut cur, BOTTOM);
-    cur.style.height = Some(Dim::Pt(height - top));
+    Rc::make_mut(&mut cur.style).height = Some(Dim::Pt(height - top));
     cur.children = cur_children;
 
     let fixed_height = node.style.height.is_some();
@@ -170,7 +170,7 @@ fn split_view(
         .insert("bookmark".into(), serde_json::Value::Null);
     let rest = next.layout.height - (height - top);
     if fixed_height && rest != 0.0 {
-        next.style.height = Some(Dim::Pt(rest));
+        Rc::make_mut(&mut next.style).height = Some(Dim::Pt(rest));
     }
     next.children = next_children;
     next.dirty = true;

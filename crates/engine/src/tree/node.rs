@@ -1,6 +1,7 @@
 //! The working tree: each node with its resolved style and, once laid out, its box.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use serde_json::{Map, Value, json};
@@ -67,7 +68,8 @@ pub struct TextBox {
 pub struct Node {
     pub kind: Kind,
     pub props: Map<String, Value>,
-    pub style: Box<Style>,
+    /// Shared between nodes that resolve to the same style; copied when a cut changes it.
+    pub style: Rc<Style>,
     pub render: Option<u32>,
     pub paint: Option<u32>,
     pub children: Vec<Node>,
@@ -89,15 +91,12 @@ pub struct Node {
 impl Node {
     /// Builds a node and its children, resolving styles against the page and inheriting from
     /// `parent` (its style, and whether it is a text node).
-    pub fn build(raw: RawNode, c: &Container, parent: Option<(&Style, bool)>) -> Node {
+    pub fn build(raw: RawNode, c: &Container, parent: Option<(&Rc<Style>, bool)>) -> Node {
         let raw = substitute_link(raw);
         let kind = Kind::from(&raw.kind);
-        let mut style = if kind == Kind::Link {
+        let raw_style = if kind == Kind::Link {
             // Links are blue and underlined unless styled otherwise.
-            style::resolve(
-                c,
-                &json!([{"color": "blue", "textDecoration": "underline"}, raw.style]),
-            )
+            json!([{"color": "blue", "textDecoration": "underline"}, raw.style])
         } else if kind == Kind::Svg {
             // An Svg's width and height props size its box unless its style says otherwise.
             let sized: serde_json::Map<String, Value> = ["width", "height"]
@@ -109,17 +108,15 @@ impl Node {
                     ))
                 })
                 .collect();
-            style::resolve(c, &json!([sized, raw.style]))
+            json!([sized, raw.style])
         } else {
-            style::resolve(c, &raw.style)
+            raw.style
         };
-        if let Some((p, is_text)) = parent {
-            style::inherit(p, is_text, &mut style);
-        }
+        let style = shared_style(c, raw_style, parent);
         let mut node = Node {
             kind,
             props: raw.props,
-            style: Box::new(style),
+            style,
             render: raw.render,
             paint: raw.paint,
             children: Vec::new(),
@@ -206,4 +203,38 @@ fn substitute_link(mut raw: RawNode) -> RawNode {
         }];
     }
     raw
+}
+
+thread_local! {
+    /// Resolved styles by what they were resolved from: the raw style as written and the style
+    /// inherited from (kept alive here, so its address stays its own). Rows of a long table
+    /// resolve to the same few styles.
+    static STYLES: RefCell<HashMap<(String, usize, bool), (Option<Rc<Style>>, Rc<Style>)>> =
+        RefCell::new(HashMap::new());
+}
+
+/// Forgets the shared styles; a new page may resolve units differently.
+pub fn clear_styles() {
+    STYLES.with(|s| s.borrow_mut().clear());
+}
+
+fn shared_style(c: &Container, raw: Value, parent: Option<(&Rc<Style>, bool)>) -> Rc<Style> {
+    let key = (
+        raw.to_string(),
+        parent.map_or(0, |(p, _)| Rc::as_ptr(p) as usize),
+        parent.is_some_and(|(_, t)| t),
+    );
+    if let Some((_, s)) = STYLES.with(|m| m.borrow().get(&key).cloned()) {
+        return s;
+    }
+    let mut style = style::resolve(c, &raw);
+    if let Some((p, is_text)) = parent {
+        style::inherit(p, is_text, &mut style);
+    }
+    let style = Rc::new(style);
+    STYLES.with(|m| {
+        m.borrow_mut()
+            .insert(key, (parent.map(|(p, _)| p.clone()), style.clone()))
+    });
+    style
 }

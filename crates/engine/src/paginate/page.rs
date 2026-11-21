@@ -1,5 +1,7 @@
 //! A `<Page>`: its size, its styles, and the values that must be known before layout.
 
+use std::rc::Rc;
+
 use serde_json::{Value, json};
 
 use crate::style::units::{js_round, split_number};
@@ -154,11 +156,12 @@ pub fn build(mut raw: RawNode) -> Result<(Node, Container), String> {
         rem_base,
     };
     raw.style = Value::Object(style);
+    crate::tree::node::clear_styles();
     let mut page = Node::build(raw, &c, None);
 
     for (i, against) in [(0, height), (1, Some(width)), (2, height), (3, Some(width))] {
         if let (Some(Dim::Pct(p)), Some(full)) = (page.style.padding[i], against) {
-            page.style.padding[i] = Some(Dim::Pt(p / 100.0 * full));
+            Rc::make_mut(&mut page.style).padding[i] = Some(Dim::Pt(p / 100.0 * full));
         }
     }
     if let Some(h) = height {
@@ -169,7 +172,7 @@ pub fn build(mut raw: RawNode) -> Result<(Node, Container), String> {
         let area = h - pad(0) - pad(2);
         for child in &mut page.children {
             if let Some(Dim::Pct(p)) = child.style.height {
-                child.style.height = Some(Dim::Pt(p / 100.0 * area));
+                Rc::make_mut(&mut child.style).height = Some(Dim::Pt(p / 100.0 * area));
             }
         }
     }
