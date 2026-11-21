@@ -2,9 +2,11 @@
   "name": "axonpdf-parity",
   "private": true,
   "type": "module",
-  "description": "Reference answers for the engine's tests",
+  "description": "Reference answers and output comparisons for the engine's tests",
   "scripts": {
-    "yoga": "node yoga.mjs"
+    "yoga": "node yoga.mjs",
+    "render": "node render.mjs",
+    "compare": "node compare.mjs"
   },
   "dependencies": {
     "yoga-layout": "3.2.1"
