@@ -14,6 +14,7 @@ mod images;
 mod info;
 mod nav;
 mod pdfa;
+mod props;
 mod security;
 mod state;
 mod strings;
@@ -31,6 +32,7 @@ use emit::Emitter;
 pub use emit::Out;
 pub use info::{DocInfo, PageLayout, PageMode, PdfVersion};
 pub use pdfa::Conformance;
+pub use props::doc_info;
 pub use strings::Date;
 
 pub struct Writer {
