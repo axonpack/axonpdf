@@ -83,9 +83,10 @@ impl Engine {
         writer.begin(out);
         let sizes = self.image_sizes();
         let (fonts, images, assets) = (&self.fonts, &mut self.images, &self.assets);
-        let lookup = |id: u32| assets.get(&id).copied();
+        let lookup = |id: u32| Some((*assets.get(&id)?, *sizes.get(&id)?));
+        let cx = draw::Ctx { fonts, images: &lookup };
         let mut sink = |page: &Node, width: f64, height: f64| {
-            let display = draw::page(page, width, height, &lookup);
+            let display = draw::page(page, width, height, &cx);
             writer.write_page(&display, fonts, images, out);
         };
         layout_pages(fonts, &sizes, &mut self.callback, tree_json, doc, &mut sink)?;

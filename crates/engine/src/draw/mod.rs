@@ -1,19 +1,31 @@
 //! A finished page's nodes into the display list: backgrounds, borders, text, images, links
 //! and destinations, in paint order.
 
+mod debug;
+mod image;
+mod svg;
 mod text;
+mod transform;
 
-use crate::display::{Border, BorderStyle, Color, Op, PageOut, Paint, Rect, Seg};
+use crate::display::{Border, BorderStyle, Color, ImageId, Op, PageOut, Paint, Rect};
+use crate::fonts::FontStore;
 use crate::layout::image::asset;
+use crate::path::rounded_rect;
 use crate::style::{Dim, Style};
 use crate::tree::{Kind, Node};
 
-/// The image to draw for a document asset id.
-pub type ImageLookup<'a> = dyn Fn(u32) -> Option<crate::display::ImageId> + 'a;
+/// The stored image and its size in pixels, for a document asset id.
+pub type ImageLookup<'a> = dyn Fn(u32) -> Option<(ImageId, (f64, f64))> + 'a;
 
-pub fn page(page: &Node, width: f64, height: f64, images: &ImageLookup) -> PageOut {
+/// What drawing needs besides the page.
+pub struct Ctx<'a> {
+    pub fonts: &'a FontStore,
+    pub images: &'a ImageLookup<'a>,
+}
+
+pub fn page(page: &Node, width: f64, height: f64, cx: &Ctx) -> PageOut {
     let mut ops = Vec::new();
-    node(&mut ops, page, 0.0, 0.0, images);
+    node(&mut ops, page, 0.0, 0.0, cx);
     PageOut {
         width: width as f32,
         height: height as f32,
@@ -47,19 +59,21 @@ fn with_alpha(c: Color, a: f64) -> Color {
 }
 
 /// Draws `n`, whose parent's border box starts at (`ox`, `oy`).
-fn node(ops: &mut Vec<Op>, n: &Node, ox: f64, oy: f64, images: &ImageLookup) {
+fn node(ops: &mut Vec<Op>, n: &Node, ox: f64, oy: f64, cx: &Ctx) {
     let s = &n.style;
     let l = &n.layout;
     let (x, y, w, h) = (ox + l.left, oy + l.top, l.width, l.height);
     let opacity = s.opacity.unwrap_or(1.0);
     let r = radii(s, w, h);
+    let origin = transform::origin(s, x, y, w, h);
     ops.push(Op::Save);
     if s.overflow == Some(crate::layout::yoga::Overflow::Hidden) {
         ops.push(Op::Clip {
-            path: rounded(x, y, w, h, r),
+            path: rounded_rect(rect(x, y, w, h), r),
             rule: Default::default(),
         });
     }
+    ops.extend(transform::ops(s, origin));
     if let Some(bg) = s.background_color {
         ops.push(Op::Rect {
             rect: rect(x, y, w, h),
@@ -82,15 +96,10 @@ fn node(ops: &mut Vec<Op>, n: &Node, ox: f64, oy: f64, images: &ImageLookup) {
     }
     match n.kind {
         Kind::Text => text::draw(ops, n, x, y),
-        Kind::Image => {
-            if let Some(id) = asset(n).and_then(images) {
-                let p = l.padding;
-                let area = rect(x + p[3], y + p[0], w - p[1] - p[3], h - p[0] - p[2]);
-                ops.push(Op::Image {
-                    id,
-                    rect: area,
-                    opacity: opacity as f32,
-                });
+        Kind::Svg => svg::draw(ops, n, x, y, r, cx),
+        Kind::Image | Kind::ImageBackground => {
+            if let Some((id, size)) = asset(n).and_then(cx.images) {
+                image::draw(ops, s, l.padding, r, id, size, x, y, w, h);
             }
         }
         Kind::Link => {
@@ -109,10 +118,8 @@ fn node(ops: &mut Vec<Op>, n: &Node, ox: f64, oy: f64, images: &ImageLookup) {
         _ => {}
     }
     if !matches!(n.kind, Kind::Text | Kind::Svg) {
-        for child in &n.children {
-            if child.kind != Kind::TextInstance {
-                node(ops, child, x, y, images);
-            }
+        for child in by_z_index(&n.children) {
+            node(ops, child, x, y, cx);
         }
     }
     if let Some(id) = n.props.get("id").and_then(|v| v.as_str()) {
@@ -122,46 +129,21 @@ fn node(ops: &mut Vec<Op>, n: &Node, ox: f64, oy: f64, images: &ImageLookup) {
             y: y as f32,
         });
     }
+    if n.is("debug") {
+        debug::draw(ops, n, x, y, origin, cx.fonts);
+    }
     ops.push(Op::Restore);
 }
 
-/// A rectangle with rounded corners, the corners drawn as cubic quarter circles.
-fn rounded(x: f64, y: f64, w: f64, h: f64, r: [f32; 4]) -> Vec<Seg> {
-    const KAPPA: f64 = 4.0 * ((std::f64::consts::SQRT_2 - 1.0) / 3.0);
-    let r = r.map(|v| (v as f64).min(0.5 * w).min(0.5 * h));
-    let c = r.map(|v| v * (1.0 - KAPPA));
-    let f = |v: f64| v as f32;
-    vec![
-        Seg::Move(f(x + r[0]), f(y)),
-        Seg::Line(f(x + w - r[1]), f(y)),
-        Seg::Cubic(
-            f(x + w - c[1]),
-            f(y),
-            f(x + w),
-            f(y + c[1]),
-            f(x + w),
-            f(y + r[1]),
-        ),
-        Seg::Line(f(x + w), f(y + h - r[2])),
-        Seg::Cubic(
-            f(x + w),
-            f(y + h - c[2]),
-            f(x + w - c[2]),
-            f(y + h),
-            f(x + w - r[2]),
-            f(y + h),
-        ),
-        Seg::Line(f(x + r[3]), f(y + h)),
-        Seg::Cubic(
-            f(x + c[3]),
-            f(y + h),
-            f(x),
-            f(y + h - c[3]),
-            f(x),
-            f(y + h - r[3]),
-        ),
-        Seg::Line(f(x), f(y + r[0])),
-        Seg::Cubic(f(x), f(y + c[0]), f(x + c[0]), f(y), f(x + r[0]), f(y)),
-        Seg::Close,
-    ]
+/// Paint order: children with a `zIndex` first, highest first, then the rest as written.
+fn by_z_index(children: &[Node]) -> Vec<&Node> {
+    let mut v: Vec<&Node> = children.iter().filter(|c| c.kind != Kind::TextInstance).collect();
+    let z = |n: &Node| n.style.z_index.filter(|z| *z != 0.0 && !z.is_nan());
+    v.sort_by(|a, b| match (z(a), z(b)) {
+        (None, None) => std::cmp::Ordering::Equal,
+        (None, _) => std::cmp::Ordering::Greater,
+        (_, None) => std::cmp::Ordering::Less,
+        (Some(a), Some(b)) => b.total_cmp(&a),
+    });
+    v
 }
