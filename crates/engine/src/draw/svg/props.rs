@@ -67,7 +67,11 @@ impl Props {
         }
         for (k, v) in &node.props {
             // `none` reads as unset.
-            let v = if v.as_str() == Some("none") { Value::Null } else { v.clone() };
+            let v = if v.as_str() == Some("none") {
+                Value::Null
+            } else {
+                v.clone()
+            };
             map.insert(k.clone(), v);
         }
         Props { map, container }
@@ -123,14 +127,20 @@ impl Props {
     pub fn url(&self, key: &str) -> Option<&str> {
         let s = self.str(key)?.trim();
         let inner = s.strip_prefix("url(")?.strip_suffix(')')?;
-        Some(inner.trim_matches(|c| c == '\'' || c == '"').trim_start_matches('#'))
+        Some(
+            inner
+                .trim_matches(|c| c == '\'' || c == '"')
+                .trim_start_matches('#'),
+        )
     }
 
     /// Fill and stroke alpha: `opacity` wins over `fillOpacity` and `strokeOpacity`.
     pub fn alphas(&self) -> (f32, f32) {
         let opacity = self.num("opacity");
         // A zero fill opacity reads as unset; a zero stroke opacity does not.
-        let fill = opacity.or(self.num("fillOpacity").filter(|v| *v != 0.0)).unwrap_or(1.0);
+        let fill = opacity
+            .or(self.num("fillOpacity").filter(|v| *v != 0.0))
+            .unwrap_or(1.0);
         let stroke = opacity.or(self.num("strokeOpacity")).unwrap_or(1.0);
         (fill as f32, stroke as f32)
     }
@@ -166,7 +176,11 @@ impl Props {
                 .map(|p| p.parse::<f32>().unwrap_or(0.0))
                 .collect(),
             Some(Value::Number(n)) => vec![n.as_f64().unwrap_or(0.0) as f32],
-            Some(Value::Array(a)) => a.iter().filter_map(Value::as_f64).map(|v| v as f32).collect(),
+            Some(Value::Array(a)) => a
+                .iter()
+                .filter_map(Value::as_f64)
+                .map(|v| v as f32)
+                .collect(),
             _ => Vec::new(),
         }
     }

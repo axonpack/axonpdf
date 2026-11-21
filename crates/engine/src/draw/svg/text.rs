@@ -15,8 +15,21 @@ pub fn draw(ops: &mut Vec<Op>, text: &Node, p: &Props, fonts: &FontStore) {
         .children
         .iter()
         .map(|c| match c.kind {
-            Kind::TextInstance => (Props::of(&Node { props: Map::new(), ..c.clone() }, &inherited, p.container), c.value.clone()),
-            _ => (Props::of(c, &inherited, p.container), c.children.iter().map(|t| t.value.as_str()).collect()),
+            Kind::TextInstance => (
+                Props::of(
+                    &Node {
+                        props: Map::new(),
+                        ..c.clone()
+                    },
+                    &inherited,
+                    p.container,
+                ),
+                c.value.clone(),
+            ),
+            _ => (
+                Props::of(c, &inherited, p.container),
+                c.children.iter().map(|t| t.value.as_str()).collect(),
+            ),
         })
         .collect();
     let mut pen = p.n("x");
@@ -53,7 +66,18 @@ pub fn draw(ops: &mut Vec<Op>, text: &Node, p: &Props, fonts: &FontStore) {
             };
         let color = sp.color("fill").unwrap_or(Color::BLACK);
         let alpha = sp.num("opacity").unwrap_or(1.0) as f32;
-        ops.push(Op::Text(TextRun { font, size, color: Color { a: color.a * alpha, ..color }, x, y, glyphs, text: s }));
+        ops.push(Op::Text(TextRun {
+            font,
+            size,
+            color: Color {
+                a: color.a * alpha,
+                ..color
+            },
+            x,
+            y,
+            glyphs,
+            text: s,
+        }));
     }
 }
 
@@ -67,7 +91,10 @@ fn font(p: &Props, fonts: &FontStore) -> FontId {
     let italic = p.str("fontStyle") == Some("italic");
     let families: Vec<String> = match p.get("fontFamily") {
         Some(Value::String(s)) => vec![s.clone()],
-        Some(Value::Array(a)) => a.iter().filter_map(|v| v.as_str().map(String::from)).collect(),
+        Some(Value::Array(a)) => a
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect(),
         _ => Vec::new(),
     };
     families

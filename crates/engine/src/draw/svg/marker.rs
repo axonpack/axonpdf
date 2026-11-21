@@ -10,16 +10,27 @@ use crate::path::svg::{Vertex, vertices};
 use crate::tree::{Kind, Node};
 
 pub fn draw(ops: &mut Vec<Op>, node: &Node, p: &Props, cx: &Ctx) {
-    let Kind::Other(kind) = &node.kind else { return };
-    let refs = ["markerStart", "markerMid", "markerEnd"].map(|k| p.url(k).and_then(|id| cx.defs.get(id).copied()));
+    let Kind::Other(kind) = &node.kind else {
+        return;
+    };
+    let refs = ["markerStart", "markerMid", "markerEnd"]
+        .map(|k| p.url(k).and_then(|id| cx.defs.get(id).copied()));
     if refs.iter().all(Option::is_none) {
         return;
     }
-    let Some(points) = points(kind, node, p) else { return };
+    let Some(points) = points(kind, node, p) else {
+        return;
+    };
     let stroke = p.num("strokeWidth").filter(|w| *w != 0.0).unwrap_or(1.0) as f32;
     let n = points.len();
     for (i, v) in points.iter().enumerate() {
-        let which = if i == 0 { 0 } else if i + 1 == n { 2 } else { 1 };
+        let which = if i == 0 {
+            0
+        } else if i + 1 == n {
+            2
+        } else {
+            1
+        };
         if let Some(marker) = refs[which] {
             instance(ops, marker, v, stroke, i == 0, cx);
         }
@@ -29,9 +40,25 @@ pub fn draw(ops: &mut Vec<Op>, node: &Node, p: &Props, cx: &Ctx) {
 fn points(kind: &str, node: &Node, p: &Props) -> Option<Vec<Vertex>> {
     match kind {
         "LINE" => {
-            let (x1, y1, x2, y2) = (p.n("x1") as f32, p.n("y1") as f32, p.n("x2") as f32, p.n("y2") as f32);
+            let (x1, y1, x2, y2) = (
+                p.n("x1") as f32,
+                p.n("y1") as f32,
+                p.n("x2") as f32,
+                p.n("y2") as f32,
+            );
             let angle = (y2 - y1).atan2(x2 - x1);
-            Some(vec![Vertex { x: x1, y: y1, angle }, Vertex { x: x2, y: y2, angle }])
+            Some(vec![
+                Vertex {
+                    x: x1,
+                    y: y1,
+                    angle,
+                },
+                Vertex {
+                    x: x2,
+                    y: y2,
+                    angle,
+                },
+            ])
         }
         "POLYLINE" | "POLYGON" => Some(list(&shapes::points(p), kind == "POLYGON")),
         "PATH" => Some(vertices(&shapes::outline(node, p)?)),
@@ -72,11 +99,16 @@ fn bisect(a: f32, b: f32) -> f32 {
 
 fn instance(ops: &mut Vec<Op>, marker: &Node, v: &Vertex, stroke: f32, start: bool, cx: &Ctx) {
     let p = Props::of(marker, &Default::default(), (1.0, 1.0));
-    let (w, h) = (p.num("markerWidth").unwrap_or(3.0) as f32, p.num("markerHeight").unwrap_or(3.0) as f32);
+    let (w, h) = (
+        p.num("markerWidth").unwrap_or(3.0) as f32,
+        p.num("markerHeight").unwrap_or(3.0) as f32,
+    );
     let (ref_x, ref_y) = (p.n("refX") as f32, p.n("refY") as f32);
     let angle = match p.get("orient") {
         Some(o) if o.as_str() == Some("auto") => v.angle,
-        Some(o) if o.as_str() == Some("auto-start-reverse") => v.angle + if start { PI } else { 0.0 },
+        Some(o) if o.as_str() == Some("auto-start-reverse") => {
+            v.angle + if start { PI } else { 0.0 }
+        }
         // A fixed angle, in degrees.
         Some(o) => o.as_f64().map_or(0.0, |d| (d as f32).to_radians()),
         None => 0.0,
@@ -90,8 +122,22 @@ fn instance(ops: &mut Vec<Op>, marker: &Node, v: &Vertex, stroke: f32, start: bo
     let view = p.str("viewBox").and_then(super::view_box);
     let container = match view {
         Some([min_x, min_y, vw, vh]) => {
-            ops.push(Op::Transform([w / vw as f32, 0.0, 0.0, h / vh as f32, 0.0, 0.0]));
-            ops.push(Op::Transform([1.0, 0.0, 0.0, 1.0, -min_x as f32 - ref_x, -min_y as f32 - ref_y]));
+            ops.push(Op::Transform([
+                w / vw as f32,
+                0.0,
+                0.0,
+                h / vh as f32,
+                0.0,
+                0.0,
+            ]));
+            ops.push(Op::Transform([
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                -min_x as f32 - ref_x,
+                -min_y as f32 - ref_y,
+            ]));
             (vw, vh)
         }
         None => {
