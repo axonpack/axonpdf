@@ -18,7 +18,7 @@ const doc = (
 describe("profile", () => {
   it("times every phase, and the phases add up to the total", async () => {
     const report = await profile(doc);
-    const { phases, engine, pages } = report;
+    const { phases, engine, pages, cpu } = report;
     const sum = Object.values(phases).reduce((a, b) => a + b, 0);
     expect(Math.abs(sum - report.totalMs)).toBeLessThan(1);
     expect(phases.react).toBeGreaterThan(0);
@@ -28,6 +28,7 @@ describe("profile", () => {
     expect(pages.length).toBeGreaterThan(1);
     expect(report.bytes).toBeGreaterThan(1000);
     expect(report.memory.wasm).toBeGreaterThan(0);
+    expect(cpu?.groups.some((g) => g.name === "axonpdf")).toBe(true);
     expect(formatProfile(report)).toContain("React render");
   });
 });

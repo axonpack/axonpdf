@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import * as components from "./components.js";
 import type * as dom from "./index.browser.js";
+import { cpuSampler } from "./node/cpu-sampler.js";
 import { nodeSink } from "./node/node-sink.js";
 import { renderToFile, renderToStream, renderToString } from "./node/render-to.js";
 import { platform } from "./platform.js";
@@ -17,9 +18,10 @@ export * from "./node/render-to.js";
 
 /**
  * Renders the document to nothing and reports where the time went: React, the tree, assets and
- * the engine's phases, each page, and peak memory.
+ * the engine's phases, each page, peak memory, and the CPU by package and function.
  */
-export const profile = (element: Parameters<typeof runProfile>[0]) => runProfile(element);
+export const profile = (element: Parameters<typeof runProfile>[0]) =>
+  runProfile(element, cpuSampler());
 export type {
   BlobProviderProps,
   PDFDownloadLinkProps,
