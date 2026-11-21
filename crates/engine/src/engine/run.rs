@@ -13,6 +13,58 @@ use crate::paginate::{Finished, Pager, page};
 use crate::style::Container;
 use crate::tree::node::LAZY;
 use crate::tree::{self, Doc, Node, RenderResult};
+use serde_json::{Map, Value};
+
+/// Builds what layout needs from the engine's stores and the document's props, for `f`.
+pub(super) fn with_assets<R>(
+    fonts: &FontStore,
+    sizes: &HashMap<u32, (f64, f64)>,
+    hooks: &Hooks,
+    props: &Map<String, Value>,
+    f: impl FnOnce(&Assets) -> R,
+) -> R {
+    let image_size = |id: u32| sizes.get(&id).copied();
+    let paint = |id: u32, w: f64, h: f64| hooks.paint(id, w, h);
+    let hyphenate = |id: u32, word: &str| hooks.hyphenate(id, word);
+    let emoji: Vec<(String, u32)> = props
+        .get("emoji")
+        .and_then(|e| e.as_object())
+        .into_iter()
+        .flatten()
+        .filter_map(|(k, v)| Some((k.clone(), v.get("asset")?.as_u64()? as u32)))
+        .collect();
+    // Children waiting as JSON come first, then a batch from the rows' source; both are styled
+    // under the page being cut.
+    let more_rows = |n: &mut Node| -> Result<bool, String> {
+        if !n.pending.is_empty() {
+            return Ok(n.build_pending(&PAGE.with(Cell::get), LAZY) > 0);
+        }
+        if !n.has(ROWS) || n.is(ROWS_DONE) {
+            return Ok(false);
+        }
+        let (children, done) = hooks.rows(n.number(ROWS).unwrap_or(0.0) as u32)?;
+        if done {
+            n.props.insert(ROWS_DONE.into(), true.into());
+        }
+        let added = !children.is_empty();
+        n.append_children(children, &PAGE.with(Cell::get));
+        Ok(added)
+    };
+    let assets = Assets {
+        fonts,
+        image_size: &image_size,
+        paint: &paint,
+        hyphenate: &hyphenate,
+        hyphenation: props
+            .get("hyphenationCallback")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32),
+        emoji: &emoji,
+        more_rows: &more_rows,
+        total_digits: &Cell::new(2),
+    };
+    f(&assets)
+}
 
 pub(super) fn layout_pages(
     fonts: &FontStore,
@@ -23,60 +75,24 @@ pub(super) fn layout_pages(
     visit: &mut Visit,
 ) -> Result<(), String> {
     hooks.reset();
-    let image_size = |id: u32| sizes.get(&id).copied();
-    let paint = |id: u32, w: f64, h: f64| hooks.paint(id, w, h);
-    let hyphenate = |id: u32, word: &str| hooks.hyphenate(id, word);
-    let emoji: Vec<(String, u32)> = doc
-        .props
-        .get("emoji")
-        .and_then(|e| e.as_object())
-        .into_iter()
-        .flatten()
-        .filter_map(|(k, v)| Some((k.clone(), v.get("asset")?.as_u64()? as u32)))
-        .collect();
-    // A `Rows` batch is styled under the page being cut.
-    let more_rows = |n: &mut Node| -> Result<bool, String> {
-        // Children waiting as JSON come first, then a batch from the rows' source.
-        if !n.pending.is_empty() {
-            return Ok(n.build_pending(&PAGE.with(Cell::get), LAZY) > 0);
-        }
-        if !n.has(ROWS) || n.is(ROWS_DONE) {
-            return Ok(false);
-        }
-        let id = n.number(ROWS).unwrap_or(0.0) as u32;
-        let Some(json) = hooks.rows(id) else {
-            n.props.insert(ROWS_DONE.into(), true.into());
-            return Ok(false);
-        };
-        let batch: Batch = serde_json::from_str(&json).map_err(|e| format!("rows {id}: {e}"))?;
-        if batch.done {
-            n.props.insert(ROWS_DONE.into(), true.into());
-        }
-        let added = !batch.children.is_empty();
-        n.append_children(batch.children, &PAGE.with(Cell::get));
-        Ok(added)
-    };
-    let assets = Assets {
-        fonts,
-        image_size: &image_size,
-        paint: &paint,
-        hyphenate: &hyphenate,
-        hyphenation: doc
-            .props
-            .get("hyphenationCallback")
-            .and_then(|v| v.as_u64())
-            .map(|v| v as u32),
-        emoji: &emoji,
-        more_rows: &more_rows,
-        total_digits: &Cell::new(2),
-    };
-    let counts = if reads_total(callback, &doc)? {
-        Some(run(&assets, callback, &doc, None, None)?)
+    with_assets(fonts, sizes, hooks, &doc.props, |assets| {
+        let counts = count(assets, callback, &doc)?;
+        run(assets, callback, &doc, counts.as_deref(), Some(visit))?;
+        Ok(())
+    })
+}
+
+/// The page counts per `<Page>`, from a first run, when something reads the total.
+pub(super) fn count(
+    assets: &Assets,
+    callback: &mut Option<RenderCallback>,
+    doc: &Doc,
+) -> Result<Option<Vec<u32>>, String> {
+    if reads_total(callback, doc)? {
+        Ok(Some(run(assets, callback, doc, None, None)?))
     } else {
-        None
-    };
-    run(&assets, callback, &doc, counts.as_deref(), Some(visit))?;
-    Ok(())
+        Ok(None)
+    }
 }
 
 /// Whether any `render` function in the tree reads the totals. Each is called once to see.
@@ -164,7 +180,7 @@ fn run(
     Ok(made)
 }
 
-fn call(
+pub(super) fn call(
     callback: &mut Option<RenderCallback>,
     id: u32,
     args: &RenderArgs,
@@ -175,16 +191,7 @@ fn call(
     serde_json::from_str(&cb(id, args)).map_err(|e| format!("render callback {id}: {e}"))
 }
 
-/// A batch of rows.
-#[derive(serde::Deserialize)]
-struct Batch {
-    #[serde(default)]
-    children: Vec<Box<serde_json::value::RawValue>>,
-    #[serde(default)]
-    done: bool,
-}
-
 thread_local! {
     /// The container of the page being cut, for styling rows as they arrive.
-    static PAGE: Cell<Container> = Cell::new(Container::default());
+    pub(super) static PAGE: Cell<Container> = Cell::new(Container::default());
 }

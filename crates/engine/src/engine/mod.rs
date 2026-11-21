@@ -1,6 +1,9 @@
 //! The engine's public face: fonts and images in, a document tree in, PDF bytes out.
 
+mod job;
 mod run;
+
+pub use job::Step;
 
 use run::layout_pages;
 
@@ -45,6 +48,8 @@ pub struct Engine {
     assets: HashMap<u32, ImageId>,
     callback: Option<RenderCallback>,
     hooks: Hooks,
+    /// A resumable render waiting for rows.
+    job: Option<job::Job>,
 }
 
 impl Default for Engine {
@@ -61,6 +66,7 @@ impl Engine {
             assets: HashMap::new(),
             callback: None,
             hooks: Hooks::default(),
+            job: None,
         }
     }
 

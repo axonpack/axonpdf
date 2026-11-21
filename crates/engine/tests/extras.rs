@@ -190,3 +190,48 @@ fn rows_documents_defer_the_total() {
     assert_eq!(calls.iter().filter(|c| c.0 == Some(true)).count(), 1);
     assert_eq!(calls.last().unwrap().0, Some(true));
 }
+
+/// Rows pushed in when asked for, as from an async source, give the same file as rows pulled
+/// through the callback.
+#[test]
+fn pushed_rows_resume_the_render() {
+    let batch = |from: usize| {
+        let rows: Vec<Value> = (from..from + 50)
+            .map(|i| text(&format!("Row {i}")))
+            .collect();
+        json!({"children": rows, "done": from + 50 >= 1000}).to_string()
+    };
+    let json = doc(json!({"type": "PAGE", "props": {}, "children": [
+        {"type": "ROWS", "props": {"rows": 3}, "children": []}, text("After the rows.")]}));
+
+    let mut pulled = Vec::new();
+    let mut engine = Engine::new();
+    let next = Rc::new(RefCell::new(0));
+    let n = next.clone();
+    engine.set_rows_callback(Box::new(move |_| {
+        let from = *n.borrow();
+        *n.borrow_mut() += 50;
+        batch(from)
+    }));
+    engine
+        .render(&json, &mut |b| pulled.extend_from_slice(b))
+        .unwrap();
+
+    let mut pushed = Vec::new();
+    let mut engine = Engine::new();
+    let mut step = engine
+        .render_begin(json.clone(), &mut |b| pushed.extend_from_slice(b))
+        .unwrap();
+    let (mut from, mut waits) = (0, 0);
+    while let axonpdf::Step::NeedRows(id) = step {
+        assert_eq!(id, 3);
+        waits += 1;
+        step = engine
+            .push_rows(id, &batch(from), &mut |b| pushed.extend_from_slice(b))
+            .unwrap();
+        from += 50;
+    }
+    assert_eq!(from, 1000);
+    assert!(waits >= 20);
+    assert_eq!(pushed, pulled);
+}
