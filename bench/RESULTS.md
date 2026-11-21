@@ -53,3 +53,32 @@ Notes on this batch:
 - The resident-per-section eMAR has more pages with axonpdf (56 against 46, 224 against 181) because axonpdf moves some unbreakable medication rows to the next page when they would fit. That is a known bug being fixed, so these rows don't compare like for like.
 - react-pdf was not run at about 1000 pages: at about 200 pages it took over 2 minutes on the resident eMAR and the rota, and the medication eMAR run was held back to keep the machine free for profiling.
 - The 3000-page axonpdf runs were stopped before they started, to be redone after the memory work.
+
+## 2026-11-21 17:24 UTC, benchmark report (final, engine at 62ed1ce)
+
+- Commit: `d1db145`
+- WASM: 2870555 bytes
+- Machine: Apple M4, 10 cores, 24 GB RAM, macOS 27.2.1, Node v24.11.0
+- Engines: axonpdf 0.0.0 (dev build), react-pdf 4.9.0, pdfkit 0.21.0
+- React in production mode (`NODE_ENV=production`). Time is the render call alone (Node start-up and bundling excluded); peak RSS is the whole process.
+- Document: bench/report.jsx (axonpdf-rows: bench/report-rows.jsx, pdfkit: bench/report-pdfkit.mjs), A4, a header with a logo, three paragraphs, a 5-column bordered table, "Page n of N" footer
+
+| Engine | Target pages | Pages | Time | Peak RSS | Output | qpdf | Rerun |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| axonpdf | 100 | 100 | 924 ms | 195 MB | 442 KB | ok | `node bench/run.mjs --engines axonpdf --sizes 100` |
+| axonpdf | 1000 | 1000 | 8.2 s | 735 MB | 4.3 MB | ok | `node bench/run.mjs --engines axonpdf --sizes 1000` |
+| axonpdf | 5000 | 5000 | 40.4 s | 2489 MB | 21.5 MB | ok | `node bench/run.mjs --engines axonpdf --sizes 5000` |
+| axonpdf-rows | 100 | 100 | 529 ms | 129 MB | 447 KB | ok | `node bench/run.mjs --engines axonpdf-rows --sizes 100` |
+| axonpdf-rows | 1000 | 1000 | 4.7 s | 152 MB | 4.3 MB | ok | `node bench/run.mjs --engines axonpdf-rows --sizes 1000` |
+| axonpdf-rows | 5000 | 5000 | 23.0 s | 224 MB | 21.7 MB | ok | `node bench/run.mjs --engines axonpdf-rows --sizes 5000` |
+| react-pdf | 100 | 100 | 36.3 s | 1359 MB | 643 KB | ok | `node bench/run.mjs --engines react-pdf --sizes 100` |
+| react-pdf | 1000 | did not finish in 15 min | 15 min 1 s | | | | `node bench/run.mjs --engines react-pdf --sizes 1000` |
+| react-pdf | 5000 | skipped (the size before was stopped) | | | | | `node bench/run.mjs --engines react-pdf --sizes 5000` |
+| pdfkit | 100 | 100 | 142 ms | 97 MB | 357 KB | ok | `node bench/run.mjs --engines pdfkit --sizes 100` |
+| pdfkit | 1000 | 1000 | 1.2 s | 175 MB | 3.5 MB | ok | `node bench/run.mjs --engines pdfkit --sizes 1000` |
+| pdfkit | 5000 | 5000 | 6.0 s | 343 MB | 17.3 MB | ok | `node bench/run.mjs --engines pdfkit --sizes 5000` |
+
+Notes on this batch:
+- `d1db145` is 62ed1ce plus the benchmark's own changes; the engine is as of 62ed1ce, with the WASM built there.
+- react-pdf 4.9.0 at 1000 pages was stopped at the 15-minute limit; its RSS was 3.5 to 3.7 GB while it ran (sampled with `ps`). The 5000-page size was not run after that.
+- Output check: at 100 pages, axonpdf's first and last pages differ from react-pdf's by 0.13% and 0.12% of pixels (react-pdf draws no left border on the split table; axonpdf does). pdfkit's differ by 16% and 10%, because the hand-written version wraps the paragraphs differently and starts the table about 8pt lower. At 5000 pages the `<Rows>` output differs from the plain axonpdf output by 0.02% on the first and last pages.

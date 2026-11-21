@@ -68,9 +68,9 @@ function runOne(engine, size) {
   let stopped = null;
   const timer = setInterval(() => {
     try {
-      if (+sh('ps', ['-o', 'rss=', '-p', String(child.pid)]) > LIMIT_KB) stopped = 'stopped at 8 GB';
+      if (+sh('ps', ['-o', 'rss=', '-p', String(child.pid)]) > LIMIT_KB) stopped = 'stopped at 8 GB RSS';
     } catch {}
-    if (Date.now() - start > LIMIT_MS) stopped = 'stopped at 15 min';
+    if (Date.now() - start > LIMIT_MS) stopped = 'did not finish in 15 min';
     if (stopped) child.kill('SIGKILL');
   }, 1000);
   return new Promise((done) =>
