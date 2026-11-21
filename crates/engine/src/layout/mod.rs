@@ -102,6 +102,27 @@ fn build(
         n.style.height
     };
     apply::apply(t, id, &n.style, height);
+    set_leaf_measure(t, id, n, page_area, a)?;
+    if is_container(n) {
+        for child in &mut n.children {
+            if child.kind == Kind::TextInstance {
+                continue;
+            }
+            let c = build(t, child, false, page_height, page_area, a)?;
+            t.push_child(id, c);
+        }
+    }
+    Ok(id)
+}
+
+/// Leaves Yoga cannot size alone get their measure: text, images, Svg and canvases.
+fn set_leaf_measure(
+    t: &mut Tree,
+    id: NodeId,
+    n: &mut Node,
+    page_area: Option<f64>,
+    a: &Assets,
+) -> Result<(), String> {
     match n.kind {
         Kind::Text => set_text_measure(t, id, n, a)?,
         Kind::Image => {
@@ -117,16 +138,7 @@ fn build(
         }
         _ => {}
     }
-    if is_container(n) {
-        for child in &mut n.children {
-            if child.kind == Kind::TextInstance {
-                continue;
-            }
-            let c = build(t, child, false, page_height, page_area, a)?;
-            t.push_child(id, c);
-        }
-    }
-    Ok(id)
+    Ok(())
 }
 
 /// Yoga measures a text through its kept lines, making them first if there are none.

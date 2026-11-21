@@ -12,7 +12,9 @@
 //! children in Yoga, enough to pass the next cut. What lies past the window is below the cut.
 
 use super::yoga::{Align, FlexDirection, Justify, NodeId, PositionType, Tree, Wrap};
-use super::{Assets, apply, build, fill_text, is_container, set_text_measure, write_back};
+use super::{
+    Assets, apply, build, fill_text, is_container, set_leaf_measure, set_text_measure, write_back,
+};
 use crate::style::Dim;
 use crate::tree::{Kind, Node};
 
@@ -33,8 +35,15 @@ struct Ctx {
 }
 
 impl Remainder {
-    /// Lays out a whole `<Page>` on an endless sheet.
-    pub fn new(page: &mut Node, a: &Assets) -> Result<Self, String> {
+    /// Lays out a `<Page>` on an endless sheet, as far as the first cut at `cut` needs.
+    pub fn new(page: &mut Node, cut: f64, a: &Assets) -> Result<Self, String> {
+        let mut r = Remainder { tree: Tree::new() };
+        r.relayout(page, &[], cut, a)?;
+        Ok(r)
+    }
+
+    /// Everything laid out, as the components do it: the check the kept layout is held to.
+    fn whole(page: &mut Node, a: &Assets) -> Result<Self, String> {
         let mut tree = Tree::new();
         let root = build(&mut tree, page, true, None, None, a)?;
         tree.calculate(root, None, None);
@@ -54,7 +63,7 @@ impl Remainder {
     ) -> Result<(), String> {
         // A check switch: lay the rest out from scratch, as the components do, to compare.
         if std::env::var_os("AXONPDF_FRESH_LAYOUT").is_some() {
-            *self = Remainder::new(page, a)?;
+            *self = Remainder::whole(page, a)?;
             return Ok(());
         }
         let ctx = Ctx {
@@ -122,15 +131,25 @@ fn child_ctx(n: &Node, c: &Node, ctx: Ctx) -> Ctx {
     }
 }
 
-/// How many first children reach `reach` below the top, by their last known boxes.
+/// How many first children reach `reach` below the top, by their last known boxes; one
+/// never laid out counts as the average of those that were (20pt if none was).
 fn window(n: &Node, reach: f64) -> usize {
+    let (mut known, mut sum) = (0.0, 0.0);
     let mut bottom = 0.0;
     for (i, c) in n.children.iter().enumerate() {
         if bottom > reach {
             return i;
         }
         let l = &c.layout;
-        bottom += l.margin[0] + l.height + l.margin[2];
+        bottom += if c.yoga.is_some() {
+            let h = l.margin[0] + l.height + l.margin[2];
+            (known, sum) = (known + 1.0, sum + h);
+            h
+        } else if known > 0.0 {
+            sum / known
+        } else {
+            20.0
+        };
     }
     n.children.len()
 }
@@ -146,19 +165,24 @@ fn sync(
     ctx: Ctx,
     a: &Assets,
 ) -> Result<(), String> {
-    let Some(id) = n.yoga else {
-        build(t, n, false, None, None, a)?;
-        return Ok(());
+    let id = match n.yoga {
+        Some(_) if !n.dirty => return Ok(()),
+        Some(id) => {
+            if n.kind == Kind::Text {
+                set_text_measure(t, id, n, a)?;
+                t.mark_dirty(id);
+            }
+            id
+        }
+        None => {
+            let id = t.node();
+            n.yoga = Some(id);
+            set_leaf_measure(t, id, n, None, a)?;
+            id
+        }
     };
-    if !n.dirty {
-        return Ok(());
-    }
     n.dirty = false;
     apply::apply(t, id, &n.style, if is_page { None } else { n.style.height });
-    if n.kind == Kind::Text {
-        set_text_measure(t, id, n, a)?;
-        t.mark_dirty(id);
-    }
     if is_container(n) {
         let ctx = Ctx {
             no_absolute: ctx.no_absolute && in_flow(n, true),

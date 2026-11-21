@@ -44,7 +44,9 @@ impl<'a, 'b> Pager<'a, 'b> {
             done(self, Finished { page, sub_index: 0 })?;
             return Ok(1);
         }
-        let mut remainder = Remainder::new(&mut page, self.assets)?;
+        let (height, _, pad_bottom) = page::heights(&page);
+        let cut = height.unwrap_or(f64::NAN) - pad_bottom;
+        let mut remainder = Remainder::new(&mut page, cut, self.assets)?;
         let mut count = 0;
         let mut rest = Some(page);
         while let Some(p) = rest {
