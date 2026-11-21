@@ -4,7 +4,8 @@ import { addEmoji } from "../assets/emoji.js";
 import { Font } from "../font/font-store.js";
 import { addFonts } from "../font/load-fonts.js";
 import { serializeDocument } from "../tree/serialize.js";
-import { createSession, settle, type Session } from "../tree/session.js";
+import { Fallback } from "../tree/dispatcher.js";
+import { Restart, createSession, settle, type Carried, type Session } from "../tree/session.js";
 import type { Item } from "../types/instance.type.js";
 import type { Recorder } from "../types/profile.type.js";
 import type { TreeDocument } from "../types/tree.type.js";
@@ -31,10 +32,56 @@ export function serializeRoot(document: Item | null | undefined, session: Sessio
 /**
  * Renders the committed `Document`; `onChunk` gets each piece of the PDF in order. With an async
  * `Rows`, pages leave between batches; otherwise the engine runs in one go.
+ *
+ * Lazy children are built while the engine counts the pages, before any page is written, so a
+ * try that meets an image not loaded yet can still be dropped: the images load and it starts
+ * again once. Until a page arrives the first chunk (the file header) is held back for that.
  */
 export async function renderDocument(
+  build: (session: Session) => TreeDocument,
+  onChunk: (chunk: Uint8Array) => void,
+  wait?: () => Promise<void>,
+  release?: () => void,
+  recorder?: Recorder,
+) {
+  const carried: Carried = { images: [], emoji: new Map() };
+  let held: Uint8Array[] | undefined = [];
+  let session: Session;
+  const out = (chunk: Uint8Array) => {
+    // The pages of a try that will be made again are dropped.
+    if (session.restart) return;
+    if (!held) return onChunk(chunk);
+    held.push(chunk);
+    if (held.length > 1) {
+      held.forEach(onChunk);
+      held = undefined;
+    }
+  };
+  for (let tries = 0; ; tries++) {
+    session = createSession(carried);
+    try {
+      await renderOnce(build, session, out, wait, release, recorder);
+      if (session.restart) throw new Restart();
+      held?.forEach(onChunk);
+      return;
+    } catch (error) {
+      if (!(error instanceof Restart || error instanceof Fallback)) throw error;
+      if (!held)
+        throw new Error(`The render could not go on after its first page: ${error.message}`);
+      held = [];
+      if (error instanceof Fallback || tries > 0) {
+        throw error instanceof Fallback ? error : new Fallback("images in lazy children");
+      }
+      await settle(session);
+      await addEmoji({ props: {} } as TreeDocument, session);
+    }
+  }
+}
+
+async function renderOnce(
   /** Builds the tree: from the reconciler's container, or walking the elements. */
   build: (session: Session) => TreeDocument,
+  session: Session,
   onChunk: (chunk: Uint8Array) => void,
   /** Awaited before each async batch: a stream's reader can hold the render back. */
   wait?: () => Promise<void>,
@@ -44,9 +91,14 @@ export async function renderDocument(
   recorder?: Recorder,
 ) {
   recorder?.mark("tree");
-  const session = createSession();
   let tree: TreeDocument | undefined = build(session);
   release?.();
+  const sources = [...session.rows.values()];
+  if (sources.some((s) => s.lazy) && sources.some((s) => !s.lazy)) {
+    // A <Rows> document is not counted ahead, so lazy children would be built while pages
+    // are written: the reconciler keeps it whole instead.
+    throw new Fallback("lazy children next to <Rows>");
+  }
   recorder?.mark("assets");
   await settle(session);
   await addEmoji(tree, session);
@@ -84,7 +136,11 @@ export async function renderDocument(
     if (![...session.rows.values()].some((source) => source.async)) {
       // Every Rows is an array or other sync iterable: the engine pulls batches as it goes.
       const rows = (id: number) =>
-        inCallback(session, () => session.rows.get(id)!.next() as string);
+        inCallback(session, () => {
+          const source = session.rows.get(id)!;
+          if (source.async) throw new Fallback("an async <Rows> inside lazy children");
+          return source.next() as string;
+        });
       engine.render(json, onChunk, { ...callbacks, rows });
       return;
     }

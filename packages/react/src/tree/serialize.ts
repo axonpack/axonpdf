@@ -1,13 +1,14 @@
 import type { RenderArgs } from "@axonpdf/core";
 import { createElement, isValidElement, type ReactNode } from "react";
 
-import { imageBytes } from "../assets/image-bytes.js";
+import { asset } from "../assets/image-asset.js";
 import { Font } from "../font/font-store.js";
 import type { Item, TextInstance } from "../types/instance.type.js";
 import type { TreeDocument, TreeNode, TreeText } from "../types/tree.type.js";
 import { recordPaint } from "./canvas-painter.js";
 import { rootScope } from "./dispatcher.js";
 import { rows } from "./rows.js";
+import { lazyChildren, lazyPage } from "./lazy.js";
 import type { Session } from "./session.js";
 import { walk } from "./walk.js";
 
@@ -28,16 +29,24 @@ export function serializeDocument(document: Host, session: Session): TreeDocumen
     // The engine has no random source: these seed the encryption keys, salts and IVs.
     props.encryptionSeed = Array.from(crypto.getRandomValues(new Uint8Array(32)));
   }
-  return {
-    v: 1,
-    ...(serialize({ ...document, props } as Item, session) as TreeNode),
-  } as TreeDocument;
+  // The pages, walked only as far as each <Page>: with more than one, each page's content is
+  // built when the engine opens that page.
+  const children = [...document.children];
+  session.lazyPages = !!document.scope && children.filter((c) => c.type === "PAGE").length > 1;
+  const root = serialize({ ...document, props, children } as Item, session);
+  return { v: 1, ...(root as TreeNode) } as TreeDocument;
 }
 
 export function serialize(child: Item, session: Session): TreeNode | TreeText {
   if (child.type === "TEXT_INSTANCE") {
     const { value } = child as TextInstance;
-    for (const [emoji] of value.matchAll(EMOJI)) session.emoji.add(emoji);
+    for (const [emoji] of value.matchAll(EMOJI)) {
+      session.emoji.add(emoji);
+      // An emoji first seen in lazy children: fetch its image, then render again.
+      if (session.inBatch && Font.getEmojiSource() && !session.carried.emoji.has(emoji)) {
+        session.restart = true;
+      }
+    }
     return { type: "TEXT_INSTANCE", value };
   }
   const { type, props: all, children, scope } = child as Host;
@@ -72,7 +81,13 @@ export function serialize(child: Item, session: Session): TreeNode | TreeText {
       node.props[key] = value;
     }
   }
-  for (const c of children) node.children.push(serialize(c, session));
+  if (scope && !session.inRender && type === "PAGE" && session.lazyPages) {
+    lazyPage(node, children, session);
+  } else if (scope && !session.inRender) {
+    lazyChildren(node, children[Symbol.iterator](), session);
+  } else {
+    for (const c of children) node.children.push(serialize(c, session));
+  }
   return node;
 }
 
@@ -117,12 +132,14 @@ function callback(
   session.callbacks.set(id, (args) => {
     let readsTotal = false;
     session.inCallback = true;
+    session.inRender = true;
     try {
       const output = fn(toArgs(args, () => (readsTotal = true)));
       const children = [...walk(output, rootScope())].map((c) => serialize(c, session));
       return JSON.stringify({ children, readsTotal });
     } finally {
       session.inCallback = false;
+      session.inRender = false;
     }
   });
   return id;
@@ -132,25 +149,6 @@ function band(element: unknown, session: Session) {
   if (!isValidElement(element)) return null;
   const [first] = walk(element, rootScope());
   return first ? serialize(first, session) : null;
-}
-
-function asset(source: unknown, useCache: boolean, session: Session) {
-  let id = session.assetIds.get(source);
-  if (id === undefined) {
-    if (session.inCallback) {
-      // ponytail: the engine can't take new images mid-render; preload them up front if needed.
-      throw new Error("An Image inside a render function must also be used outside it.");
-    }
-    const assetId = session.nextId++;
-    id = assetId;
-    session.assetIds.set(source, assetId);
-    session.pending.push(
-      imageBytes(source, useCache).then((b) => {
-        session.assets.set(assetId, b);
-      }),
-    );
-  }
-  return { asset: id };
 }
 
 function collectFamilies(style: unknown, out: Set<string>) {

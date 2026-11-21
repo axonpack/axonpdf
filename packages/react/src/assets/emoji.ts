@@ -18,24 +18,30 @@ const codePoints = (emoji: string, withVariationSelectors = false) =>
  */
 export async function addEmoji(tree: TreeDocument, session: Session) {
   const source = Font.getEmojiSource();
-  if (!source || !session.emoji.size) return;
-  const emoji: Record<string, { asset: number }> = {};
-  await Promise.all(
-    [...session.emoji].map(async (char) => {
+  const known = session.carried.emoji;
+  if (!source || !(session.emoji.size || known.size)) return;
+  const missing = [...session.emoji].filter((char) => !known.has(char));
+  const images = await Promise.all(
+    missing.map((char) => {
       const code = codePoints(char, source.withVariationSelectors);
       const url =
         "builder" in source
           ? source.builder(code)
           : `${source.url}${code}.${source.format ?? "png"}`;
-      try {
-        const bytes = await imageBytes(url);
-        const id = session.nextId++;
-        session.assets.set(id, bytes);
-        emoji[char] = { asset: id };
-      } catch (error) {
+      return imageBytes(url).catch((error) => {
         console.warn(error, "Failed to load emoji image");
-      }
+        return null;
+      });
     }),
   );
+  missing.forEach((char, i) => known.set(char, images[i]));
+  // Every emoji known so far, those met in lazy children on an earlier try included.
+  const emoji: Record<string, { asset: number }> = {};
+  for (const [char, bytes] of known) {
+    if (!bytes) continue;
+    const id = session.nextId++;
+    session.assets.set(id, bytes);
+    emoji[char] = { asset: id };
+  }
   tree.props.emoji = emoji;
 }

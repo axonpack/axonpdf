@@ -1,5 +1,5 @@
 import type { TreeNode, TreeText } from "../types/tree.type.js";
-import type { Scope } from "./dispatcher.js";
+import { Fallback, type Scope } from "./dispatcher.js";
 import { serialize } from "./serialize.js";
 import type { Session } from "./session.js";
 import { walk } from "./walk.js";
@@ -8,6 +8,8 @@ import { walk } from "./walk.js";
 export interface RowsSource {
   /** An async source makes the render resumable: the engine stops and waits for each batch. */
   async: boolean;
+  /** Lazy children of a container (`tree/lazy.ts`), not a `<Rows>`. */
+  lazy?: boolean;
   next(): string | Promise<string>;
 }
 
@@ -16,6 +18,7 @@ export interface RowsSource {
  * Only the batch being handed over is held here: rows are read and rendered on demand.
  */
 export function rows(props: Record<string, any>, session: Session, scope: Scope): TreeNode {
+  if (session.inBatch) throw new Fallback("<Rows> inside lazy children");
   if (session.inCallback) throw new Error("Rows can't be used inside a render function.");
   const id = session.nextId++;
   const batchSize = Math.max(1, props.batchSize as number);
