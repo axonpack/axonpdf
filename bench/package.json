@@ -1,0 +1,15 @@
+{
+  "name": "axonpdf-bench",
+  "private": true,
+  "type": "module",
+  "description": "Benchmarks: axonpdf beside react-pdf 4.9.0 and pdfkit on the same report",
+  "scripts": {
+    "bench": "node run.mjs"
+  },
+  "dependencies": {
+    "@react-pdf/renderer": "4.9.0",
+    "esbuild": "0.25.10",
+    "pdfkit": "0.21.0",
+    "react": "19.2.0"
+  }
+}
