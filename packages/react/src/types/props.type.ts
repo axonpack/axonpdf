@@ -84,7 +84,16 @@ export type PageBand = ReactElement | ((info: PageBandInfo) => ReactNode);
 
 export interface PageProps extends NodeProps {
   wrap?: boolean;
+  /**
+   * A template rendered around every page this Page produces. Where it renders `children` is
+   * where page content flows; everything else repeats as page chrome with its space reserved.
+   * Like render props, layout components may not use hooks. Implies `experimentalPagination`.
+   */
   layout?: (props: PageLayoutProps) => ReactNode;
+  /**
+   * Opt the document into the newer pagination engine. Any page opting in switches the whole
+   * document. Implied by `layout`.
+   */
   experimentalPagination?: boolean;
   debug?: boolean;
   size?: PageSize;

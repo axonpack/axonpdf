@@ -8,6 +8,8 @@
  * - `IMAGE` and `IMAGE_BACKGROUND`: `src` (or `source`, renamed to `src`) is `{ "asset": id }`,
  *   the id given to the engine's `add_image` for the bytes. `srcSet` stays a string.
  * - `render` (Text and View): the callback id. The engine calls back with the page numbers.
+ * - `PAGE`: `layout` is the id of its layout template. The engine calls it back like `render`;
+ *   the template's `children` serialize as one `{"type":"SLOT"}` node where the content goes.
  * - `CANVAS`: `paint` is the id of its `paint` function. The engine calls back with the box's
  *   width and height after layout and gets the painter calls in order, as a JSON array of
  *   `[method, ...args]` (see `tree/canvas-painter.ts`).
@@ -31,6 +33,8 @@ export interface TreeNode {
   props: Record<string, unknown>;
   style?: unknown;
   render?: number;
+  /** `PAGE` only: the id of its `layout` template, answered like `render` with one `SLOT`. */
+  layout?: number;
   /** `CANVAS` only: the id of its `paint` function. */
   paint?: number;
   children: (TreeNode | TreeText)[];

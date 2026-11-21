@@ -1,5 +1,5 @@
 import type { RenderArgs } from "@axonpdf/core";
-import { isValidElement, type ReactNode } from "react";
+import { createElement, isValidElement, type ReactNode } from "react";
 
 import { imageBytes } from "../assets/image-bytes.js";
 import { Font } from "../font/font-store.js";
@@ -46,6 +46,8 @@ export function serialize(child: Child, session: Session): TreeNode | TreeText {
       collectFamilies(value, session.families);
     } else if (key === "render" && typeof value === "function") {
       node.render = callback(session, value, renderArgs);
+    } else if (key === "layout" && type === "PAGE" && typeof value === "function") {
+      node.layout = callback(session, value, layoutArgs);
     } else if (key === "paint" && type === "CANVAS" && typeof value === "function") {
       const id = session.nextId++;
       session.paints.set(id, (width, height) => JSON.stringify(recordPaint(value, width, height)));
@@ -81,6 +83,10 @@ const renderArgs = (args: RenderArgs, mark: Mark) => ({
     return args.subPageTotalPages;
   },
 });
+
+/** A page `layout` template gets the render args plus `children`, where the page content goes. */
+const layoutArgs = (args: RenderArgs, mark: Mark) =>
+  Object.assign(renderArgs(args, mark), { children: createElement("SLOT") });
 
 const bandArgs = (args: RenderArgs, mark: Mark) => ({
   pageNumber: args.pageNumber,
