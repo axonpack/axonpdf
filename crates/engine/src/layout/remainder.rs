@@ -96,8 +96,9 @@ impl Remainder {
         sized: bool,
         a: &Assets,
     ) -> Result<(), String> {
-        // A check switch: lay the rest out from scratch, as the components do, to compare.
-        let fresh = std::env::var_os("AXONPDF_FRESH_LAYOUT").is_some();
+        // A check switch for native debug builds (a WebAssembly build sees no environment): lay
+        // the rest out from scratch, as the components do, to compare.
+        let fresh = cfg!(debug_assertions) && std::env::var_os("AXONPDF_FRESH_LAYOUT").is_some();
         if fresh || *self.floats.get_or_insert_with(|| floats::has(page)) {
             self.tree = Remainder::whole(page, sized, a)?;
             return Ok(());
