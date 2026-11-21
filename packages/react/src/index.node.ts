@@ -5,6 +5,7 @@ import type * as dom from "./index.browser.js";
 import { nodeSink } from "./node/node-sink.js";
 import { renderToFile, renderToStream, renderToString } from "./node/render-to.js";
 import { platform } from "./platform.js";
+import { runProfile } from "./profile/run-profile.js";
 import { Font, environmentError, pdf, version } from "./shared.js";
 
 platform.readFile = async (path) =>
@@ -13,6 +14,12 @@ platform.sink = nodeSink;
 
 export * from "./shared.js";
 export * from "./node/render-to.js";
+
+/**
+ * Renders the document to nothing and reports where the time went: React, the tree, assets and
+ * the engine's phases, each page, and peak memory.
+ */
+export const profile = (element: Parameters<typeof runProfile>[0]) => runProfile(element);
 export type {
   BlobProviderProps,
   PDFDownloadLinkProps,

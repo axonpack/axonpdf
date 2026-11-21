@@ -4,6 +4,7 @@ import { PDFDownloadLink } from "./dom/pdf-download-link.js";
 import { PDFViewer } from "./dom/pdf-viewer.js";
 import { usePDF } from "./dom/use-pdf.js";
 import type * as node from "./node/render-to.js";
+import { runProfile } from "./profile/run-profile.js";
 import { Font, environmentError, pdf, version } from "./shared.js";
 
 export * from "./shared.js";
@@ -12,6 +13,12 @@ export type { BlobProviderProps } from "./dom/blob-provider.js";
 export type { PDFDownloadLinkProps } from "./dom/pdf-download-link.js";
 export type { PDFViewerProps } from "./dom/pdf-viewer.js";
 export type { UsePDFInstance } from "./dom/use-pdf.js";
+
+/**
+ * Renders the document to nothing and reports where the time went: React, the tree, assets and
+ * the engine's phases, each page, and peak memory. Each phase is also a `performance.measure`.
+ */
+export const profile = (element: Parameters<typeof runProfile>[0]) => runProfile(element);
 
 export const renderToStream = environmentError(
   "renderToStream",

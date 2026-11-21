@@ -5,6 +5,7 @@ import { platform } from "./platform.js";
 import { createRenderer, type Renderer } from "./reconciler/renderer.js";
 import { renderDocument } from "./render/render-document.js";
 import type { Container } from "./types/instance.type.js";
+import type { Recorder } from "./types/profile.type.js";
 import type { DocumentProps } from "./types/props.type.js";
 
 // React wants one renderer per process; each `pdf()` gets its own root in it.
@@ -39,6 +40,7 @@ export function mount(initialValue?: ReactElement) {
     onChunk: (chunk: Uint8Array) => void,
     wait?: () => Promise<void>,
     release?: boolean,
+    recorder?: Recorder,
   ) => {
     if (error !== undefined) {
       const e = error;
@@ -50,6 +52,7 @@ export function mount(initialValue?: ReactElement) {
       onChunk,
       wait,
       release ? () => updateContainer(null) : undefined,
+      recorder,
     );
   };
   return { container, changeListeners, updateContainer, render };

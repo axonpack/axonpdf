@@ -6,6 +6,7 @@ import { addFonts } from "../font/load-fonts.js";
 import { serializeDocument } from "../tree/serialize.js";
 import { createSession, settle, type Session } from "../tree/session.js";
 import type { Container } from "../types/instance.type.js";
+import type { Recorder } from "../types/profile.type.js";
 import type { TreeDocument } from "../types/tree.type.js";
 
 /** Runs `fn` as the engine's callback: nothing async (images) may start inside it. */
@@ -39,16 +40,22 @@ export async function renderDocument(
   wait?: () => Promise<void>,
   /** Called once the tree is read, so a caller done with React can unmount it before the engine runs. */
   release?: () => void,
+  /** Set only by `profile`. */
+  recorder?: Recorder,
 ) {
+  recorder?.mark("tree");
   const session = createSession();
   let tree: TreeDocument | undefined = serializeRoot(container, session);
   release?.();
+  recorder?.mark("assets");
   await settle(session);
   await addEmoji(tree, session);
   // Made inside the engine call: the tree and the string are garbage while the engine runs.
   const json = () => {
+    recorder?.mark("tree");
     const text = JSON.stringify(tree);
     tree = undefined;
+    recorder?.mark("engine");
     return text;
   };
   const engine = await createEngine();
@@ -66,6 +73,7 @@ export async function renderDocument(
       }
     };
     addImages();
+    recorder?.engine(engine, false);
     const builtin = (word: string) => engine.hyphenateBuiltin(word);
     const callbacks = {
       render: (id: number, args: RenderArgs) => session.callbacks.get(id)!(args),
@@ -84,13 +92,16 @@ export async function renderDocument(
     // Batches are made between engine calls, so images in rows can load then.
     let id = engine.begin(json, onChunk, callbacks);
     while (id !== undefined) {
+      recorder?.mark("rows");
       await wait?.();
       const batch = await session.rows.get(id)!.next();
       await settle(session);
       addImages();
+      recorder?.mark("engine");
       id = engine.pushRows(id, batch);
     }
   } finally {
+    recorder?.engine(engine, true);
     engine.free();
   }
 }
