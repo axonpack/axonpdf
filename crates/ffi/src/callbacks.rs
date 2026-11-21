@@ -9,6 +9,9 @@ use axonpdf::text::hyphen;
 use crate::{Handle, axonpdf_alloc, run, take_string, text};
 
 /// Called during layout for a node with a `render` id. -1 means "not known yet" (`undefined`).
+/// `is_last` is -1 until the final call for a page, then 0 or 1. `total_pending` is 1 when the
+/// total is filled in by the writer (documents with `Rows`): `totalPages` should then be the
+/// text from `axonpdf_total_pages_marker`.
 /// Returns a NUL-terminated UTF-8 string allocated with `axonpdf_alloc` (the engine frees it), or
 /// null for no output. The string is `{"children":[nodes],"readsTotal":bool}`.
 pub type RenderCallback = extern "C" fn(
@@ -18,6 +21,8 @@ pub type RenderCallback = extern "C" fn(
     total_pages: i32,
     sub_page_number: i32,
     sub_page_total_pages: i32,
+    is_last: i32,
+    total_pending: i32,
 ) -> *mut c_char;
 
 /// Runs a Canvas `paint` function by id at the content box's size (NaN for both when the canvas
@@ -56,6 +61,8 @@ pub unsafe extern "C" fn axonpdf_set_render_callback(
                 total(args.total_pages),
                 total(args.sub_page_number),
                 total(args.sub_page_total_pages),
+                args.is_last.map_or(-1, i32::from),
+                i32::from(args.total_pending),
             );
             take_string(out).unwrap_or_else(|| r#"{"children":[]}"#.to_owned())
         }));

@@ -24,6 +24,7 @@ export interface AxonpdfModule {
   _axonpdf_hyphenate_builtin(word: number, wordLen: number): number;
   _axonpdf_render(handle: number, json: number, jsonLen: number, output: number, user: number): number;
   _axonpdf_last_error(handle: number): number;
+  _axonpdf_total_pages_marker(): number;
 }
 
 export default function createModule(options?: object): Promise<AxonpdfModule>;

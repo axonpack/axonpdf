@@ -4,10 +4,16 @@ import createModule, { type AxonpdfModule } from "../wasm/axonpdf.mjs";
  * being cut only `pageNumber` is known; the rest are `undefined` until the final call. */
 export interface RenderArgs {
   pageNumber: number;
-  /** Undefined until the page count is known. */
-  totalPages: number | undefined;
+  /**
+   * Undefined until the page count is known. In documents with `Rows` the total is written in
+   * when the file is finished, so the final call gets a marker string that text can show (the
+   * engine swaps it for the number) but that can't be computed with.
+   */
+  totalPages: number | string | undefined;
   subPageNumber: number | undefined;
   subPageTotalPages: number | undefined;
+  /** Whether this is the document's last page; known only in the final call for a page. */
+  isLast: boolean | undefined;
 }
 
 /** Runs the JS function stored under `id` and returns `{"children":[...],"readsTotal":bool}`. */
@@ -74,6 +80,7 @@ function load(): Promise<Loaded> {
         return 0;
       }
     };
+    const marker = module.UTF8ToString(module._axonpdf_total_pages_marker());
     const optional = (n: number) => (n < 0 || Number.isNaN(n) ? undefined : n);
     const pointers = {
       output: module.addFunction((handle, ptr, len) => {
@@ -81,16 +88,17 @@ function load(): Promise<Loaded> {
         if (current.error === undefined) current.onChunk?.(module.HEAPU8.slice(ptr, ptr + len));
       }, "viii"),
       render: module.addFunction(
-        (handle, id, page, total, subPage, subTotal) =>
+        (handle, id, page, total, subPage, subTotal, isLast, totalPending) =>
           call(handle, (c) =>
             c.render?.(id, {
               pageNumber: page,
-              totalPages: optional(total),
+              totalPages: totalPending ? marker : optional(total),
               subPageNumber: optional(subPage),
               subPageTotalPages: optional(subTotal),
+              isLast: isLast < 0 ? undefined : isLast === 1,
             }),
           ),
-        "iiiiiii",
+        "iiiiiiiii",
       ),
       paint: module.addFunction(
         (handle, id, width, height) =>

@@ -107,6 +107,15 @@ pub unsafe extern "C" fn axonpdf_render(
     })
 }
 
+/// The text that stands for the page total while it is pending; the writer replaces it. Static,
+/// NUL-terminated.
+#[unsafe(no_mangle)]
+pub extern "C" fn axonpdf_total_pages_marker() -> *const c_char {
+    static MARKER: std::sync::LazyLock<CString> =
+        std::sync::LazyLock::new(|| CString::new(axonpdf::TOTAL_PAGES).unwrap());
+    MARKER.as_ptr()
+}
+
 /// The message of the last failed call, or null. Valid until the next call on this handle.
 ///
 /// # Safety
