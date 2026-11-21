@@ -86,7 +86,7 @@ export default function Graphics() {
           }}
         />
 
-        <Text style={s.label}>Image: PNG with alpha over colour, JPEG with each objectFit, objectPosition, Buffer and data sources</Text>
+        <Text style={s.label}>Image: PNG with alpha over colour, JPEG with each objectFit, objectPosition, Buffer and data sources, an SVG file</Text>
         <View style={s.row}>
           <View style={{ backgroundColor: '#ffd166', padding: 6 }}>
             <Image src="assets/badge.png" style={{ width: 70, height: 70 }} />
@@ -102,6 +102,7 @@ export default function Graphics() {
           <Image src="assets/photo.jpg" style={{ width: 90, height: 50, objectFit: 'contain', objectPosition: 'left top', backgroundColor: '#ddd' }} />
           <Image src={readFileSync('assets/badge.png')} style={{ width: 40, borderRadius: 20, backgroundColor: '#264653' }} />
           <Image src={{ data: readFileSync('assets/photo.jpg'), format: 'jpg' }} style={{ height: 50, opacity: 0.5 }} />
+          <Image src="assets/logo.svg" style={{ width: 100, height: 50 }} />
         </View>
 
         <Text style={s.label}>ImageBackground with imageStyle and children, and a Note</Text>
