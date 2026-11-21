@@ -20,6 +20,8 @@ export interface Callbacks {
   paint?: (id: number, width: number | undefined, height: number | undefined) => string;
   /** A hyphenation function on one word: the parts, as a JSON list of strings. */
   hyphenate?: (id: number, word: string) => string;
+  /** The next batch of a `Rows`: `{"children":[...],"done":bool}`. */
+  rows?: (id: number) => string;
 }
 
 export interface Engine {
@@ -43,7 +45,7 @@ interface Active {
 interface Loaded {
   module: AxonpdfModule;
   active: Map<number, Active>;
-  pointers: { output: number; render: number; paint: number; hyphenate: number };
+  pointers: Record<"output" | "render" | "paint" | "hyphenate" | "rows", number>;
 }
 
 const encoder = new TextEncoder();
@@ -102,6 +104,7 @@ function load(): Promise<Loaded> {
           ),
         "iiiii",
       ),
+      rows: module.addFunction((handle, id) => call(handle, (c) => c.rows?.(id)), "iii"),
     };
     return { module, active, pointers };
   });
@@ -117,6 +120,7 @@ export async function createEngine(): Promise<Engine> {
   module._axonpdf_set_render_callback(handle, pointers.render, handle);
   module._axonpdf_set_paint_callback(handle, pointers.paint, handle);
   module._axonpdf_set_hyphenation_callback(handle, pointers.hyphenate, handle);
+  module._axonpdf_set_rows_callback(handle, pointers.rows, handle);
 
   const copy = (bytes: Uint8Array) => {
     const ptr = module._axonpdf_alloc(bytes.length);
