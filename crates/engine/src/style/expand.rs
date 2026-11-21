@@ -4,7 +4,7 @@ use serde_json::{Map, Value};
 
 use super::shorthand::{border, box_model, flex, object_position, offset};
 use super::units::{Container, V, dim, parse_float, unit, unit_str};
-use super::{BOTTOM, LEFT, RIGHT, Style, TOP, color};
+use super::{BOTTOM, LEFT, RIGHT, Style, TOP, color, transform};
 use crate::layout::yoga::{Align, FlexDirection, Justify, Overflow, PositionType, Wrap};
 
 pub fn apply(s: &mut Style, c: &Container, key: &str, v: &Value, flat: &Map<String, Value>) {
@@ -91,8 +91,10 @@ pub fn apply(s: &mut Style, c: &Container, key: &str, v: &Value, flat: &Map<Stri
 
         "backgroundColor" => s.background_color = text().map(|t| color::parse(&t)),
         "opacity" => s.opacity = parse_float(v),
-        "transform" => s.transform = Some(v.clone()),
-        "transformOrigin" => s.transform_origin = Some(v.clone()),
+        "transform" => s.transform = transform::parse(v),
+        "transformOrigin" => s.transform_origin = transform::origin(c, v),
+        "transformOriginX" => s.transform_origin[0] = transform::origin_value(c, &text().unwrap_or_default()),
+        "transformOriginY" => s.transform_origin[1] = transform::origin_value(c, &text().unwrap_or_default()),
         "objectFit" => s.object_fit = text(),
         "objectPosition" => object_position(s, c, v),
         "objectPositionX" => s.object_position[0] = offset(c, &text().unwrap_or_default()),

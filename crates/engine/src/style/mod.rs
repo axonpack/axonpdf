@@ -9,9 +9,11 @@ mod expand;
 pub mod flatten;
 mod inherit;
 mod shorthand;
+pub mod transform;
 pub mod units;
 
 pub use inherit::inherit;
+pub use transform::Transform;
 pub use units::{Container, Dim};
 
 use crate::display::{BorderStyle, Color};
@@ -56,8 +58,9 @@ pub struct Style {
     pub border_color: [Option<Color>; 4],
     pub border_style: [Option<BorderStyle>; 4],
     pub border_radius: [Option<Dim>; 4],
-    pub transform: Option<Value>,
-    pub transform_origin: Option<Value>,
+    pub transform: Option<Vec<Transform>>,
+    /// x and y; 50% each when unset.
+    pub transform_origin: [Option<Dim>; 2],
     pub object_fit: Option<String>,
     pub object_position: [Option<Dim>; 2],
 
