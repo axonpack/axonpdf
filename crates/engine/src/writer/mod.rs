@@ -36,6 +36,7 @@ pub struct Writer {
     images: HashMap<ImageId, Ref>,
     /// Shared ExtGState objects by (fill alpha, stroke alpha) bits.
     alphas: HashMap<(u32, u32), Ref>,
+    gradients: gradient::Written,
     nav: nav::Nav,
 }
 
@@ -53,6 +54,7 @@ impl Writer {
             fonts: Default::default(),
             images: HashMap::new(),
             alphas: HashMap::new(),
+            gradients: Default::default(),
             nav: Default::default(),
         }
     }

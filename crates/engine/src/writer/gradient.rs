@@ -1,6 +1,8 @@
 //! Linear and radial gradients as shading patterns. Stops with alpha add a luminosity soft
 //! mask drawn from the same gradient in gray.
 
+use std::collections::HashMap;
+
 use pdf_writer::types::{ColorSpaceOperand, FunctionShadingType, MaskType};
 use pdf_writer::{Content, Finish, Name, Rect, Ref};
 
@@ -45,6 +47,23 @@ impl Writer {
     }
 
     fn soft_mask(&mut self, p: &mut PageState, g: &Gradient, out: Out) {
+        let key = mask_key(g);
+        let state = match self.gradients.masks.get(&key) {
+            Some(r) => *r,
+            None => {
+                let r = self.write_mask(g, out);
+                self.gradients.masks.insert(key, r);
+                r
+            }
+        };
+        let name = format!("Gs{}", state.get());
+        Resources::add(&mut p.res.ext_g_states, name.clone(), state);
+        p.c.set_parameters(Name(name.as_bytes()));
+    }
+
+    /// The ExtGState holding a gradient's alpha as a luminosity mask. It does not depend on the
+    /// page, so each gradient's mask is written once.
+    fn write_mask(&mut self, g: &Gradient, out: Out) -> Ref {
         let pattern = self.pattern(g, g.transform, |c| vec![c.a], out);
         let mut content = Content::new();
         content.set_fill_color_space(ColorSpaceOperand::Pattern);
@@ -66,9 +85,7 @@ impl Writer {
                 .subtype(MaskType::Luminosity)
                 .group(form);
         });
-        let name = format!("Gs{}", state.get());
-        Resources::add(&mut p.res.ext_g_states, name.clone(), state);
-        p.c.set_parameters(Name(name.as_bytes()));
+        state
     }
 
     /// A shading pattern whose colors are `channels` of each stop (RGB, or alpha as gray).
@@ -122,6 +139,26 @@ impl Writer {
         channels: &impl Fn(&Color) -> Vec<f32>,
         out: Out,
     ) -> Ref {
+        let key: Vec<u32> = g
+            .stops
+            .iter()
+            .flat_map(|(o, c)| std::iter::once(*o).chain(channels(c)))
+            .map(f32::to_bits)
+            .collect();
+        if let Some(r) = self.gradients.functions.get(&key) {
+            return *r;
+        }
+        let r = self.write_function(g, channels, out);
+        self.gradients.functions.insert(key, r);
+        r
+    }
+
+    fn write_function(
+        &mut self,
+        g: &Gradient,
+        channels: &impl Fn(&Color) -> Vec<f32>,
+        out: Out,
+    ) -> Ref {
         let mut stops = g.stops.clone();
         if stops.is_empty() {
             stops.push((0.0, Color::BLACK));
@@ -164,6 +201,34 @@ impl Writer {
         });
         r
     }
+}
+
+/// Functions and masks already written, by what they draw.
+#[derive(Default)]
+pub(super) struct Written {
+    functions: HashMap<Vec<u32>, Ref>,
+    masks: HashMap<Vec<u32>, Ref>,
+}
+
+fn mask_key(g: &Gradient) -> Vec<u32> {
+    let coords: Vec<f32> = match g.kind {
+        GradientKind::Linear { x1, y1, x2, y2 } => vec![x1, y1, x2, y2],
+        GradientKind::Radial {
+            fx,
+            fy,
+            fr,
+            cx,
+            cy,
+            r,
+        } => vec![fx, fy, fr, cx, cy, r, f32::NAN],
+    };
+    let stops = g.stops.iter().flat_map(|(o, c)| [*o, c.a]);
+    coords
+        .into_iter()
+        .chain(g.transform)
+        .chain(stops)
+        .map(f32::to_bits)
+        .collect()
 }
 
 pub(super) fn has_alpha(g: &Gradient) -> bool {
