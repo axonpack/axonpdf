@@ -8,22 +8,30 @@ One A4 report, rendered at 100, 1000 and 5000 pages: a header with a logo, three
 bordered five-column table that runs across pages, with "Page n of N" in the footer. axonpdf and
 react-pdf 4.9.0 render the same JSX file. The pdfkit 0.21.0 version draws the same pages by hand.
 Measured on an Apple M4 (24 GB RAM, macOS 27.2.1, Node 24.11.0) with a development build of axonpdf
-at commit `62ed1ce`, React in production mode, one Node process per run.
+at commit `ecb0699`, React in production mode, one Node process per run.
 
 | Engine | 100 pages | 1000 pages | 5000 pages |
 | --- | --- | --- | --- |
-| axonpdf | 0.9 s, 195 MB | 8.2 s, 735 MB | 40.4 s, 2.5 GB |
-| axonpdf with `<Rows>` | 0.5 s, 129 MB | 4.7 s, 152 MB | 23.0 s, 224 MB |
-| react-pdf 4.9.0 | 36.3 s, 1.4 GB | stopped after 15 min | not run |
-| pdfkit 0.21.0 | 0.1 s, 97 MB | 1.2 s, 175 MB | 6.0 s, 343 MB |
+| axonpdf, rows as an array | 0.8 s, 117 MB | 7.8 s, 154 MB | 39.2 s, 471 MB |
+| axonpdf, rows from a generator | 0.9 s, 117 MB | 7.8 s, 130 MB | 39.2 s, 215 MB |
+| axonpdf, rows in `<Rows>` | 0.5 s, 129 MB | 4.8 s, 147 MB | 24.1 s, 259 MB |
+| react-pdf 4.9.0 | 36.1 s, 1.3 GB | stopped after 15 min | not run |
+| pdfkit 0.21.0 | 0.1 s, 97 MB | 1.1 s, 175 MB | 5.3 s, 347 MB |
 
 Each cell is the render time and the peak memory (RSS) of the whole process. pdfkit is faster
-because it has no layout step: you place every line and every page break yourself, where the two
+because it has no layout step: you place every line and every page break yourself, while the two
 React engines lay the document out with flexbox and break the pages for you.
 
-`<Rows>` takes the rows as an array or an async iterable and lays them out and writes them in batches.
-That keeps memory almost flat as the document grows. It is axonpdf's own component, so a document
-that uses it no longer renders in react-pdf.
+A document written the usual way needs no changes: axonpdf builds long lists of children, and each
+page's content, only when it reaches them. How the rows are passed still matters at large sizes.
+An array of 190,000 row elements stays alive for the whole render, which makes V8 keep the elements
+each row creates in its old generation until a full garbage collection, so the array version peaks
+at 471 MB. Passing the rows as a generator child avoids that and peaked at 215 MB, and react-pdf
+renders that code unchanged.
+
+`<Rows>` is axonpdf's own component for rows from an array or an async iterable, such as a database
+cursor. It renders and writes them in batches, and it was the fastest of the three. A document that
+uses it no longer renders in react-pdf.
 
 Every run, with its date, commit, machine and the command that reruns it, is in
 [bench/RESULTS.md](bench/RESULTS.md). To run them all again: `cd bench && npm ci && cd .. && node
