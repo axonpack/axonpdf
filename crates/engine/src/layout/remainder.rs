@@ -93,9 +93,13 @@ fn can_window(n: &Node, is_page: bool, ctx: Ctx) -> bool {
         && (is_page || s.height.is_none())
         && s.min_height.is_none()
         && s.max_height.is_none()
-        && n.children
-            .iter()
-            .all(|c| c.style.position != Some(PositionType::Absolute))
+}
+
+/// Whether none of `n`'s children is absolutely placed (fixed ones aside, with `fixed_ok`).
+fn in_flow(n: &Node, fixed_ok: bool) -> bool {
+    n.children
+        .iter()
+        .all(|c| c.style.position != Some(PositionType::Absolute) || (fixed_ok && c.is_fixed()))
 }
 
 /// What a child of `n` may rely on.
@@ -114,10 +118,7 @@ fn child_ctx(n: &Node, c: &Node, ctx: Ctx) -> Ctx {
                 && stretched
                 && c.style.width.is_none()
                 && c.style.aspect_ratio.is_none()),
-        no_absolute: ctx.no_absolute
-            && n.children
-                .iter()
-                .all(|c| c.style.position != Some(PositionType::Absolute) || c.is_fixed()),
+        no_absolute: ctx.no_absolute,
     }
 }
 
@@ -159,7 +160,11 @@ fn sync(
         t.mark_dirty(id);
     }
     if is_container(n) {
-        n.window = if can_window(n, is_page, ctx) {
+        let ctx = Ctx {
+            no_absolute: ctx.no_absolute && in_flow(n, true),
+            ..ctx
+        };
+        n.window = if can_window(n, is_page, ctx) && in_flow(n, false) {
             window(n, cut + slack)
         } else {
             0

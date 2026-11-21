@@ -43,6 +43,12 @@ pub fn split_nodes(
         if height <= top {
             child.layout.top -= height;
             next.push(child);
+            // When all that follows is below the cut too (or fixed), move it in one go.
+            if rest.iter().all(|n| n.is_fixed() || height <= n.layout.top) {
+                current.extend(future_fixed(&rest));
+                next.extend(rest);
+                break;
+            }
             continue;
         }
         let can_wrap = child.can_wrap();
@@ -110,15 +116,15 @@ fn should_break(child: &Node, future: &VecDeque<Node>, height: f64, previous: &[
     let crosses = height < l.top + l.height;
     let presence =
         l.top + l.height + l.margin[BOTTOM] + child.number("minPresenceAhead").unwrap_or(0.0);
-    let furthest = future
-        .iter()
-        .filter(|n| !n.has("fixed"))
-        .map(|n| n.layout.top + n.layout.height)
-        .fold(None, |m: Option<f64>, e| Some(m.map_or(e, |m| m.max(e))));
-    let end = furthest.map_or(presence, |f| presence.min(f));
+    // The presence wanted ends at the furthest following sibling, if that comes sooner. It
+    // passes the cut when both do; the first sibling found past it settles that.
+    let mut following = future.iter().filter(|n| !n.has("fixed")).peekable();
+    let end_passes = presence > height
+        && (following.peek().is_none()
+            || following.any(|n| n.layout.top + n.layout.height > height));
     // Breaking only helps when something else is already on this page.
     let improves = previous.iter().any(|n| !n.is_fixed());
-    child.is("break") || (crosses && !child.can_wrap()) || (!crosses && end > height && improves)
+    child.is("break") || (crosses && !child.can_wrap()) || (!crosses && improves && end_passes)
 }
 
 fn split(node: Node, height: f64, content_area: f64, gone: &mut Vec<NodeId>) -> (Node, Node) {

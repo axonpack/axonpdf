@@ -67,7 +67,7 @@ pub struct TextBox {
 pub struct Node {
     pub kind: Kind,
     pub props: Map<String, Value>,
-    pub style: Style,
+    pub style: Box<Style>,
     pub render: Option<u32>,
     pub paint: Option<u32>,
     pub children: Vec<Node>,
@@ -119,7 +119,7 @@ impl Node {
         let mut node = Node {
             kind,
             props: raw.props,
-            style,
+            style: Box::new(style),
             render: raw.render,
             paint: raw.paint,
             children: Vec::new(),

@@ -33,9 +33,7 @@ fn text(s: String) -> Value {
 
 /// A table row of three cells, about 20pt tall.
 fn row(i: usize) -> Value {
-    let cell = |s: String, w: &str| {
-        json!({"type": "VIEW", "props": {}, "style": {"width": w, "padding": 3}, "children": [text(s)]})
-    };
+    let cell = |s: String, w: &str| json!({"type": "VIEW", "props": {}, "style": {"width": w, "padding": 3}, "children": [text(s)]});
     json!({"type": "VIEW", "props": {"wrap": false}, "style": {"flexDirection": "row", "borderBottom": "1 solid #ccc", "fontSize": 10}, "children": [
         cell(format!("SKU-{i}"), "20%"),
         cell(format!("Item number {i} with a longer description"), "60%"),
@@ -49,9 +47,7 @@ fn footer() -> Value {
 
 /// `rows` rows in one long `<Page>`, or split over `<Page>`s of `per_page` rows.
 fn document(rows: usize, per_page: Option<usize>) -> String {
-    let page = |rs: Vec<Value>| {
-        json!({"type": "PAGE", "props": {"size": "A4"}, "style": {"padding": 40}, "children": [footer(), {"type": "VIEW", "props": {}, "children": rs}]})
-    };
+    let page = |rs: Vec<Value>| json!({"type": "PAGE", "props": {"size": "A4"}, "style": {"padding": 40}, "children": [footer(), {"type": "VIEW", "props": {}, "children": rs}]});
     let all: Vec<Value> = (0..rows).map(row).collect();
     let pages: Vec<Value> = match per_page {
         None => vec![page(all)],
@@ -88,13 +84,28 @@ fn measure(name: &str, json: String) {
 #[test]
 #[ignore]
 fn thousand_pages() {
-    let pages: usize = std::env::var("AXONPDF_PAGES").ok().and_then(|p| p.parse().ok()).unwrap_or(1000);
+    let pages: usize = std::env::var("AXONPDF_PAGES")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(1000);
     // About 37 rows fit a page.
-    measure(&format!("{pages} <Page>s"), document(pages * 37, Some(37)));
-    measure(&format!("one <Page> of {pages} pages"), document(pages * 37, None));
+    if std::env::var_os("AXONPDF_ONLY_LONG").is_none() {
+        measure(&format!("{pages} <Page>s"), document(pages * 37, Some(37)));
+    }
+    measure(
+        &format!("one <Page> of {pages} pages"),
+        document(pages * 37, None),
+    );
 }
 
 #[test]
 fn sizes() {
-    println!("Node {} Style {} Line {} LineRun {} Glyph {}", size_of::<axonpdf::tree::Node>(), size_of::<axonpdf::style::Style>(), size_of::<axonpdf::text::Line>(), size_of::<axonpdf::text::LineRun>(), size_of::<axonpdf::text::Glyph>());
+    println!(
+        "Node {} Style {} Line {} LineRun {} Glyph {}",
+        size_of::<axonpdf::tree::Node>(),
+        size_of::<axonpdf::style::Style>(),
+        size_of::<axonpdf::text::Line>(),
+        size_of::<axonpdf::text::LineRun>(),
+        size_of::<axonpdf::text::Glyph>()
+    );
 }
