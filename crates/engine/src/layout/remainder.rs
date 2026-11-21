@@ -13,8 +13,8 @@
 
 use super::yoga::{Align, FlexDirection, Justify, NodeId, PositionType, Tree, Wrap};
 use super::{
-    Assets, apply, fill_text, floats, full, is_container, set_leaf_measure,
-    set_text_measure, write_back,
+    Assets, apply, fill_text, floats, full, is_container, set_leaf_measure, set_text_measure,
+    write_back,
 };
 use crate::style::Dim;
 use crate::tree::{Kind, Node};
@@ -83,12 +83,24 @@ impl Remainder {
         a: &Assets,
     ) -> Result<(), String> {
         // A check switch: lay the rest out from scratch, as the components do, to compare.
-        // ponytail: floats in rows that arrive later in batches are not seen here.
         let fresh = std::env::var_os("AXONPDF_FRESH_LAYOUT").is_some();
         if fresh || *self.floats.get_or_insert_with(|| floats::has(page)) {
             self.tree = Remainder::whole(page, a)?;
             return Ok(());
         }
+        // Rows that come in batches may bring the first float.
+        let found = std::cell::Cell::new(false);
+        let more = |n: &mut Node| {
+            let from = n.children.len();
+            let more = (a.more_rows)(n)?;
+            let new = n.children.get(from..).unwrap_or_default();
+            found.set(found.get() || new.iter().any(floats::has));
+            Ok(more)
+        };
+        let a = &Assets {
+            more_rows: &more,
+            ..*a
+        };
         let ctx = Ctx {
             width_set: true,
             no_absolute: true,
@@ -96,15 +108,24 @@ impl Remainder {
         let mut slack = 2.0 * cut.max(200.0);
         loop {
             page.dirty = true;
-            sync(&mut self.tree, page, true, cut, slack, ctx, a)?;
+            let synced = sync(&mut self.tree, page, true, cut, slack, ctx, a);
+            if found.get() {
+                // Kept even when rows are still awaited, for the call made once they come.
+                self.floats = Some(true);
+            }
+            synced?;
             gone.drain(..).for_each(|id| self.tree.free(id));
             self.tree.calculate(page.yoga.unwrap(), None, None);
             write_back(&self.tree, page, false);
             match read_near(&self.tree, page, cut, a)? {
                 Read::Short => slack *= 4.0,
-                _ => return Ok(()),
+                _ => break,
             }
         }
+        if found.get() {
+            self.tree = Remainder::whole(page, a)?;
+        }
+        Ok(())
     }
 }
 

@@ -280,3 +280,45 @@ fn table_borders_collapse() {
         assert_eq!(cells[2], [1.0, 1.0, 1.0, 0.0]);
     }
 }
+
+/// A float that first comes in a later batch of rows still pushes what clears it, and the cut
+/// sees that: the cleared text never runs past the bottom of its page.
+#[test]
+fn floats_in_a_later_batch_of_rows_move_the_cut() {
+    let mut engine = Engine::new();
+    let fetched = Rc::new(RefCell::new(0));
+    let count = fetched.clone();
+    engine.set_rows_callback(Box::new(move |_| {
+        let mut n = count.borrow_mut();
+        let batch: Vec<Value> = (*n..*n + 20)
+            .map(|i| {
+                if i != 55 {
+                    return text(&format!("Row {i}"));
+                }
+                json!({"type": "VIEW", "props": {}, "children": [
+                    {"type": "VIEW", "props": {}, "style": {"float": "left", "width": 50, "height": 300}, "children": []},
+                    {"type": "TEXT", "props": {}, "style": {"clear": "left"}, "children": [{"type": "TEXT_INSTANCE", "value": "Cleared"}]}
+                ]})
+            })
+            .collect();
+        *n += 20;
+        json!({"children": batch, "done": *n == 100}).to_string()
+    }));
+    let json = doc(json!({"type": "PAGE", "props": {"size": "A6"}, "children": [
+        {"type": "ROWS", "props": {"rows": 1, "batchSize": 20}, "children": []}]}));
+    let mut bottoms = Vec::new();
+    engine
+        .layout(&json, &mut |p, _, _| {
+            fn walk(n: &Node, y: f64, out: &mut Vec<f64>) {
+                let y = y + n.layout.top;
+                if n.style.clear.is_some() {
+                    out.push(y + n.layout.height);
+                }
+                n.children.iter().for_each(|c| walk(c, y, out));
+            }
+            walk(p, 0.0, &mut bottoms);
+        })
+        .unwrap();
+    assert!(!bottoms.is_empty());
+    assert!(bottoms.iter().all(|b| *b <= 419.53), "{bottoms:?}");
+}
