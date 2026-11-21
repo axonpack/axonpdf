@@ -11,8 +11,8 @@ use crate::draw;
 use crate::fonts::FontStore;
 use crate::hooks::{Hooks, HyphenationCallback, PaintCallback, RowsCallback};
 use crate::images::ImageStore;
-use crate::tree::{self, Doc, Node};
-use crate::writer::{DocInfo, Writer};
+use crate::tree::{self, Node};
+use crate::writer::{Writer, doc_info};
 
 /// What a `render` function is called with. `None` is `undefined` on the adapter's side: while
 /// pages are being cut only `page_number` is known.
@@ -101,7 +101,7 @@ impl Engine {
     /// them, then again to draw them.
     pub fn render(&mut self, tree_json: &str, out: &mut dyn FnMut(&[u8])) -> Result<(), String> {
         let doc = tree::parse(tree_json)?;
-        let mut writer = Writer::new(doc_info(&doc));
+        let mut writer = Writer::new(doc_info(&doc.props));
         writer.begin(out);
         let sizes = self.image_sizes();
         let (fonts, images, assets) = (&self.fonts, &mut self.images, &self.assets);
@@ -151,22 +151,3 @@ impl Engine {
     }
 }
 
-/// The document's metadata props.
-fn doc_info(doc: &Doc) -> DocInfo {
-    let text = |k: &str| {
-        doc.props
-            .get(k)
-            .and_then(|v| v.as_str())
-            .map(str::to_string)
-    };
-    DocInfo {
-        title: text("title"),
-        author: text("author"),
-        subject: text("subject"),
-        keywords: text("keywords"),
-        creator: text("creator"),
-        producer: text("producer"),
-        language: text("language"),
-        ..Default::default()
-    }
-}
