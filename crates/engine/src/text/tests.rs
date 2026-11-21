@@ -74,3 +74,23 @@ fn justifies_all_but_the_last_line() {
     assert!(close(ls[1].x_advance, 200.0));
     assert!(close(ls[2].x_advance, 89.952));
 }
+
+#[test]
+fn runs_split_where_the_script_changes() {
+    let fonts = FontStore::new();
+    let helvetica = fonts.resolve("Helvetica", 400, false).unwrap();
+    let frags = [Fragment {
+        text: "(abc Ωμέγα, def".into(),
+        attrs: attrs(12.0, "left"),
+        fonts: vec![helvetica],
+    }];
+    let p = &prepare(&fonts, &frags, &mut hyphen::builtin)[0];
+    let runs: Vec<String> = p
+        .runs
+        .iter()
+        .map(|r| p.chars[r.start..r.end].iter().collect())
+        .collect();
+    // The leading bracket has no script of its own; spaces and the comma stay with the script
+    // before them.
+    assert_eq!(runs, ["(", "abc ", "Ωμέγα, ", "def"]);
+}
