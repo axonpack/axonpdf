@@ -7,6 +7,10 @@ description = "The axonpdf PDF engine"
 publish = false
 
 [dependencies]
+gif = "0.14"
+image-webp = "0.2"
+miniz_oxide = "0.9"
+png = "0.18"
 rustybuzz = "0.20"
 self_cell = "1"
 serde = { version = "1", features = ["derive"] }
