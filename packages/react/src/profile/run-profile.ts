@@ -28,6 +28,7 @@ export async function runProfile(
   let heapPeak = 0;
   let measured: EngineProfile | undefined;
   let wasm = 0;
+  let outside = 0;
   const heap = () => {
     heapPeak = Math.max(heapPeak, jsHeap());
   };
@@ -44,6 +45,23 @@ export async function runProfile(
     mark(phase) {
       close();
       current = phase;
+    },
+    enter(phase) {
+      const outer = current;
+      // Components making rows batches stay in `rows`.
+      if (!outer || outer === phase || (phase === "react" && outer === "rows")) return () => {};
+      const start = performance.now();
+      phases[outer] += start - last;
+      last = start;
+      current = phase;
+      return () => {
+        const end = performance.now();
+        phases[phase] += end - last;
+        // Time inside an engine call that the engine counts as its callbacks.
+        if (outer === "engine") outside += end - start;
+        last = end;
+        current = outer;
+      };
     },
     engine(engine, done) {
       if (!done) return engine.profile(true);
@@ -75,6 +93,8 @@ export async function runProfile(
     cpu = await sampler?.stop();
   }
   const { pages = [], ...engine } = measured ?? ({} as Partial<EngineProfile>);
+  // Lazy children and rows built inside engine callbacks are counted in their own phases.
+  if (engine.callbacks !== undefined) engine.callbacks = Math.max(0, engine.callbacks - outside);
   const inside = Object.values(engine).reduce((sum, ms) => sum + ms, 0);
   return {
     totalMs: last - start,

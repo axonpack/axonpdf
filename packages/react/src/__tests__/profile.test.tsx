@@ -32,3 +32,45 @@ describe("profile", () => {
     expect(formatProfile(report)).toContain("React render");
   });
 });
+
+const spin = (ms: number) => {
+  const end = performance.now() + ms;
+  while (performance.now() < end);
+};
+
+function Slow({ i }: { i: number }) {
+  spin(1);
+  return <Text>{`Row ${i}`}</Text>;
+}
+
+describe("profile with lazy content", () => {
+  it("counts components as React and render props as the engine's callbacks", async () => {
+    const report = await profile(
+      <Document>
+        <Page size="A6">
+          <View>
+            {Array.from({ length: 150 }, (_, i) => (
+              <Slow key={i} i={i} />
+            ))}
+          </View>
+          <Text
+            fixed
+            render={({ pageNumber }) => {
+              spin(2);
+              return `Page ${pageNumber}`;
+            }}
+          />
+        </Page>
+      </Document>,
+    );
+    const { phases, engine } = report;
+    // 150 components of 1 ms, most of them built while the engine runs.
+    expect(phases.react).toBeGreaterThan(140);
+    expect(engine.callbacks).toBeGreaterThan(2);
+    expect(engine.callbacks).toBeLessThan(phases.react);
+    const sum = Object.values(phases).reduce((a, b) => a + b, 0);
+    expect(Math.abs(sum - report.totalMs)).toBeLessThan(1);
+    const inside = Object.values(engine).reduce((a, b) => a + b, 0);
+    expect(Math.abs(inside - phases.engine)).toBeLessThan(1);
+  });
+});

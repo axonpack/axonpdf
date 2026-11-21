@@ -1,5 +1,7 @@
 import * as React from "react";
 
+import type { Recorder } from "../types/profile.type.js";
+
 /** Thrown when the one-shot renderer meets something only the reconciler handles. */
 export class Fallback extends Error {}
 
@@ -82,13 +84,22 @@ function dispatcher(scope: Scope, rendering: { done: boolean }) {
   };
 }
 
+/**
+ * Set while `profile()` runs, so each component's own code counts as React. A component returns
+ * before its children are walked, so the calls never nest. Paused inside `render` props, which
+ * count as the engine's callbacks. ponytail: one profile at a time.
+ */
+export const timing: { recorder?: Recorder; paused: number } = { paused: 0 };
+
 /** Calls a component (or a class's `render`) with hooks answered from `scope`. */
 export function callWithHooks<T>(scope: Scope, call: () => T): T {
   const rendering = { done: false };
   const previous = setDispatcher(dispatcher(scope, rendering));
+  const leave = timing.paused ? undefined : timing.recorder?.enter("react");
   try {
     return call();
   } finally {
+    leave?.();
     rendering.done = true;
     setDispatcher(previous);
   }

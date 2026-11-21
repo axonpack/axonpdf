@@ -6,7 +6,7 @@ import { Font } from "../font/font-store.js";
 import type { Item, TextInstance } from "../types/instance.type.js";
 import type { TreeDocument, TreeNode, TreeText } from "../types/tree.type.js";
 import { recordPaint } from "./canvas-painter.js";
-import { rootScope } from "./dispatcher.js";
+import { rootScope, timing } from "./dispatcher.js";
 import { rows } from "./rows.js";
 import { lazyChildren, lazyPage } from "./lazy.js";
 import type { Session } from "./session.js";
@@ -134,11 +134,13 @@ function callback(
     let readsTotal = false;
     session.inCallback = true;
     session.inRender = true;
+    timing.paused++;
     try {
       const output = fn(toArgs(args, () => (readsTotal = true)));
       const children = [...walk(output, rootScope())].map((c) => serialize(c, session));
       return JSON.stringify({ children, readsTotal });
     } finally {
+      timing.paused--;
       session.inCallback = false;
       session.inRender = false;
     }

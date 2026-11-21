@@ -2,15 +2,16 @@ import type { Engine, EngineProfile } from "@axonpdf/core";
 
 /** The parts of a render, in the order they run. Each phase's time is its own. */
 export interface ProfilePhases {
-  /** React rendering the document: the components' own code. */
+  /** Your components' own code, wherever they run: while the tree is read, or when lazy
+   * content is built during the engine's work. Not `render` props: those are `engine.callbacks`. */
   react: number;
-  /** Reading the rendered tree and making its JSON. */
+  /** Turning the rendered elements into the engine's input, lazy content's included. */
   tree: number;
   /** Loading images, fonts and emoji, and starting the engine. */
   assets: number;
   /** The engine's call, `engine` splits it. */
   engine: number;
-  /** Making async `Rows` batches between engine calls. */
+  /** Making `Rows` batches. */
   rows: number;
 }
 
@@ -56,4 +57,7 @@ export interface Recorder {
   mark(phase: keyof ProfilePhases): void;
   /** The engine, before it renders and once it is done. */
   engine(engine: Engine, done: boolean): void;
+  /** Counts the time from now until the returned function is called as `phase`, then goes back
+   * to the phase that was running. Fine-grained, so no `performance.measure` for it. */
+  enter(phase: keyof ProfilePhases): () => void;
 }

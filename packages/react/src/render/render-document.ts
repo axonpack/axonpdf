@@ -5,7 +5,7 @@ import { Font } from "../font/font-store.js";
 import { addFonts } from "../font/load-fonts.js";
 import { hiddenReadsTotal, readsTotal } from "./plan.js";
 import { serializeDocument } from "../tree/serialize.js";
-import { Fallback } from "../tree/dispatcher.js";
+import { Fallback, timing } from "../tree/dispatcher.js";
 import { Restart, createSession, settle, type Carried, type Session } from "../tree/session.js";
 import type { Item } from "../types/instance.type.js";
 import type { Recorder } from "../types/profile.type.js";
@@ -39,6 +39,21 @@ export function serializeRoot(document: Item | null | undefined, session: Sessio
  * again once. Until a page arrives the first chunk (the file header) is held back for that.
  */
 export async function renderDocument(
+  build: (session: Session) => TreeDocument,
+  onChunk: (chunk: Uint8Array) => void,
+  wait?: () => Promise<void>,
+  release?: () => void,
+  recorder?: Recorder,
+) {
+  timing.recorder = recorder;
+  try {
+    return await tries(build, onChunk, wait, release, recorder);
+  } finally {
+    timing.recorder = undefined;
+  }
+}
+
+async function tries(
   build: (session: Session) => TreeDocument,
   onChunk: (chunk: Uint8Array) => void,
   wait?: () => Promise<void>,
@@ -152,7 +167,13 @@ async function renderOnce(
         inCallback(session, () => {
           const source = session.rows.get(id)!;
           if (source.async) throw new Fallback("an async <Rows> inside lazy children");
-          return source.next() as string;
+          // Lazy children are the tree (their components count as React), rows are rows.
+          const leave = recorder?.enter(source.lazy ? "tree" : "rows");
+          try {
+            return source.next() as string;
+          } finally {
+            leave?.();
+          }
         });
       engine.render(json, onChunk, { ...callbacks, rows });
       return;
@@ -161,9 +182,10 @@ async function renderOnce(
     // Batches are made between engine calls, so images in rows can load then.
     let id = engine.begin(json, onChunk, callbacks);
     while (id !== undefined) {
-      recorder?.mark("rows");
+      const source = session.rows.get(id)!;
+      recorder?.mark(source.lazy ? "tree" : "rows");
       await wait?.();
-      const batch = await session.rows.get(id)!.next();
+      const batch = await source.next();
       await settle(session);
       addImages();
       recorder?.mark("engine");
