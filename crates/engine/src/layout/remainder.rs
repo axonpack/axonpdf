@@ -44,11 +44,10 @@ struct Ctx {
 }
 
 impl Remainder {
-    /// Lays out a `<Page>` on an endless sheet, as far as the first cut at `cut` needs.
-    pub fn new(page: &mut Node, cut: f64, a: &Assets) -> Result<Self, String> {
-        let mut r = Remainder { tree: Tree::new() };
-        r.relayout(page, &[], cut, a)?;
-        Ok(r)
+    /// Nothing laid out yet: the first [`Remainder::relayout`] lays out the page on an endless
+    /// sheet, as far as its first cut needs.
+    pub fn empty() -> Self {
+        Remainder { tree: Tree::new() }
     }
 
     /// Everything laid out, as the components do it: the check the kept layout is held to.
@@ -68,10 +67,11 @@ impl Remainder {
 
     /// Lays out what is left after a cut, `gone` being the Yoga nodes of what left with the
     /// finished page, and reads the boxes a cut at `cut` will look at.
+    /// After an error it can be called again; `gone` is emptied once freed.
     pub fn relayout(
         &mut self,
         page: &mut Node,
-        gone: &[NodeId],
+        gone: &mut Vec<NodeId>,
         cut: f64,
         a: &Assets,
     ) -> Result<(), String> {
@@ -85,14 +85,10 @@ impl Remainder {
             no_absolute: true,
         };
         let mut slack = 2.0 * cut.max(200.0);
-        let mut first = true;
         loop {
             page.dirty = true;
             sync(&mut self.tree, page, true, cut, slack, ctx, a)?;
-            if first {
-                gone.iter().for_each(|&id| self.tree.free(id));
-                first = false;
-            }
+            gone.drain(..).for_each(|id| self.tree.free(id));
             self.tree.calculate(page.yoga.unwrap(), None, None);
             write_back(&self.tree, page, false);
             match read_near(&self.tree, page, cut, a)? {
@@ -171,6 +167,23 @@ fn window(n: &Node, reach: f64) -> usize {
 /// Tells Yoga what changed: new nodes are built, changed ones get their style, lines and
 /// children again, the windowed ones only their window. Unchanged subtrees are left alone.
 fn sync(
+    t: &mut Tree,
+    n: &mut Node,
+    is_page: bool,
+    cut: f64,
+    slack: f64,
+    ctx: Ctx,
+    a: &Assets,
+) -> Result<(), String> {
+    // A node left half done (waiting for rows) is done again on the next call.
+    let r = sync_node(t, n, is_page, cut, slack, ctx, a);
+    if r.is_err() {
+        n.dirty = true;
+    }
+    r
+}
+
+fn sync_node(
     t: &mut Tree,
     n: &mut Node,
     is_page: bool,

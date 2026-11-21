@@ -8,6 +8,7 @@ pub mod page;
 mod split;
 
 use crate::RenderArgs;
+use crate::layout::yoga::NodeId;
 use crate::layout::{Assets, Remainder, layout_page};
 use crate::style::Container;
 use crate::tree::{Kind, Node, RawNode, RenderResult, extras};
@@ -37,74 +38,124 @@ pub struct Finished {
 /// Takes each page as it is cut, with the pager to finish it.
 pub type Done<'a, 'b> = dyn FnMut(&mut Pager<'a, 'b>, Finished) -> Result<(), String> + 'a;
 
+/// One `<Page>` being cut, a page at a time. It can wait between pages, and when a page needs
+/// rows that have not come yet, the same call is made again once they have.
+pub struct Cut {
+    /// What is left to cut.
+    page: Option<Node>,
+    remainder: Remainder,
+    first: u32,
+    count: u32,
+    /// The rest must be laid out again first; the Yoga nodes of what left with the last page.
+    relayout: Option<Vec<NodeId>>,
+    /// `wrap={false}`: the page as it is.
+    whole: bool,
+}
+
 impl<'a, 'b> Pager<'a, 'b> {
+    /// Starts cutting a `<Page>` whose first page has number `first`.
+    pub fn begin(&self, page: Node, first: u32) -> Cut {
+        let whole = page.props.get("wrap") == Some(&serde_json::Value::Bool(false));
+        Cut {
+            page: Some(page),
+            remainder: Remainder::empty(),
+            first,
+            count: 0,
+            relayout: Some(Vec::new()),
+            whole,
+        }
+    }
+
+    /// The next page of `cut`, or `None` when nothing is left. After an error the call can be
+    /// made again (it is how a wait for rows comes out).
+    pub fn next(&mut self, cut: &mut Cut) -> Result<Option<Finished>, String> {
+        let Some(mut page) = cut.page.take() else {
+            return Ok(None);
+        };
+        if cut.whole {
+            layout_page(&mut page, None, self.assets)?;
+            cut.count = 1;
+            return Ok(Some(Finished {
+                page,
+                sub_index: 0,
+                last: true,
+            }));
+        }
+        let number = cut.first + cut.count;
+        let step = (|| {
+            if let Some(gone) = &mut cut.relayout {
+                let (height, _, pad_bottom) = page::heights(&page);
+                let at = height.unwrap_or(f64::NAN) - pad_bottom;
+                cut.remainder.relayout(&mut page, gone, at, self.assets)?;
+            }
+            cut.relayout = None;
+            self.split_page(&mut cut.remainder, &mut page, number)
+        })();
+        match step {
+            Err(e) => {
+                cut.page = Some(page);
+                Err(e)
+            }
+            Ok((current, gone, more)) => {
+                cut.count += 1;
+                if more {
+                    cut.relayout = Some(gone);
+                    cut.page = Some(page);
+                }
+                Ok(Some(Finished {
+                    page: current,
+                    sub_index: cut.count - 1,
+                    last: !more,
+                }))
+            }
+        }
+    }
+
+    /// How many pages `cut` made.
+    pub fn count(cut: &Cut) -> u32 {
+        cut.count
+    }
+
     /// Cuts one `<Page>` into pages, handing each to `done` as soon as it is cut. Returns how
     /// many pages it made. `first` is the document page number of the first one.
     pub fn paginate(
         &mut self,
-        mut page: Node,
+        page: Node,
         first: u32,
         done: &mut Done<'a, 'b>,
     ) -> Result<u32, String> {
-        if page.props.get("wrap") == Some(&serde_json::Value::Bool(false)) {
-            layout_page(&mut page, None, self.assets)?;
-            done(
-                self,
-                Finished {
-                    page,
-                    sub_index: 0,
-                    last: true,
-                },
-            )?;
-            return Ok(1);
+        let mut cut = self.begin(page, first);
+        while let Some(f) = self.next(&mut cut)? {
+            done(self, f)?;
         }
-        let (height, _, pad_bottom) = page::heights(&page);
-        let cut = height.unwrap_or(f64::NAN) - pad_bottom;
-        let mut remainder = Remainder::new(&mut page, cut, self.assets)?;
-        let mut count = 0;
-        let mut rest = Some(page);
-        while let Some(p) = rest {
-            let (current, next) = self.split_page(&mut remainder, p, first + count)?;
-            done(
-                self,
-                Finished {
-                    page: current,
-                    sub_index: count,
-                    last: next.is_none(),
-                },
-            )?;
-            count += 1;
-            rest = next;
-        }
-        Ok(count)
+        Ok(cut.count)
     }
 
+    /// Cuts the next page off `page`, which keeps the rest. Returns the page, the Yoga nodes of
+    /// what left with it, and whether anything is left.
     fn split_page(
         &mut self,
         remainder: &mut Remainder,
-        mut page: Node,
+        page: &mut Node,
         number: u32,
-    ) -> Result<(Node, Option<Node>), String> {
-        let (height, _, pad_bottom) = page::heights(&page);
+    ) -> Result<(Node, Vec<NodeId>, bool), String> {
+        let (height, _, pad_bottom) = page::heights(page);
         let height = height.unwrap_or(f64::NAN);
         if page.dynamic {
             let args = RenderArgs {
                 page_number: number,
-                total_pages: None,
-                sub_page_number: None,
-                sub_page_total_pages: None,
                 ..Default::default()
             };
-            self.resolve_dynamic(&mut page, &args)?;
-            remainder.relayout(&mut page, &[], height - pad_bottom, self.assets)?;
+            self.resolve_dynamic(page, &args)?;
+            remainder.relayout(page, &mut Vec::new(), height - pad_bottom, self.assets)?;
         }
         if let Some(base) = self.band_base
-            && bands::fit(&mut page, base)
+            && bands::fit(page, base)
         {
-            let (_, _, pad_bottom) = page::heights(&page);
-            remainder.relayout(&mut page, &[], height - pad_bottom, self.assets)?;
+            let (_, _, pad_bottom) = page::heights(page);
+            remainder.relayout(page, &mut Vec::new(), height - pad_bottom, self.assets)?;
         }
-        let (_, pad_top, pad_bottom) = page::heights(&page);
+        let (_, pad_top, pad_bottom) = page::heights(page);
         let children = std::mem::take(&mut page.children);
         let mut gone = Vec::new();
         let (cur, next) = split::split_nodes(
@@ -125,13 +176,10 @@ impl<'a, 'b> Pager<'a, 'b> {
             Some(height).filter(|h| !h.is_nan()),
             self.assets,
         )?;
-        if next.iter().all(Node::is_fixed) && page.pending.is_empty() {
-            return Ok((current, None));
-        }
+        let more = !(next.iter().all(Node::is_fixed) && page.pending.is_empty());
         page.props.shift_remove("bookmark");
         page.children = next;
-        remainder.relayout(&mut page, &gone, height - pad_bottom, self.assets)?;
-        Ok((current, Some(page)))
+        Ok((current, gone, more))
     }
 
     /// Runs `render` functions once more with the final numbers, and lays the page out again.
