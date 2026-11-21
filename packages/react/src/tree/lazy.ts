@@ -78,12 +78,14 @@ export function lazyChildren(node: TreeNode, children: Iterator<Item>, session: 
 /** Leaves a page's children to be built, all at once, when the engine opens the page. */
 export function lazyPage(node: TreeNode, children: Iterable<Item>, session: Session) {
   const id = session.nextId++;
+  const pageProps = session.pageProps;
   node.props.lazy = id;
   session.rows.set(id, {
     async: false,
     lazy: true,
     next() {
       session.rows.delete(id);
+      session.pageProps = pageProps;
       const outer = session.inBatch;
       session.inBatch = true;
       try {

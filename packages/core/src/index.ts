@@ -1,4 +1,4 @@
-export { createEngine } from "./engine.js";
+export { createEngine, loadPageWidth } from "./engine.js";
 export type {
   Callbacks,
   Engine,

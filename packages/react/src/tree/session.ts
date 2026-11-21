@@ -30,6 +30,10 @@ export interface Session {
   inRender: boolean;
   /** Each page's content waits until the engine opens the page. */
   lazyPages: boolean;
+  /** The props of the page whose content is being built, for `srcSet`. */
+  pageProps: object;
+  /** A page's width in points from its props; set before the tree is built. */
+  measurePage?: (props: object) => number;
   /** A `PageCount` was built. */
   pageCount: boolean;
   /** Kept from an earlier try of the same render (see `render-document.ts`). */
@@ -69,6 +73,7 @@ export function createSession(carried: Carried = { images: [], emoji: new Map() 
     inBatch: false,
     inRender: false,
     lazyPages: false,
+    pageProps: {},
     pageCount: false,
     carried,
     restart: false,

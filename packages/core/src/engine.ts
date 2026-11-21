@@ -16,6 +16,22 @@ function utf8Length(text: string) {
   return len;
 }
 
+/**
+ * Loads the WebAssembly module (once per process) and gives a function that measures a page:
+ * its width in points from its props (`size`, `orientation`, `dpi`), NaN for a bad size.
+ */
+export async function loadPageWidth(): Promise<(props: object) => number> {
+  const { module } = await load();
+  return (props) => {
+    const bytes = encoder.encode(JSON.stringify(props));
+    const ptr = module._axonpdf_alloc(bytes.length);
+    module.HEAPU8.set(bytes, ptr);
+    const width = module._axonpdf_page_width(ptr, bytes.length);
+    module._axonpdf_dealloc(ptr, bytes.length);
+    return width;
+  };
+}
+
 /** Loads the WebAssembly module (once per process) and creates an engine. */
 export async function createEngine(): Promise<Engine> {
   const { module, active, pointers } = await load();

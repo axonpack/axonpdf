@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 
 use crate::style::units::{js_round, split_number};
 use crate::style::{Container, Dim, flatten};
@@ -83,15 +83,13 @@ fn length(v: &Value, dpi: f64) -> Result<Option<f64>, String> {
 }
 
 /// Width and height (None: grows with content) of a page, orientation applied.
-pub fn size(raw: &RawNode) -> Result<(f64, Option<f64>, bool), String> {
-    let dpi = raw
-        .props
+pub fn size(props: &Map<String, Value>) -> Result<(f64, Option<f64>, bool), String> {
+    let dpi = props
         .get("dpi")
         .and_then(Value::as_f64)
         .filter(|d| *d != 0.0)
         .unwrap_or(72.0);
-    let size = raw
-        .props
+    let size = props
         .get("size")
         .filter(|v| truthy(v))
         .cloned()
@@ -119,7 +117,7 @@ pub fn size(raw: &RawNode) -> Result<(f64, Option<f64>, bool), String> {
         ),
         _ => (595.28, Some(841.89)),
     };
-    let landscape = raw.props.get("orientation").and_then(Value::as_str) == Some("landscape");
+    let landscape = props.get("orientation").and_then(Value::as_str) == Some("landscape");
     Ok(if landscape {
         (h.unwrap_or(0.0), Some(w).filter(|w| *w != 0.0), true)
     } else {
@@ -130,7 +128,7 @@ pub fn size(raw: &RawNode) -> Result<(f64, Option<f64>, bool), String> {
 /// Builds a page node: the size overrides the style's width and height, percentages of page
 /// paddings and of its children's heights become points against the page.
 pub fn build(mut raw: RawNode) -> Result<(Node, Container), String> {
-    let (width, height, landscape) = size(&raw)?;
+    let (width, height, landscape) = size(&raw.props)?;
     let bands = super::bands::take(&mut raw)?;
     raw.children.extend(bands.iter().map(RawNode::boxed));
     let mut style = flatten::flatten(&raw.style);

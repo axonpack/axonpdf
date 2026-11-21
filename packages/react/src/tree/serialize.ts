@@ -2,6 +2,7 @@ import type { RenderArgs } from "@axonpdf/core";
 import { createElement, isValidElement, type ReactNode } from "react";
 
 import { asset } from "../assets/image-asset.js";
+import { imageSource } from "../assets/src-set.js";
 import { Font } from "../font/font-store.js";
 import type { Item, TextInstance } from "../types/instance.type.js";
 import type { TreeDocument, TreeNode, TreeText } from "../types/tree.type.js";
@@ -16,6 +17,7 @@ type Mark = () => void;
 type Host = Exclude<Item, TextInstance>;
 
 const EMOJI = /\p{RGI_Emoji}/gv;
+const IMAGE_SOURCES = new Set(["src", "source", "srcSet"]);
 
 /** The tree JSON for a committed `Document` (shape in `types/tree.type.ts`). */
 export function serializeDocument(document: Host, session: Session): TreeDocument {
@@ -54,6 +56,7 @@ export function serialize(child: Item, session: Session): TreeNode | TreeText {
 
   const node: TreeNode = { type, props: {}, children: [] };
   if (type === "PAGE_COUNT") session.pageCount = true;
+  if (type === "PAGE") session.pageProps = all;
   for (const [key, value] of Object.entries(all)) {
     if (value === undefined) continue;
     if (key === "style") {
@@ -76,8 +79,9 @@ export function serialize(child: Item, session: Session): TreeNode | TreeText {
         typeof value === "function"
           ? { render: callback(session, value, bandArgs) }
           : band(value, session);
-    } else if ((key === "src" || key === "source") && type.startsWith("IMAGE")) {
-      node.props.src = asset(value, all.cache !== false, session);
+    } else if (IMAGE_SOURCES.has(key) && type.startsWith("IMAGE")) {
+      const source = imageSource(all, session.measurePage?.(session.pageProps) ?? NaN);
+      if (source !== undefined) node.props.src ??= asset(source, all.cache !== false, session);
     } else if (typeof value !== "function") {
       node.props[key] = value;
     }

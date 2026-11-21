@@ -1,4 +1,4 @@
-import { createEngine, type RenderArgs } from "@axonpdf/core";
+import { createEngine, loadPageWidth, type RenderArgs } from "@axonpdf/core";
 
 import { addEmoji } from "../assets/emoji.js";
 import { Font } from "../font/font-store.js";
@@ -107,6 +107,7 @@ async function renderOnce(
   /** Set only by `profile`. */
   recorder?: Recorder,
 ) {
+  session.measurePage = await loadPageWidth();
   recorder?.mark("tree");
   let tree: TreeDocument | undefined = build(session);
   release?.();

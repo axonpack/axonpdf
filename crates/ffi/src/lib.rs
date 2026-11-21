@@ -96,6 +96,20 @@ pub extern "C" fn axonpdf_total_pages_marker() -> *const c_char {
     MARKER.as_ptr()
 }
 
+/// The width in points of a page with these props (`size`, `orientation`, `dpi`) as a JSON
+/// object, as the engine lays the page out; NaN for a size it rejects.
+///
+/// # Safety
+/// `props` is `len` bytes of UTF-8.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn axonpdf_page_width(props: *const u8, len: usize) -> f64 {
+    let props = unsafe { text(props, len) }.ok();
+    props
+        .and_then(|p| serde_json::from_str(p).ok())
+        .and_then(|p| axonpdf::paginate::page::size(&p).ok())
+        .map_or(f64::NAN, |(width, ..)| width)
+}
+
 /// Turns phase timing on, from nothing measured, or off, for every engine on this thread.
 #[unsafe(no_mangle)]
 pub extern "C" fn axonpdf_profile(on: bool) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createEngine } from "../index.js";
+import { createEngine, loadPageWidth } from "../index.js";
 
 const tree = {
   v: 1,
@@ -107,5 +107,16 @@ describe("createEngine", () => {
     expect(engine.pushRows(9, JSON.stringify({ children: [row(2)], done: true }))).toBeUndefined();
     engine.free();
     expect(Buffer.concat(chunks).toString("latin1").trimEnd().endsWith("%%EOF")).toBe(true);
+  });
+});
+
+describe("loadPageWidth", () => {
+  it("measures a page from its size, orientation and dpi", async () => {
+    const width = await loadPageWidth();
+    expect(width({})).toBe(595.28);
+    expect(width({ size: "LETTER", orientation: "landscape" })).toBe(792);
+    expect(width({ size: ["4in", 300] })).toBe(288);
+    expect(width({ size: { width: 192 }, dpi: 144 })).toBe(192);
+    expect(width({ size: "B12" })).toBeNaN();
   });
 });
