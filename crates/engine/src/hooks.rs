@@ -70,7 +70,9 @@ impl Hooks {
         if let Some(json) = replayed.or_else(fetched) {
             let mut replay = self.replay.borrow_mut();
             if replay.recording {
-                let deflated = compress_to_vec(json.as_bytes(), 1);
+                // Shrunk: the deflater's buffer is sized for the input, not what it wrote.
+                let mut deflated = compress_to_vec(json.as_bytes(), 1);
+                deflated.shrink_to_fit();
                 replay.batches.entry(id).or_default().push_back(deflated);
             }
             let b: Batch = serde_json::from_str(&json).map_err(|e| format!("rows {id}: {e}"))?;
