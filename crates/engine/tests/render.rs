@@ -177,9 +177,12 @@ fn text_flows_beside_a_float_and_clear_goes_below_it() {
             let [float, wrapped, cleared] = &p.children[..] else { panic!() };
             assert_eq!((float.layout.left, float.layout.top), (140.0, 10.0));
             let t = wrapped.text.as_ref().unwrap().borrow();
-            let lines = t.wrapped.as_ref().unwrap();
+            let lines = t.lines.as_ref().unwrap();
             // Beside the float, lines end before its left margin.
             assert!(lines.iter().all(|l| l.x + l.width <= 135.0 + 1e-9));
+            // The text's box holds its wrapped lines, and `clear` goes below the float.
+            let bottom = lines.last().map_or(0.0, |l| l.y + l.height);
+            assert!(wrapped.layout.height >= bottom - 1e-9);
             assert_eq!(cleared.layout.top, 50.0);
             seen = true;
         })

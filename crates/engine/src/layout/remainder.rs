@@ -13,7 +13,8 @@
 
 use super::yoga::{Align, FlexDirection, Justify, NodeId, PositionType, Tree, Wrap};
 use super::{
-    Assets, apply, build, fill_text, is_container, set_leaf_measure, set_text_measure, write_back,
+    Assets, apply, fill_text, floats, full, is_container, set_leaf_measure,
+    set_text_measure, write_back,
 };
 use crate::style::Dim;
 use crate::tree::{Kind, Node};
@@ -32,6 +33,8 @@ const WINDOW_MIN: usize = 64;
 
 pub struct Remainder {
     tree: Tree,
+    /// Whether the page has floats, once known: it is then laid out whole at every cut.
+    floats: Option<bool>,
 }
 
 /// What a container's children may rely on, from the page down.
@@ -47,22 +50,26 @@ impl Remainder {
     /// Nothing laid out yet: the first [`Remainder::relayout`] lays out the page on an endless
     /// sheet, as far as its first cut needs.
     pub fn empty() -> Self {
-        Remainder { tree: Tree::new() }
+        Remainder {
+            tree: Tree::new(),
+            floats: None,
+        }
     }
 
-    /// Everything laid out, as the components do it: the check the kept layout is held to.
-    fn whole(page: &mut Node, a: &Assets) -> Result<Self, String> {
+    /// Everything laid out, as the components do it: the check the kept layout is held to, and
+    /// the layout of a page with floats, which move what is below them.
+    fn whole(page: &mut Node, a: &Assets) -> Result<Tree, String> {
         fn fetch_all(n: &mut Node, a: &Assets) -> Result<(), String> {
             while has_more(n) && (a.more_rows)(n)? {}
             n.children.iter_mut().try_for_each(|c| fetch_all(c, a))
         }
         fetch_all(page, a)?;
-        let mut tree = Tree::new();
-        let root = build(&mut tree, page, true, None, None, a)?;
-        tree.calculate(root, None, None);
-        write_back(&tree, page, true);
-        fill_text(page, a)?;
-        Ok(Remainder { tree })
+        let mut tree = full(page, None, a)?;
+        floats::settle(page, a, |p| {
+            tree = full(p, None, a)?;
+            Ok(())
+        })?;
+        Ok(tree)
     }
 
     /// Lays out what is left after a cut, `gone` being the Yoga nodes of what left with the
@@ -76,8 +83,10 @@ impl Remainder {
         a: &Assets,
     ) -> Result<(), String> {
         // A check switch: lay the rest out from scratch, as the components do, to compare.
-        if std::env::var_os("AXONPDF_FRESH_LAYOUT").is_some() {
-            *self = Remainder::whole(page, a)?;
+        // ponytail: floats in rows that arrive later in batches are not seen here.
+        let fresh = std::env::var_os("AXONPDF_FRESH_LAYOUT").is_some();
+        if fresh || *self.floats.get_or_insert_with(|| floats::has(page)) {
+            self.tree = Remainder::whole(page, a)?;
             return Ok(());
         }
         let ctx = Ctx {
@@ -209,7 +218,13 @@ fn sync_node(
         }
     };
     n.dirty = false;
-    apply::apply(t, id, &n.style, if is_page { None } else { n.style.height });
+    apply::apply(
+        t,
+        id,
+        &n.style,
+        if is_page { None } else { n.style.height },
+        n.clearance,
+    );
     if is_container(n) {
         let ctx = Ctx {
             no_absolute: ctx.no_absolute && in_flow(n),

@@ -3,7 +3,7 @@
 
 mod apply;
 mod canvas;
-mod floats;
+pub mod floats;
 pub mod image;
 pub mod remainder;
 mod svg;
@@ -42,6 +42,13 @@ pub struct Assets<'a> {
 
 /// Lays out a page. `height` is the page box's height; `None` lays it out on an endless sheet.
 pub fn layout_page(page: &mut Node, height: Option<f64>, a: &Assets) -> Result<(), String> {
+    let pass = |page: &mut Node| full(page, height, a).map(drop);
+    pass(page)?;
+    floats::settle(page, a, pass)
+}
+
+/// Lays out a page from scratch, giving back its Yoga tree.
+fn full(page: &mut Node, height: Option<f64>, a: &Assets) -> Result<Tree, String> {
     let mut tree = Tree::new();
     let page_area = height.map(|h| {
         let p = |i: usize| match page.style.padding[i] {
@@ -53,9 +60,8 @@ pub fn layout_page(page: &mut Node, height: Option<f64>, a: &Assets) -> Result<(
     let root = build(&mut tree, page, true, height, page_area, a)?;
     tree.calculate(root, None, None);
     write_back(&tree, page, true);
-    drop(tree);
     fill_text(page, a)?;
-    floats::resolve(page, a)
+    Ok(tree)
 }
 
 /// Text that Yoga never measured (hidden, or sized by its style) gets lines for its box.
@@ -107,7 +113,7 @@ fn build(
     } else {
         n.style.height
     };
-    apply::apply(t, id, &n.style, height);
+    apply::apply(t, id, &n.style, height, n.clearance);
     set_leaf_measure(t, id, n, page_area, a)?;
     if is_container(n) {
         for child in &mut n.children {

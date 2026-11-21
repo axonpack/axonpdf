@@ -22,8 +22,9 @@ fn len(d: Dim) -> Option<Len> {
 
 const EDGES: [Edge; 4] = [Edge::Top, Edge::Right, Edge::Bottom, Edge::Left];
 
-/// `height` is the page's own box height for a page, else the style's.
-pub fn apply(t: &mut Tree, id: NodeId, s: &Style, height: Option<Dim>) {
+/// `height` is the page's own box height for a page, else the style's. `clearance` is added to
+/// a top margin in points (`clear`).
+pub fn apply(t: &mut Tree, id: NodeId, s: &Style, height: Option<Dim>, clearance: f64) {
     if let Some(h) = height {
         t.height(id, dim(h));
     }
@@ -41,7 +42,12 @@ pub fn apply(t: &mut Tree, id: NodeId, s: &Style, height: Option<Dim>) {
         }
     }
     for (i, edge) in EDGES.into_iter().enumerate() {
-        if let Some(m) = s.margin[i] {
+        let m = match s.margin[i] {
+            Some(Dim::Pt(x)) if i == 0 => Some(Dim::Pt(x + clearance)),
+            None if i == 0 && clearance > 0.0 => Some(Dim::Pt(clearance)),
+            m => m,
+        };
+        if let Some(m) = m {
             t.margin(id, edge, dim(m));
         }
         if let Some(p) = s.padding[i].and_then(len) {

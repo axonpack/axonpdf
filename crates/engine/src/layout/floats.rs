@@ -1,5 +1,6 @@
-//! Floats, after Yoga: each `float` goes to its side of the parent's content box, the text after
-//! it flows around its box or `shapeOutside`, and `clear` moves a node below the floats before it.
+//! Floats: each `float` goes to its side of the parent's content box, the text after it flows
+//! around its box or `shapeOutside`, and `clear` moves a node below the floats before it. Both
+//! change what Yoga measures, so a page with floats is laid out again until they settle.
 
 use super::{Assets, is_container, text};
 use crate::style::Dim;
@@ -7,20 +8,50 @@ use crate::style::shape::{Radius, ShapeOutside};
 use crate::text::exclusion::{Exclusion, Shape};
 use crate::tree::{Kind, Node};
 
-/// Resolves the floats in `n`'s subtree.
-pub fn resolve(n: &mut Node, a: &Assets) -> Result<(), String> {
-    if !is_container(n) {
+/// Layouts after the first, at most, for the floats to settle.
+const PASSES: usize = 3;
+
+/// Whether anything in `n`, built or still waiting as JSON, floats.
+pub fn has(n: &Node) -> bool {
+    matches!(n.style.float.as_deref(), Some("left" | "right"))
+        || n.pending.iter().any(|raw| raw.get().contains("\"float\""))
+        || n.children.iter().any(has)
+}
+
+/// After a layout of `page`: while its floats change what text wraps around or how far `clear`
+/// pushes, `again` lays it out once more. Pages without floats are left as they are.
+pub fn settle(
+    page: &mut Node,
+    a: &Assets,
+    mut again: impl FnMut(&mut Node) -> Result<(), String>,
+) -> Result<(), String> {
+    if !has(page) {
         return Ok(());
+    }
+    for pass in 0..=PASSES {
+        if !resolve(page, a)? || pass == PASSES {
+            break;
+        }
+        again(page)?;
+    }
+    Ok(())
+}
+
+/// Places the floats in `n`'s subtree and works out, from the boxes Yoga gave, what the text
+/// after them flows around and each node's clearance. True when any of that changed.
+fn resolve(n: &mut Node, a: &Assets) -> Result<bool, String> {
+    if !is_container(n) {
+        return Ok(false);
     }
     let l = n.layout;
     let (start, end) = (
         l.padding[3] + l.border[3],
         l.width - l.padding[1] - l.border[1],
     );
+    let mut changed = false;
     let mut exclusions = Vec::new();
     // Each float's side and the bottom of its margin box, for `clear`.
     let mut edges: Vec<(bool, f64)> = Vec::new();
-    let mut shift = 0.0;
     for c in n
         .children
         .iter_mut()
@@ -40,7 +71,6 @@ pub fn resolve(n: &mut Node, a: &Assets) -> Result<(), String> {
             exclusions.push(exclusion(c, left));
             edges.push((left, c.layout.top + c.layout.height + c.layout.margin[2]));
         } else {
-            c.layout.top += shift;
             let clear = c.style.clear.as_deref().unwrap_or("none");
             let below = edges
                 .iter()
@@ -48,42 +78,51 @@ pub fn resolve(n: &mut Node, a: &Assets) -> Result<(), String> {
                     clear == "both" || clear == if *left { "left" } else { "right" }
                 })
                 .map(|e| e.1)
-                .fold(0.0, f64::max);
-            let extra = (below - c.layout.top).max(0.0);
-            c.layout.top += extra;
-            shift += extra;
+                .fold(f64::NEG_INFINITY, f64::max);
+            // Where the node would be without its clearance.
+            let top = c.layout.top - c.clearance;
+            let clearance = (below - top).max(0.0);
+            if (clearance - c.clearance).abs() > 0.01 {
+                c.clearance = clearance;
+                changed = true;
+            }
             if c.kind == Kind::Text {
-                wrap(c, &exclusions, a)?;
+                changed |= wrap(c, &exclusions, a)?;
             }
         }
-        resolve(c, a)?;
+        changed |= resolve(c, a)?;
     }
-    // Cleared nodes moved down after Yoga ran: the parent grows to hold them.
-    n.layout.height += shift;
-    Ok(())
+    Ok(changed)
 }
 
-/// Lays out a text's lines around `exclusions` (in its parent's coordinates), with no height
-/// limit; without any, it keeps the lines it has.
-fn wrap(t: &mut Node, exclusions: &[Exclusion], a: &Assets) -> Result<(), String> {
+/// Lays out a text's lines again, around `exclusions` (in its parent's coordinates) and with no
+/// height limit, when they differ from those it flows around. A piece cut by a page break keeps
+/// its lines.
+fn wrap(t: &mut Node, exclusions: &[Exclusion], a: &Assets) -> Result<bool, String> {
     let Some(state) = t.text.clone() else {
-        return Ok(());
+        return Ok(false);
     };
-    if exclusions.is_empty() {
-        state.borrow_mut().wrapped = None;
-        return Ok(());
-    }
     let l = t.layout;
-    let mut opts = text::options(t);
-    opts.exclusions = exclusions.to_vec();
-    for e in &mut opts.exclusions {
+    let mut inside = exclusions.to_vec();
+    for e in &mut inside {
         e.shape
             .translate(-(l.left + l.padding[3]), -(l.top + l.padding[0]));
     }
+    let Some(was) = state.borrow().wrapped.clone() else {
+        return Ok(false);
+    };
+    if was == inside || state.borrow().lines.is_none() {
+        return Ok(false);
+    }
+    let mut opts = text::options(t);
+    opts.exclusions = inside;
     let width = l.width - l.padding[1] - l.padding[3];
     let lines = crate::text::layout(&text::paragraphs(t, a)?, width, None, &opts);
-    state.borrow_mut().wrapped = Some(lines);
-    Ok(())
+    let mut st = state.borrow_mut();
+    st.lines = Some(lines);
+    st.wrapped = Some(opts.exclusions);
+    t.dirty = true;
+    Ok(true)
 }
 
 /// What text keeps out of beside a float: its `shapeOutside`, else its box widened by the

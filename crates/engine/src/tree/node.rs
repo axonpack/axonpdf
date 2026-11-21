@@ -10,6 +10,7 @@ use serde_json::{Map, Value, json};
 use super::{RawNode, extras, truthy};
 use crate::style::{self, Container, Style};
 use crate::text::Line;
+use crate::text::exclusion::Exclusion;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Kind {
@@ -58,14 +59,24 @@ pub struct Layout {
 }
 
 /// A text node's lines, kept from the first width layout asks for.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct TextBox {
     pub lines: Option<Vec<Line>>,
     /// Shift that undoes alignment when the text's box shrank to its lines.
     pub align_offset: f64,
-    /// The lines flowed around floats, drawn instead of `lines`; the box keeps the height of
-    /// `lines`, as the components do.
-    pub wrapped: Option<Vec<Line>>,
+    /// The floats the lines flow around, in the text's content box. `None` for a piece of a
+    /// text cut by a page break: its lines stay as they were cut.
+    pub wrapped: Option<Vec<Exclusion>>,
+}
+
+impl Default for TextBox {
+    fn default() -> Self {
+        TextBox {
+            lines: None,
+            align_offset: 0.0,
+            wrapped: Some(Vec::new()),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -94,6 +105,8 @@ pub struct Node {
     pub pending: VecDeque<Box<RawValue>>,
     /// The child built last asked for a break after it.
     pub break_next: bool,
+    /// Added to the top margin so `clear` puts the node below the floats before it.
+    pub clearance: f64,
 }
 
 impl Node {
@@ -137,6 +150,7 @@ impl Node {
             window: 0,
             pending: VecDeque::new(),
             break_next: false,
+            clearance: 0.0,
         };
         node.set_children(raw.children, c);
         node
