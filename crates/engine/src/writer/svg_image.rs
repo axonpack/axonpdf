@@ -1,6 +1,6 @@
 //! SVG images: drawn once into a form XObject in their own points, then placed like any image.
 
-use pdf_writer::{Filter, Ref};
+use pdf_writer::Ref;
 use serde_json::Value;
 
 use super::Writer;
@@ -56,16 +56,15 @@ impl Writer {
             images,
             out,
         );
-        let data = self.seal(
-            r,
-            miniz_oxide::deflate::compress_to_vec_zlib(&parts.content, 6),
-        );
+        let (data, filter) = self.pack(r, &parts.content);
         self.svg_sizes.insert(r, (w, h));
         self.emit.write(out, |c| {
             let mut x = c.form_xobject(r, &data);
             x.bbox(pdf_writer::Rect::new(0.0, 0.0, w, h));
             x.matrix([1.0 / w, 0.0, 0.0, 1.0 / h, 0.0, 0.0]);
-            x.filter(Filter::FlateDecode);
+            if let Some(f) = filter {
+                x.filter(f);
+            }
             // A group: the image's opacity applies to the drawing as a whole, and inside it
             // alpha starts at 1 as the content assumes.
             x.group().transparency();

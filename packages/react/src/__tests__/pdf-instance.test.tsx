@@ -57,4 +57,11 @@ describe("pdf() instance", () => {
     expect(streams.length).toBeGreaterThan(0);
     for (const dict of streams) expect(dict).toContain("/FlateDecode");
   });
+
+  it("toString gives the PDF as text with its streams undeflated", async () => {
+    const file = await pdf(doc("Plain words")).toString();
+    expect(file.startsWith("%PDF-")).toBe(true);
+    expect(file).not.toContain("/FlateDecode");
+    expect(file).toMatch(/\[\(Plain w\) [\d.]+ \(ords\)\] TJ/);
+  });
 });

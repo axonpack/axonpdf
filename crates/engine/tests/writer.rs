@@ -105,3 +105,32 @@ fn svg_images_draw_as_one_vector_form() {
         );
     }
 }
+
+#[test]
+fn streams_can_be_left_undeflated() {
+    let count =
+        |pdf: &[u8], needle: &[u8]| pdf.windows(needle.len()).filter(|w| *w == needle).count();
+    let packed = common::render(1);
+    let plain = common::render_with(
+        axonpdf::writer::DocInfo {
+            uncompressed: true,
+            ..common::info()
+        },
+        1,
+    );
+    // Only the images' own encodings stay; the page, its fonts and its cmaps are plain.
+    assert!(count(&plain, b"/FlateDecode") < count(&packed, b"/FlateDecode"));
+    assert!(
+        count(&plain, b" Tj") + count(&plain, b" TJ") > 0,
+        "page text readable"
+    );
+    assert!(count(&plain, b"begincmap") > 0);
+    let path = save("uncompressed.pdf", &plain);
+    if let Some(check) = common::tool("qpdf", &["--check", path.to_str().unwrap()]) {
+        assert!(
+            check.status.success(),
+            "{}",
+            String::from_utf8_lossy(&check.stdout)
+        );
+    }
+}

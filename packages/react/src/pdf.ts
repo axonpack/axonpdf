@@ -10,6 +10,7 @@ import { walk } from "./tree/walk.js";
 import type { Container } from "./types/instance.type.js";
 import type { Recorder } from "./types/profile.type.js";
 import type { DocumentProps } from "./types/props.type.js";
+import type { TreeDocument } from "./types/tree.type.js";
 
 // React wants one renderer per process; each `pdf()` gets its own root in it.
 let renderer: Renderer | undefined;
@@ -65,19 +66,27 @@ export function mount(initialValue?: ReactElement) {
     callback?.();
   };
 
-  /** `release`: unmount once the tree is read, for a render that is the root's last. */
+  /**
+   * `release`: unmount once the tree is read, for a render that is the root's last. `compress`
+   * false writes the streams undeflated.
+   */
   const render = async (
     onChunk: (chunk: Uint8Array) => void,
     wait?: () => Promise<void>,
     release?: boolean,
     recorder?: Recorder,
+    compress = true,
   ) => {
+    const settings = (tree: TreeDocument) => {
+      if (!compress) tree.props.compress = false;
+      return tree;
+    };
     if (!reconciled) {
       try {
         const build = (session: Session) => {
           const [root] = walk(element, rootScope());
           documentProps = root?.type === "DOCUMENT" ? root.props : undefined;
-          return serializeRoot(root, session);
+          return settings(serializeRoot(root, session));
         };
         return await renderDocument(build, onChunk, wait, undefined, recorder);
       } catch (error) {
@@ -89,7 +98,7 @@ export function mount(initialValue?: ReactElement) {
     takeError();
     const build = (session: Session) => {
       documentProps = container.document?.props;
-      return serializeRoot(container.document, session);
+      return settings(serializeRoot(container.document, session));
     };
     const unmount = release ? () => update(null) : undefined;
     await renderDocument(build, onChunk, wait, unmount, recorder);
@@ -108,9 +117,9 @@ export function mount(initialValue?: ReactElement) {
 export function pdf(initialValue?: ReactElement<DocumentProps>) {
   const root = mount(initialValue);
   const { changeListeners, updateContainer, render: renderTo } = root;
-  const render = async () => {
+  const render = async (compress?: boolean) => {
     const chunks: Uint8Array[] = [];
-    await renderTo((chunk) => chunks.push(chunk));
+    await renderTo((chunk) => chunks.push(chunk), undefined, undefined, undefined, compress);
     return chunks;
   };
   const callOnRender = (params: { blob?: Blob } = {}) => root.documentProps()?.onRender?.(params);
@@ -130,12 +139,12 @@ export function pdf(initialValue?: ReactElement<DocumentProps>) {
       const run: Run = (write, wait) => renderTo(write, wait).then(() => callOnRender());
       return startStream(platform.sink(), run) as Promise<NodeJS.ReadableStream>;
     },
-    /** @deprecated use `toBuffer` or `toBlob`. */
+    /** @deprecated use `toBuffer` or `toBlob`. Its streams are left undeflated. */
     async toString(): Promise<string> {
       if (globalThis.process?.env?.NODE_ENV === "development") {
         console.warn("`toString` is deprecated and will be removed in next major release");
       }
-      const chunks = await render();
+      const chunks = await render(false);
       callOnRender();
       return latin1(chunks);
     },

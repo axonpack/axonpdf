@@ -11,7 +11,8 @@ use super::strings::Date;
 /// `creationDate` and `modificationDate` (ISO 8601 strings, as `JSON.stringify` writes a
 /// `Date`), `pdfVersion` (`"1.3"` to `"1.7ext3"`), `pageMode`, `pageLayout`, `conformance`
 /// (`"PDF/A-2b"`...), `userPassword`, `ownerPassword`, `permissions` (the components' object)
-/// and `encryptionSeed` (32 random bytes as an array of numbers, added by the adapter).
+/// `encryptionSeed` (32 random bytes as an array of numbers, added by the adapter) and
+/// `compress` (`false` writes the streams undeflated).
 pub fn doc_info(props: &Map<String, Value>) -> DocInfo {
     let text = |k: &str| {
         props
@@ -69,6 +70,7 @@ pub fn doc_info(props: &Map<String, Value>) -> DocInfo {
         }),
         encryption,
         conformance: text("conformance").and_then(|c| Conformance::parse(&c)),
+        uncompressed: props.get("compress") == Some(&Value::Bool(false)),
     }
 }
 
@@ -141,9 +143,10 @@ mod tests {
             "title": "T", "creationDate": "2026-11-21T06:30:05.123Z", "modificationDate": "2026-11-21T12:00:00+06:00",
             "pdfVersion": "1.7ext3", "pageMode": "useOutlines", "pageLayout": "twoPageLeft", "conformance": "PDF/A-2b",
             "ownerPassword": "o", "permissions": {"printing": "highResolution", "copying": true},
-            "encryptionSeed": vec![9; 32],
+            "encryptionSeed": vec![9; 32], "compress": false,
         });
         let info = doc_info(props.as_object().unwrap());
+        assert!(info.uncompressed);
         assert_eq!(info.creation_date.unwrap().pdf(), "D:20261121063005Z");
         assert_eq!(
             info.modification_date.unwrap().pdf(),

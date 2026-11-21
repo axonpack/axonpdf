@@ -28,6 +28,8 @@ pub struct DocInfo {
     pub encryption: Option<super::crypt::Encryption>,
     /// PDF/A conformance: XMP metadata and an sRGB output intent.
     pub conformance: Option<super::pdfa::Conformance>,
+    /// Content, font and drawing streams are written as they are, not deflated.
+    pub uncompressed: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

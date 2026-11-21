@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
-use pdf_writer::{Filter, Name, Rect, Ref, Str};
+use pdf_writer::{Name, Rect, Ref, Str};
 use rustybuzz::ttf_parser::Tag;
 use subsetter::GlyphRemapper;
 
@@ -168,13 +168,12 @@ impl Writer {
             }
         });
         let program = program.unwrap_or_default();
-        let compressed = self.seal(
-            file,
-            miniz_oxide::deflate::compress_to_vec_zlib(&program, 6),
-        );
+        let (data, filter) = self.pack(file, &program);
         self.emit.write(out, |c| {
-            let mut s = c.stream(file, &compressed);
-            s.filter(Filter::FlateDecode);
+            let mut s = c.stream(file, &data);
+            if let Some(f) = filter {
+                s.filter(f);
+            }
             if cff {
                 s.pair(Name(b"Subtype"), Name(b"CIDFontType0C"));
             } else {
@@ -194,12 +193,12 @@ impl Writer {
         for (g, s) in pairs {
             map.pair_with_multiple(*g, s.chars());
         }
-        let cmap_data = self.seal(
-            cmap,
-            miniz_oxide::deflate::compress_to_vec_zlib(&map.finish(), 6),
-        );
+        let (cmap_data, filter) = self.pack(cmap, &map.finish());
         self.emit.write(out, |c| {
-            c.stream(cmap, &cmap_data).filter(Filter::FlateDecode);
+            let mut s = c.stream(cmap, &cmap_data);
+            if let Some(f) = filter {
+                s.filter(f);
+            }
         });
     }
 }

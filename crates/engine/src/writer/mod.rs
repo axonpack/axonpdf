@@ -117,10 +117,12 @@ impl Writer {
         let page_ref = self.emit.alloc();
         let parts = self.content(page, page_ref, fonts, images, out);
         let content_ref = self.emit.alloc();
-        let compressed = miniz_oxide::deflate::compress_to_vec_zlib(&parts.content, 6);
-        let data = self.seal(content_ref, compressed);
+        let (data, filter) = self.pack(content_ref, &parts.content);
         self.emit.write(out, |c| {
-            c.stream(content_ref, &data).filter(Filter::FlateDecode);
+            let mut s = c.stream(content_ref, &data);
+            if let Some(f) = filter {
+                s.filter(f);
+            }
         });
         let pages = self.pages;
         self.emit.write(out, |c: &mut Chunk| {
@@ -159,6 +161,16 @@ impl Writer {
     }
 
     /// Encrypts a string or stream of object `id` when the document is encrypted.
+    /// A stream's data deflated (unless the document asked for plain streams) and sealed, with
+    /// the filter to name.
+    fn pack(&self, id: Ref, data: &[u8]) -> (Vec<u8>, Option<Filter>) {
+        if self.info.uncompressed {
+            return (self.seal(id, data.to_vec()), None);
+        }
+        let deflated = miniz_oxide::deflate::compress_to_vec_zlib(data, 6);
+        (self.seal(id, deflated), Some(Filter::FlateDecode))
+    }
+
     fn seal(&self, id: Ref, data: Vec<u8>) -> Vec<u8> {
         match &self.crypt {
             Some(c) => c.seal(id.get(), &data),
