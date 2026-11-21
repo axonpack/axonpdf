@@ -68,6 +68,7 @@ pub(super) fn layout_pages(
             .map(|v| v as u32),
         emoji: &emoji,
         more_rows: &more_rows,
+        total_digits: &Cell::new(2),
     };
     let counts = if reads_total(callback, &doc)? {
         Some(run(&assets, callback, &doc, None, None)?)
@@ -121,7 +122,14 @@ fn run(
     let mut call = |id: u32, args: &RenderArgs| call(callback, id, args);
     let mut made = Vec::new();
     let mut number = 1;
-    for raw in doc.pages() {
+    // Rows documents cannot be counted ahead; their total is filled in at the end.
+    let pending_total = total.is_none()
+        && doc
+            .page_json()
+            .any(|j| !tree::numbers_at(j, ROWS).is_empty());
+    let pages = doc.pages().count();
+    for (i, raw) in doc.pages().enumerate() {
+        let last_page = i + 1 == pages;
         let (node, container) = page::build(raw?)?;
         PAGE.with(|p| p.set(container));
         let mut pager = Pager {
@@ -141,6 +149,8 @@ fn run(
                 total_pages: total,
                 sub_page_number: Some(f.sub_index + 1),
                 sub_page_total_pages: sub_total,
+                is_last: Some(last_page && f.last),
+                total_pending: pending_total,
             };
             pager.finish(&mut f.page, &args)?;
             let height = page::heights(&f.page).0.unwrap_or(f.page.layout.height);

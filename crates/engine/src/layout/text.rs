@@ -15,7 +15,7 @@ use crate::tree::{Kind, Node};
 pub fn paragraphs(n: &Node, a: &Assets) -> Result<Vec<Paragraph>, String> {
     let mut frags = Vec::new();
     fragments(a.fonts, n, None, 0, &mut frags)?;
-    let frags = emoji(frags, a.emoji);
+    let frags = deferred_totals(emoji(frags, a.emoji), a.total_digits.get());
     let callback = n
         .number("hyphenationCallback")
         .map(|i| i as u32)
@@ -26,6 +26,38 @@ pub fn paragraphs(n: &Node, a: &Assets) -> Result<Vec<Paragraph>, String> {
             .unwrap_or_else(|| hyphen::builtin(w))
     };
     Ok(text::prepare(a.fonts, &frags, &mut split))
+}
+
+/// Gives each page-total marker a fragment of its own holding `digits` zeros, the room the
+/// writer draws the total in.
+fn deferred_totals(frags: Vec<Fragment>, digits: usize) -> Vec<Fragment> {
+    if !frags.iter().any(|f| f.text.contains(crate::TOTAL_PAGES)) {
+        return frags;
+    }
+    let mut out = Vec::new();
+    for f in frags {
+        let mut parts = f.text.split(crate::TOTAL_PAGES).peekable();
+        while let Some(part) = parts.next() {
+            if !part.is_empty() {
+                out.push(Fragment {
+                    text: part.to_string(),
+                    ..f.clone()
+                });
+            }
+            if parts.peek().is_some() {
+                let attrs = Attrs {
+                    deferred: true,
+                    ..(*f.attrs).clone()
+                };
+                out.push(Fragment {
+                    text: "0".repeat(digits),
+                    attrs: Rc::new(attrs),
+                    fonts: f.fonts.clone(),
+                });
+            }
+        }
+    }
+    out
 }
 
 /// Puts each emoji that has an image into a fragment of its own, drawn as that image at the
@@ -131,6 +163,7 @@ pub fn fragments(
         indent: s.text_indent.unwrap_or(0.0),
         vertical_align: s.vertical_align.clone(),
         attachment: None,
+        deferred: false,
     });
     for child in &node.children {
         match child.kind {

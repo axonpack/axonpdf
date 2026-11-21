@@ -30,6 +30,8 @@ pub struct Finished {
     pub page: Node,
     /// 0-based index among the pages cut from the same `<Page>`.
     pub sub_index: u32,
+    /// Nothing of its `<Page>` is left for another page.
+    pub last: bool,
 }
 
 /// Takes each page as it is cut, with the pager to finish it.
@@ -46,7 +48,14 @@ impl<'a, 'b> Pager<'a, 'b> {
     ) -> Result<u32, String> {
         if page.props.get("wrap") == Some(&serde_json::Value::Bool(false)) {
             layout_page(&mut page, None, self.assets)?;
-            done(self, Finished { page, sub_index: 0 })?;
+            done(
+                self,
+                Finished {
+                    page,
+                    sub_index: 0,
+                    last: true,
+                },
+            )?;
             return Ok(1);
         }
         let (height, _, pad_bottom) = page::heights(&page);
@@ -61,6 +70,7 @@ impl<'a, 'b> Pager<'a, 'b> {
                 Finished {
                     page: current,
                     sub_index: count,
+                    last: next.is_none(),
                 },
             )?;
             count += 1;
@@ -83,6 +93,7 @@ impl<'a, 'b> Pager<'a, 'b> {
                 total_pages: None,
                 sub_page_number: None,
                 sub_page_total_pages: None,
+                ..Default::default()
             };
             self.resolve_dynamic(&mut page, &args)?;
             remainder.relayout(&mut page, &[], height - pad_bottom, self.assets)?;
@@ -126,6 +137,10 @@ impl<'a, 'b> Pager<'a, 'b> {
     /// Runs `render` functions once more with the final numbers, and lays the page out again.
     /// The cut stays where it was even if the content grew.
     pub fn finish(&mut self, page: &mut Node, args: &RenderArgs) -> Result<(), String> {
+        // A total filled in at the end gets room for one digit more than this page number.
+        self.assets
+            .total_digits
+            .set(args.page_number.to_string().len() + 1);
         if page.dynamic {
             self.resolve_dynamic(page, args)?;
             let (height, ..) = page::heights(page);
@@ -149,12 +164,17 @@ impl<'a, 'b> Pager<'a, 'b> {
         }
         if let Some(what) = node.props.get(extras::COUNTER).and_then(|v| v.as_str()) {
             // While pages are being counted the total is not known; a digit holds its place.
+            // Without a count the writer fills it in at the end.
             let n = if what == "page" {
                 Some(args.page_number)
             } else {
                 self.total
             };
-            let value = n.map_or("0".to_string(), |n| n.to_string());
+            let value = match n {
+                Some(n) => n.to_string(),
+                None if args.total_pending => crate::TOTAL_PAGES.to_string(),
+                None => "0".to_string(),
+            };
             node.children = vec![Node::build(
                 RawNode::text(value),
                 &self.container,

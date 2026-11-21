@@ -136,3 +136,57 @@ fn rows_arrive_in_batches() {
     // 3000 lines of 19.8pt, 42 to an A4 page.
     assert_eq!(pages, 72);
 }
+
+/// With rows there is no counting run: the total is left for the writer, and the last page is
+/// told it is the last.
+#[test]
+fn rows_documents_defer_the_total() {
+    let fetched = Rc::new(RefCell::new(0));
+    let last = Rc::new(RefCell::new(Vec::new()));
+    let mut engine = Engine::new();
+    let n = fetched.clone();
+    engine.set_rows_callback(Box::new(move |_| {
+        let mut n = n.borrow_mut();
+        let batch: Vec<Value> = (*n..*n + 50).map(|i| text(&format!("Row {i}"))).collect();
+        *n += 50;
+        json!({"children": batch, "done": *n >= 200}).to_string()
+    }));
+    let seen = last.clone();
+    engine.set_render_callback(Box::new(move |_, a| {
+        if a.sub_page_number.is_some() {
+            seen.borrow_mut().push((a.is_last, a.total_pending));
+        }
+        json!({"children": [{"type": "TEXT_INSTANCE", "value": "x"}], "readsTotal": true})
+            .to_string()
+    }));
+    let footer = json!({"type": "TEXT", "props": {}, "children": [
+        {"type": "TEXT_INSTANCE", "value": "of "}, {"type": "PAGE_COUNT", "props": {}, "children": []}]});
+    let json = doc(
+        json!({"type": "PAGE", "props": {"footer": footer}, "children": [
+        {"type": "TEXT", "props": {"fixed": true}, "render": 1, "children": []},
+        {"type": "ROWS", "props": {"rows": 1}, "children": []}]}),
+    );
+    let mut deferred = 0;
+    engine
+        .layout(&json, &mut |p, _, _| {
+            fn walk(n: &Node, count: &mut usize) {
+                if let Some(t) = &n.text
+                    && let Some(lines) = &t.borrow().lines
+                {
+                    *count += lines
+                        .iter()
+                        .flat_map(|l| &l.runs)
+                        .filter(|r| r.attrs.deferred)
+                        .count();
+                }
+                n.children.iter().for_each(|c| walk(c, count));
+            }
+            walk(p, &mut deferred);
+        })
+        .unwrap();
+    let calls = last.borrow();
+    assert_eq!(deferred, calls.len());
+    assert!(calls.iter().all(|c| c.1));
+    assert_eq!(calls.iter().filter(|c| c.0 == Some(true)).count(), 1);
+    assert_eq!(calls.last().unwrap().0, Some(true));
+}

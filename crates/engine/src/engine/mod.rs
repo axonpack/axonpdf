@@ -22,7 +22,15 @@ pub struct RenderArgs {
     pub total_pages: Option<u32>,
     pub sub_page_number: Option<u32>,
     pub sub_page_total_pages: Option<u32>,
+    /// Whether this is the document's last page; known only in the final call for a page.
+    pub is_last: Option<bool>,
+    /// The total is filled in when the file is finished (documents with `Rows`, which cannot
+    /// be counted ahead): `totalPages` should be [`TOTAL_PAGES`] for the engine to replace.
+    pub total_pending: bool,
 }
+
+/// Stands for the page total in text until the writer knows it.
+pub const TOTAL_PAGES: &str = "\u{E000}T\u{E000}";
 
 /// Takes a finished page with its width and height.
 pub type Visit<'a> = dyn FnMut(&Node, f64, f64) + 'a;
@@ -150,4 +158,3 @@ impl Engine {
             .collect()
     }
 }
-

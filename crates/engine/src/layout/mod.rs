@@ -33,6 +33,8 @@ pub struct Assets<'a> {
     pub hyphenation: Option<u32>,
     /// Emoji images: the emoji text to its asset id.
     pub emoji: &'a [(String, u32)],
+    /// How many digits of room a page total filled in at the end gets.
+    pub total_digits: &'a std::cell::Cell<usize>,
     /// Adds the next batch of rows to a `Rows` node; false once it has no more.
     pub more_rows: &'a dyn Fn(&mut Node) -> Result<bool, String>,
 }

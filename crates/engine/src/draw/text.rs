@@ -59,7 +59,26 @@ fn draw_line(ops: &mut Vec<Op>, line: &Line, lx: f64, ly: f64, cx: &super::Ctx) 
         if let Some(a) = run.attrs.attachment {
             attachments(ops, run, a, pen, baseline, cx);
         }
-        ops.push(Op::Text(glyphs(run, pen, baseline)));
+        if run.attrs.deferred {
+            // The writer sets the page total here once it knows it.
+            let t = glyphs(run, pen, baseline);
+            ops.push(Op::Deferred(display::Deferred {
+                key: display::DeferredKey::TotalPages,
+                font: t.font,
+                size: t.size,
+                color: t.color,
+                x: t.x,
+                baseline: t.y,
+                width: run.x_advance as f32,
+                align: match run.attrs.align.as_str() {
+                    "center" => display::TextAlign::Center,
+                    "right" => display::TextAlign::Right,
+                    _ => display::TextAlign::Left,
+                },
+            }));
+        } else {
+            ops.push(Op::Text(glyphs(run, pen, baseline)));
+        }
         pen += run.x_advance;
     }
     decorations(ops, line, lx, ly);

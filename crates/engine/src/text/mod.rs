@@ -35,6 +35,8 @@ pub struct Attrs {
     pub vertical_align: Option<String>,
     /// An image drawn in place of each U+FFFC in the run (inline images and emoji).
     pub attachment: Option<Attachment>,
+    /// The run holds room for the page total, which the writer draws there at the end.
+    pub deferred: bool,
 }
 
 /// An image on a text line. `y_offset` moves it down.
