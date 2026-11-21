@@ -52,6 +52,11 @@ fn borders() {
     assert_eq!(s.border_style[LEFT], Some(BorderStyle::Dashed));
     assert_eq!(s.border_color[BOTTOM].map(|c| c.r), Some(1.0));
     assert_eq!(s.border_radius, [Some(Dim::Pt(3.0)); 4]);
+    // The shorthand takes lengths only; a percentage is an error, as on a corner it is not.
+    let s = r(json!({"borderRadius": "50%", "borderTopLeftRadius": "10%"}));
+    assert_eq!(s.border_radius[0], Some(Dim::Pct(10.0)));
+    assert_eq!(take_error(), Err("Invalid border radius: 50%".into()));
+    assert_eq!(take_error(), Ok(()));
     let s = r(json!({"borderBottom": "1 solid blue", "borderColor": "green"}));
     assert_eq!(s.border_width, [None, None, Some(1.0), None]);
     assert!(s.border_color.iter().all(|c| c.is_some()));

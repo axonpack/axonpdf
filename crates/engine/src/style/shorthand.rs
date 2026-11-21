@@ -111,7 +111,11 @@ pub(super) fn border(s: &mut Style, c: &Container, key: &str, v: &Value) {
             sides.iter().for_each(|&i| s.border_width[i] = w);
         }
         "Radius" => {
-            let r = unit(c, v).as_ref().and_then(dim);
+            // The shorthand takes lengths only; a percentage goes on each corner instead.
+            let r = match unit(c, v) {
+                Some(V::Str(t)) => return super::fail(format!("Invalid border radius: {t}")),
+                r => r.as_ref().and_then(dim),
+            };
             s.border_radius = [r; 4];
         }
         "" => {

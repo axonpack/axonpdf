@@ -189,3 +189,24 @@ fn text_flows_beside_a_float_and_clear_goes_below_it() {
         .unwrap();
     assert!(seen);
 }
+
+#[test]
+fn a_percent_border_radius_shorthand_fails_the_render() {
+    let page = |style: Value| {
+        json!({"v": 1, "type": "DOCUMENT", "props": {}, "children": [
+            {"type": "PAGE", "props": {}, "children": [
+                {"type": "VIEW", "props": {}, "style": style, "children": []}
+            ]}
+        ]})
+    };
+    let mut engine = Engine::new();
+    let mut out = |_: &[u8]| {};
+    let bad = page(json!({"width": 50, "height": 50, "borderRadius": "50%"}));
+    assert_eq!(
+        engine.render(&bad.to_string(), &mut out),
+        Err("Invalid border radius: 50%".into())
+    );
+    // Each corner takes a percentage, and the error doesn't outlive its render.
+    let corner = page(json!({"width": 50, "height": 50, "borderTopLeftRadius": "50%"}));
+    assert!(engine.render(&corner.to_string(), &mut out).is_ok());
+}

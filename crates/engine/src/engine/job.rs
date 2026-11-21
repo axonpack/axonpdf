@@ -12,7 +12,7 @@ use crate::draw;
 use crate::hooks::waiting_for;
 use crate::paginate::{self, Cut, Pager, next, page};
 use crate::profile::{self, Phase};
-use crate::style::Container;
+use crate::style::{self, Container};
 use crate::tree::{Json, RawNode};
 use crate::writer::{Out, Writer, doc_info};
 
@@ -54,6 +54,7 @@ impl Engine {
         let _time = profile::enter(Phase::Layout);
         self.hooks.reset();
         self.hooks.pushed.borrow_mut().clear();
+        style::take_error().ok();
         let json = Json::new(tree_json);
         let doc = parse(&json)?;
         let base = json.get().as_ptr() as usize;
@@ -116,6 +117,7 @@ impl Engine {
             loop {
                 if job.cut.is_none() {
                     let Some(range) = job.pages.get(job.next).cloned() else {
+                        style::take_error()?;
                         return Ok(Step::Done);
                     };
                     let page = job.json.part(&job.json.get()[range]);
@@ -165,6 +167,7 @@ impl Engine {
                     forms: Default::default(),
                     outline: &job.outline,
                 };
+                style::take_error()?;
                 let display = paint_page(&f.page, container.width, height, &cx);
                 drop(f);
                 let _time = profile::enter(Phase::Write);

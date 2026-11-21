@@ -11,7 +11,7 @@ use crate::layout::Assets;
 use crate::layout::remainder::{LAZY_CHILDREN, ROWS, ROWS_DONE, batch_id};
 use crate::paginate::{self, Finished, Pager, next, page};
 use crate::profile::{self, Phase};
-use crate::style::Container;
+use crate::style::{self, Container};
 use crate::tree::node::LAZY;
 use crate::tree::{self, Doc, Json, Node, RawNode, RenderResult};
 use serde_json::{Map, Value};
@@ -152,6 +152,8 @@ fn run(
     let total = counts.map(|c| c.iter().sum::<u32>());
     let mut call = |id: u32, args: &RenderArgs| call(callback, id, args);
     let mut made = Vec::new();
+    // Left from a render that failed on something else.
+    style::take_error().ok();
     let mut number = 1;
     // Rows documents cannot be counted ahead; their total is filled in at the end. So is that of
     // an uncounted document with lazy content, which may hold something that reads it.
@@ -179,6 +181,7 @@ fn run(
             band_base,
         };
         let mut done = |pager: &mut Pager, mut f: Finished| -> Result<(), String> {
+            style::take_error()?;
             let Some(visit) = visit.as_mut() else {
                 return Ok(());
             };
@@ -199,6 +202,7 @@ fn run(
         number += count;
         made.push(count);
     }
+    style::take_error()?;
     Ok(made)
 }
 

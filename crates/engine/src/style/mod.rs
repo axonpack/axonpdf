@@ -17,6 +17,8 @@ pub use inherit::inherit;
 pub use transform::Transform;
 pub use units::{Container, Dim};
 
+use std::cell::RefCell;
+
 use crate::display::{BorderStyle, Color};
 use crate::layout::yoga::{Align, FlexDirection, Justify, Overflow, PositionType, Wrap};
 use serde_json::Value;
@@ -102,6 +104,24 @@ pub fn resolve(c: &Container, raw: &Value) -> Style {
         style.position = Some(PositionType::Absolute);
     }
     style
+}
+
+thread_local! {
+    /// The first style that can't be used, such as `borderRadius: '50%'`. Resolving a style
+    /// can't fail, so the render checks this before it writes a page.
+    static ERROR: RefCell<Option<String>> = const { RefCell::new(None) };
+}
+
+/// Records a style error; the first one wins.
+pub(crate) fn fail(message: String) {
+    ERROR.with(|e| {
+        e.borrow_mut().get_or_insert(message);
+    });
+}
+
+/// Fails with the first style error since the last call, and forgets it.
+pub fn take_error() -> Result<(), String> {
+    ERROR.with(|e| e.borrow_mut().take()).map_or(Ok(()), Err)
 }
 
 pub const TOP: usize = 0;
