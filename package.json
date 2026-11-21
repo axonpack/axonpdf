@@ -12,9 +12,11 @@
     "format:check": "oxfmt --check packages"
   },
   "devDependencies": {
+    "@axonpdf/react": "workspace:*",
     "oxfmt": "^0.79.0",
     "oxlint": "^1.94.0",
     "oxlint-config-universe": "^0.2.0",
+    "react": "19.2.3",
     "typescript": "^5.9.2",
     "vitest": "^5.1.1"
   },
