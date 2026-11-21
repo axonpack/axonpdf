@@ -8,6 +8,9 @@
  * - `IMAGE` and `IMAGE_BACKGROUND`: `src` (or `source`, renamed to `src`) is `{ "asset": id }`,
  *   the id given to the engine's `add_image` for the bytes. `srcSet` stays a string.
  * - `render` (Text and View): the callback id. The engine calls back with the page numbers.
+ * - `CANVAS`: `paint` is the id of its `paint` function. The engine calls back with the box's
+ *   width and height after layout and gets the painter calls in order, as a JSON array of
+ *   `[method, ...args]` (see `tree/canvas-painter.ts`).
  * - `PAGE` `header` and `footer` (axonpdf's bands): a node, or `{ "render": id }` when the band
  *   is a function. The function gets `{ pageNumber, totalPages, isFirst, isLast, isOdd }`;
  *   reading `totalPages` or `isLast` sets `readsTotal`.
@@ -25,6 +28,8 @@ export interface TreeNode {
   props: Record<string, unknown>;
   style?: unknown;
   render?: number;
+  /** `CANVAS` only: the id of its `paint` function. */
+  paint?: number;
   children: (TreeNode | TreeText)[];
 }
 

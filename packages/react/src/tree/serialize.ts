@@ -4,6 +4,7 @@ import { isValidElement, type ReactNode } from "react";
 import { imageBytes } from "../assets/image-bytes.js";
 import type { Child, Instance, TextInstance } from "../types/instance.type.js";
 import type { TreeDocument, TreeNode, TreeText } from "../types/tree.type.js";
+import { recordPaint } from "./canvas-painter.js";
 import { elementToInstances } from "./element-to-instances.js";
 import type { Session } from "./session.js";
 
@@ -29,6 +30,10 @@ export function serialize(child: Child, session: Session): TreeNode | TreeText {
       collectFamilies(value, session.families);
     } else if (key === "render" && typeof value === "function") {
       node.render = callback(session, value, renderArgs);
+    } else if (key === "paint" && type === "CANVAS" && typeof value === "function") {
+      const id = session.nextId++;
+      session.paints.set(id, (width, height) => JSON.stringify(recordPaint(value, width, height)));
+      node.paint = id;
     } else if ((key === "header" || key === "footer") && type === "PAGE") {
       node.props[key] =
         typeof value === "function"

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { pdf } from "../pdf.js";
-import { Document, Image, Page, Text, View } from "../primitives.js";
+import { Canvas, Document, Image, Page, Text, View } from "../primitives.js";
 import { serializeDocument } from "../tree/serialize.js";
 import { createSession, settle } from "../tree/session.js";
 
@@ -79,5 +79,42 @@ describe("serializeDocument", () => {
     expect(a.props.src).toEqual(b.props.src);
     expect(session.assets.get(a.props.src.asset)).toBe(png);
     expect([...session.families]).toEqual(["Inter", "Helvetica"]);
+  });
+});
+
+describe("Canvas", () => {
+  it("records the painter calls of paint, in order, with the box size", () => {
+    const { tree, session } = treeOf(
+      <Document>
+        <Page>
+          <Canvas
+            paint={(p, w, h) => {
+              const g = p.linearGradient(0, 0, w, 0).stop(0, "red").stop(1, "blue", 0.5);
+              p.moveTo(10, 10)
+                .lineTo(w, h)
+                .strokeColor("red")
+                .stroke()
+                .fillColor(g)
+                .rect(0, 0, 5, 5)
+                .fill();
+              return null;
+            }}
+          />
+        </Page>
+      </Document>,
+    );
+    const canvas = (tree.children[0] as any).children[0];
+    expect(JSON.parse(session.paints.get(canvas.paint)!(100, 50))).toEqual([
+      ["linearGradient", 0, 0, 0, 100, 0],
+      ["stop", 0, 0, "red"],
+      ["stop", 0, 1, "blue", 0.5],
+      ["moveTo", 10, 10],
+      ["lineTo", 100, 50],
+      ["strokeColor", "red"],
+      ["stroke"],
+      ["fillColor", { gradient: 0 }],
+      ["rect", 0, 0, 5, 5],
+      ["fill"],
+    ]);
   });
 });

@@ -5,6 +5,8 @@ export interface Session {
   nextId: number;
   /** Functions the engine calls back by id; each returns the render result as JSON. */
   callbacks: Map<number, (args: RenderArgs) => string>;
+  /** Canvas `paint` functions by id; each returns the recorded painter calls as JSON. */
+  paints: Map<number, (width: number, height: number) => string>;
   /** Image bytes by asset id, for the engine's `add_image`. */
   assets: Map<number, Uint8Array>;
   /** Asset ids by source, so one image used twice is sent once. */
@@ -19,6 +21,7 @@ export interface Session {
 export const createSession = (): Session => ({
   nextId: 1,
   callbacks: new Map(),
+  paints: new Map(),
   assets: new Map(),
   assetIds: new Map(),
   pending: [],
