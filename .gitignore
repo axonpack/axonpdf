@@ -4,3 +4,9 @@ target/
 # Other projects' sources, cloned locally for study only
 examples/
 .tools/
+build/
+dist/
+packages/core/wasm/axonpdf.mjs
+packages/core/wasm/axonpdf.wasm
+# Local runs: reference renders, diffs and private test documents, never committed
+local/

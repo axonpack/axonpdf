@@ -21,6 +21,8 @@ unsafe extern "C" {
     pub fn YGNodeNewWithConfig(config: YgConfig) -> YgNode;
     pub fn YGNodeFree(node: YgNode);
     pub fn YGNodeInsertChild(node: YgNode, child: YgNode, index: usize);
+    pub fn YGNodeRemoveAllChildren(node: YgNode);
+    pub fn YGNodeMarkDirty(node: YgNode);
     pub fn YGNodeGetChildCount(node: YgNode) -> usize;
     pub fn YGNodeSetContext(node: YgNode, context: *mut c_void);
     pub fn YGNodeGetContext(node: YgNode) -> *mut c_void;
@@ -30,6 +32,9 @@ unsafe extern "C" {
     pub fn YGNodeLayoutGetTop(node: YgNode) -> f32;
     pub fn YGNodeLayoutGetWidth(node: YgNode) -> f32;
     pub fn YGNodeLayoutGetHeight(node: YgNode) -> f32;
+    pub fn YGNodeLayoutGetMargin(node: YgNode, edge: i32) -> f32;
+    pub fn YGNodeLayoutGetPadding(node: YgNode, edge: i32) -> f32;
+    pub fn YGNodeLayoutGetBorder(node: YgNode, edge: i32) -> f32;
 
     pub fn YGNodeStyleSetFlexDirection(node: YgNode, v: i32);
     pub fn YGNodeStyleSetJustifyContent(node: YgNode, v: i32);

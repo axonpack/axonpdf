@@ -6,8 +6,26 @@ license = "MIT"
 description = "The axonpdf PDF engine"
 publish = false
 
+[dependencies]
+aes = "0.8"
+gif = "0.14"
+image-webp = "0.2"
+md-5 = "0.10"
+miniz_oxide = "0.9"
+pdf-writer = "0.15"
+png = "0.18"
+roxmltree = "0.21"
+rustybuzz = "0.20"
+self_cell = "1"
+serde = { version = "1", features = ["derive"] }
+# preserve_order: style keys apply in the order they were written, as in a JS object.
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip", "raw_value"] }
+sha2 = "0.10"
+subsetter = { version = "0.2", default-features = false }  # no variable fonts: keeps skrifa and write-fonts out
+unicode-bidi = "0.3"
+unicode-bidi-mirroring = "0.4"
+wuff = "0.2"
+
 [build-dependencies]
 cc = "1"
 
-[dev-dependencies]
-serde_json = { version = "1", features = ["float_roundtrip"] }  # exact parsing; the default can be one ulp off

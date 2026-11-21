@@ -1,0 +1,64 @@
+{
+  "name": "@axonpdf/react",
+  "version": "0.0.0",
+  "description": "Create PDF files with React, in Node and in the browser",
+  "bugs": {
+    "url": "https://github.com/axonpack/axonpdf/issues"
+  },
+  "license": "MIT",
+  "author": "Md Asadujjaman <abappi2019@gmail.com> (https://github.com/abappi19)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/axonpack/axonpdf.git",
+    "directory": "packages/react"
+  },
+  "files": [
+    "build"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "build/index.node.js",
+  "browser": {
+    "./build/index.node.js": "./build/index.browser.js"
+  },
+  "types": "build/index.node.d.ts",
+  "exports": {
+    ".": {
+      "types": "./build/index.node.d.ts",
+      "browser": "./build/index.browser.js",
+      "worker": "./build/index.browser.js",
+      "default": "./build/index.node.js"
+    },
+    "./components": {
+      "types": "./build/components.d.ts",
+      "default": "./build/components.js"
+    },
+    "./worker": {
+      "types": "./build/worker.d.ts",
+      "default": "./build/worker.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "rm -rf build && tsc",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit -p tsconfig.check.json"
+  },
+  "dependencies": {
+    "@axonpdf/core": "*",
+    "react-reconciler-18": "npm:react-reconciler@0.29.2",
+    "react-reconciler-19-0": "npm:react-reconciler@0.31.0",
+    "react-reconciler-19-2": "npm:react-reconciler@0.33.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "react": "19.2.3"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  }
+}

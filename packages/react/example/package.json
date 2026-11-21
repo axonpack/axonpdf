@@ -1,0 +1,25 @@
+{
+  "name": "axonpdf-react-example",
+  "version": "0.0.0",
+  "private": true,
+  "description": "One invoice rendered with @axonpdf/react in the browser and in Node",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "pdf": "tsx scripts/render.tsx",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@axonpdf/react": "workspace:*",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "tsx": "^4.23.15",
+    "vite": "^8.3.8"
+  }
+}
