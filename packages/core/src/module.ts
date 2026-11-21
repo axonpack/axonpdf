@@ -29,15 +29,17 @@ export function load(): Promise<Loaded> {
       return ptr;
     };
     // Runs one callback for the engine `handle`; any JS error is held until the engine returns.
+    // Not JSON: after a JS error, the engine stops at its next read of an answer.
+    const stop = "!";
     const call = (handle: number, run: (callbacks: Callbacks) => string | undefined) => {
       const current = active.get(handle)!;
-      if (current.error !== undefined) return 0;
+      if (current.error !== undefined) return cString(stop);
       try {
         const json = run(current.callbacks);
         return json === undefined ? 0 : cString(json);
       } catch (error) {
         current.error = error;
-        return 0;
+        return cString(stop);
       }
     };
     const marker = module.UTF8ToString(module._axonpdf_total_pages_marker());
