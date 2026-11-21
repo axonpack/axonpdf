@@ -17,6 +17,7 @@ pub fn finalize(mut line: Line, last_in_paragraph: bool) -> Line {
     let overflow_right = edge_spaces(line.runs.iter().rev().map(|r| r.glyphs.iter().rev()));
     line.x -= overflow_left;
     line.width += overflow_left + overflow_right;
+    line.overflow_left = overflow_left;
     line.overflow_right = overflow_right;
 
     let align = &line.runs.first().map_or("left".to_string(), |r| r.attrs.align.clone());

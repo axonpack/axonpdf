@@ -83,6 +83,8 @@ pub struct Paragraph {
 #[derive(Clone, Debug)]
 pub struct LineRun {
     pub attrs: Rc<Attrs>,
+    /// The paragraph character the run starts at (glyph `index`es count from the paragraph).
+    pub start: usize,
     pub font: FontId,
     pub text: String,
     pub glyphs: Vec<Glyph>,
@@ -101,7 +103,8 @@ pub struct Line {
     pub height: f64,
     pub ascent: f64,
     pub x_advance: f64,
-    /// Width of the whitespace hanging past the right edge.
+    /// Widths of the whitespace hanging past the left and right edges.
+    pub overflow_left: f64,
     pub overflow_right: f64,
     pub runs: Vec<LineRun>,
 }

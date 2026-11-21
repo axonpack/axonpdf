@@ -97,6 +97,7 @@ fn paragraph_lines(p: &Paragraph, width: f64, top: f64, opts: &Options) -> Vec<L
                 height,
                 ascent: 0.0,
                 x_advance: 0.0,
+                overflow_left: 0.0,
                 overflow_right: 0.0,
                 runs,
             };
@@ -149,6 +150,7 @@ fn slice(p: &Paragraph, s: usize, e: usize, hyphen: bool) -> Vec<LineRun> {
             let glyphs: Vec<Glyph> = r.glyphs.iter().filter(|g| g.index >= a && g.index < b).copied().collect();
             LineRun {
                 attrs: r.attrs.clone(),
+                start: a,
                 font: r.font,
                 text: p.chars[a..b].iter().collect(),
                 glyphs,
