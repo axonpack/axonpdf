@@ -2,6 +2,7 @@ import type { RenderArgs } from "@axonpdf/core";
 import { isValidElement, type ReactNode } from "react";
 
 import { imageBytes } from "../assets/image-bytes.js";
+import { Font } from "../font/font-store.js";
 import type { Child, Instance, TextInstance } from "../types/instance.type.js";
 import type { TreeDocument, TreeNode, TreeText } from "../types/tree.type.js";
 import { recordPaint } from "./canvas-painter.js";
@@ -10,15 +11,21 @@ import type { Session } from "./session.js";
 
 type Mark = () => void;
 
+const EMOJI = /\p{RGI_Emoji}/gv;
+
 /** The tree JSON for a committed `Document` (shape in `types/tree.type.ts`). */
 export function serializeDocument(document: Instance, session: Session): TreeDocument {
-  const props = { creationDate: new Date(), ...document.props };
+  const hyphenationCallback = Font.getHyphenationCallback() ?? undefined;
+  const props = { creationDate: new Date(), hyphenationCallback, ...document.props };
   return { v: 1, ...(serialize({ ...document, props }, session) as TreeNode) } as TreeDocument;
 }
 
 export function serialize(child: Child, session: Session): TreeNode | TreeText {
-  if (child.type === "TEXT_INSTANCE")
-    return { type: "TEXT_INSTANCE", value: (child as TextInstance).value };
+  if (child.type === "TEXT_INSTANCE") {
+    const { value } = child as TextInstance;
+    for (const [emoji] of value.matchAll(EMOJI)) session.emoji.add(emoji);
+    return { type: "TEXT_INSTANCE", value };
+  }
   const { type, props: all, children } = child as Instance;
   if (type === "ROWS") return rows(all, session);
 
@@ -34,6 +41,10 @@ export function serialize(child: Child, session: Session): TreeNode | TreeText {
       const id = session.nextId++;
       session.paints.set(id, (width, height) => JSON.stringify(recordPaint(value, width, height)));
       node.paint = id;
+    } else if (key === "hyphenationCallback" && typeof value === "function") {
+      const id = session.nextId++;
+      session.hyphenators.set(id, value);
+      node.props[key] = id;
     } else if ((key === "header" || key === "footer") && type === "PAGE") {
       node.props[key] =
         typeof value === "function"

@@ -134,7 +134,8 @@ export type SrcSet = string;
 
 export type Sizes = string | number;
 
-export type HyphenationCallback = (word: string) => string[];
+/** Splits a word into parts; the second argument is the built-in split. */
+export type HyphenationCallback = (word: string, builtin: (word: string) => string[]) => string[];
 
 export type EmojiSource =
   | { url: string; format?: string; withVariationSelectors?: boolean }

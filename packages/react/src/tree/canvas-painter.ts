@@ -43,9 +43,9 @@ type Call = [string, ...unknown[]];
  * color sends `{ "gradient": id }`.
  */
 export function recordPaint(
-  paint: (painter: any, width: number, height: number) => unknown,
-  width: number,
-  height: number,
+  paint: (painter: any, width: number | undefined, height: number | undefined) => unknown,
+  width: number | undefined,
+  height: number | undefined,
 ): Call[] {
   const calls: Call[] = [];
   let gradients = 0;
