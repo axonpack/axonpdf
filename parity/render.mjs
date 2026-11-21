@@ -14,11 +14,11 @@
 // returns a <Document>. The working directory is `fixtures/` while it renders, so asset paths in
 // fixtures read `assets/...`.
 import { build } from 'esbuild';
-import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
+import { freshBuild } from './fresh-build.mjs';
 
 const ROOT = resolve(import.meta.dirname, '..');
 const { values: opts, positionals: [name, out] } = parseArgs({
@@ -27,19 +27,7 @@ const { values: opts, positionals: [name, out] } = parseArgs({
 });
 if (!name || !out) throw new Error('usage: render.mjs <fixture> <out.pdf> [--engine <dir>] [--layout <out.json>]');
 
-// Our packages load from their build/ folders, so rebuild any whose src/ changed since. The WASM
-// build is slow and left to `bun run build:wasm`; a stale one only gets a warning.
-const times = (dir) => (existsSync(dir) ? readdirSync(dir, { recursive: true }).map((f) => statSync(resolve(dir, f)).mtimeMs) : []);
-const stale = (src, out) => !times(out).length || Math.max(...times(src)) > Math.min(...times(out));
-if (resolve(opts.engine) === ROOT) {
-  for (const pkg of ['core', 'react']) {
-    const dir = resolve(ROOT, 'packages', pkg);
-    if (stale(resolve(dir, 'src'), resolve(dir, 'build'))) execFileSync('bun', ['run', 'build'], { cwd: dir, stdio: ['ignore', 'ignore', 'inherit'] });
-  }
-  if (Math.max(...['engine', 'ffi'].flatMap((c) => times(resolve(ROOT, 'crates', c, 'src')))) > Math.max(...times(resolve(ROOT, 'packages/core/wasm')))) {
-    console.error('warning: crates/ changed after packages/core/wasm was built; run `bun run build:wasm` in packages/core');
-  }
-}
+if (resolve(opts.engine) === ROOT) freshBuild();
 
 // The bundle goes inside the engine folder so Node resolves its imports from there. Its entry
 // re-exports what this script needs, so those imports resolve from the engine folder too.
