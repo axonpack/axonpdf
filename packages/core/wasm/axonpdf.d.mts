@@ -23,6 +23,23 @@ export interface AxonpdfModule {
   _axonpdf_set_rows_callback(handle: number, callback: number, user: number): void;
   _axonpdf_hyphenate_builtin(word: number, wordLen: number): number;
   _axonpdf_render(handle: number, json: number, jsonLen: number, output: number, user: number): number;
+  _axonpdf_render_begin(
+    handle: number,
+    json: number,
+    jsonLen: number,
+    output: number,
+    user: number,
+    rowsId: number,
+  ): number;
+  _axonpdf_push_rows(
+    handle: number,
+    id: number,
+    batch: number,
+    batchLen: number,
+    output: number,
+    user: number,
+    rowsId: number,
+  ): number;
   _axonpdf_last_error(handle: number): number;
   _axonpdf_total_pages_marker(): number;
 }

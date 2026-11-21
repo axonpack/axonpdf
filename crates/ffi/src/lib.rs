@@ -5,18 +5,17 @@
 //! and -1 on failure; `axonpdf_last_error` then gives the message. Byte buffers handed to the
 //! engine (fonts, images) must come from `axonpdf_alloc`, and the engine takes ownership of them.
 
-use std::ffi::{CStr, CString, c_char, c_void};
+use std::ffi::{CStr, CString, c_char};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::ptr;
 
 use axonpdf::Engine;
 
 mod callbacks;
+mod render;
 
 pub use callbacks::*;
-
-/// Receives each chunk of the PDF in order. The bytes are only valid during the call.
-pub type OutputCallback = extern "C" fn(user: *mut c_void, bytes: *const u8, len: usize);
+pub use render::*;
 
 pub struct Handle {
     engine: Engine,
@@ -85,25 +84,6 @@ pub unsafe extern "C" fn axonpdf_add_image(
     let bytes = unsafe { take(bytes, len) };
     run(handle, |engine| {
         engine.add_image(id, bytes).map_err(|e| e.to_string())
-    })
-}
-
-/// Renders the tree and hands each chunk to `output` as it is written.
-///
-/// # Safety
-/// `json` is `json_len` bytes of UTF-8.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn axonpdf_render(
-    handle: *mut Handle,
-    json: *const u8,
-    json_len: usize,
-    output: OutputCallback,
-    user: *mut c_void,
-) -> i32 {
-    let json = unsafe { text(json, json_len) };
-    run(handle, |engine| {
-        let mut out = |chunk: &[u8]| output(user, chunk.as_ptr(), chunk.len());
-        engine.render(json?, &mut out).map_err(|e| e.to_string())
     })
 }
 

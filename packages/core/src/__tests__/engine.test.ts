@@ -62,4 +62,31 @@ describe("createEngine", () => {
     expect(engine.hyphenateBuiltin("co\u00adop")).toEqual(["co", "op"]);
     engine.free();
   });
+
+  it("stops for rows and carries on when they are pushed", async () => {
+    const engine = await createEngine();
+    const rowsTree = {
+      v: 1,
+      type: "DOCUMENT",
+      props: {},
+      children: [
+        {
+          type: "PAGE",
+          props: {},
+          children: [{ type: "ROWS", props: { rows: 9, batchSize: 1 }, children: [] }],
+        },
+      ],
+    };
+    const row = (n: number) => ({
+      type: "TEXT",
+      props: {},
+      children: [{ type: "TEXT_INSTANCE", value: `row ${n}` }],
+    });
+    const chunks: Uint8Array[] = [];
+    expect(engine.begin(JSON.stringify(rowsTree), (c) => chunks.push(c))).toBe(9);
+    expect(engine.pushRows(9, JSON.stringify({ children: [row(1)], done: false }))).toBe(9);
+    expect(engine.pushRows(9, JSON.stringify({ children: [row(2)], done: true }))).toBeUndefined();
+    engine.free();
+    expect(Buffer.concat(chunks).toString("latin1").trimEnd().endsWith("%%EOF")).toBe(true);
+  });
 });
