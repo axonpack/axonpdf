@@ -12,6 +12,7 @@ impl Writer {
         &mut self,
         id: ImageId,
         images: &mut ImageStore,
+        fonts: &crate::fonts::FontStore,
         out: Out,
     ) -> (String, Ref) {
         let name = format!("Im{}", id.0);
@@ -66,6 +67,11 @@ impl Writer {
                     }
                 });
             }
+            ImageData::Svg {
+                tree,
+                width,
+                height,
+            } => self.write_svg_image(r, tree, (width, height), fonts, images, out),
             ImageData::Released => unreachable!("released images are in the written map"),
         }
         self.images.insert(id, r);

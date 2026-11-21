@@ -2,12 +2,13 @@
 
 mod decode;
 mod jpeg;
+mod svg;
 
 pub use crate::display::ImageId;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ImageError {
-    /// Not PNG, JPEG, GIF or WebP.
+    /// Not PNG, JPEG, GIF, WebP or SVG.
     UnknownFormat,
     Invalid(String),
 }
@@ -41,6 +42,13 @@ pub enum ImageData {
         color: Vec<u8>,
         alpha: Option<Vec<u8>>,
     },
+    /// An SVG document as the tree the `Svg` component sends, drawn as vectors; its size in
+    /// points.
+    Svg {
+        tree: serde_json::Value,
+        width: f32,
+        height: f32,
+    },
     /// Already written; the bytes were freed.
     Released,
 }
@@ -66,7 +74,7 @@ impl ImageStore {
         Self::default()
     }
 
-    /// Decodes a PNG, JPEG, GIF (first frame) or WebP file. Add each source once and reuse its
+    /// Decodes a PNG, JPEG, GIF (first frame), WebP or SVG file. Add each source once and reuse its
     /// id on every page.
     pub fn add(&mut self, bytes: &[u8]) -> Result<ImageId, ImageError> {
         let image = decode::decode(bytes)?;
@@ -78,9 +86,16 @@ impl ImageStore {
         &self.images[id.0 as usize]
     }
 
-    /// Size as drawn, in pixels (see [`Image::size`]).
-    pub fn size(&self, id: ImageId) -> (u32, u32) {
-        self.get(id).size()
+    /// Size as drawn: pixels (see [`Image::size`]), or points for an SVG.
+    pub fn size(&self, id: ImageId) -> (f64, f64) {
+        let image = self.get(id);
+        match image.data {
+            ImageData::Svg { width, height, .. } => (width as f64, height as f64),
+            _ => {
+                let (w, h) = image.size();
+                (w as f64, h as f64)
+            }
+        }
     }
 
     /// Takes the bytes of an image the writer is writing; a store serves one document.

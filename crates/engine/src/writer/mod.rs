@@ -18,6 +18,7 @@ mod props;
 mod security;
 mod state;
 mod strings;
+mod svg_image;
 mod text;
 
 use std::collections::HashMap;
@@ -43,6 +44,8 @@ pub struct Writer {
     page_refs: Vec<Ref>,
     fonts: fonts::Used,
     images: HashMap<ImageId, Ref>,
+    /// The size in points of each SVG image's form, by object.
+    svg_sizes: HashMap<Ref, (f32, f32)>,
     /// Shared ExtGState objects by (fill alpha, stroke alpha) bits.
     alphas: HashMap<(u32, u32), Ref>,
     gradients: gradient::Written,
@@ -81,6 +84,7 @@ impl Writer {
             page_refs: Vec::new(),
             fonts: Default::default(),
             images: HashMap::new(),
+            svg_sizes: HashMap::new(),
             alphas: HashMap::new(),
             gradients: Default::default(),
             nav: Default::default(),

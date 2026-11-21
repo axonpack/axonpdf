@@ -6,7 +6,7 @@ mod canvas;
 mod debug;
 mod form;
 mod image;
-mod svg;
+pub(crate) mod svg;
 mod text;
 mod transform;
 

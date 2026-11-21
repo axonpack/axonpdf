@@ -82,8 +82,13 @@ impl Writer {
                     Resources::add(&mut p.res.fonts, name, r);
                 }
                 Op::Image { id, rect, opacity } => {
-                    let (name, r) = self.image_ref(*id, images, out);
+                    let (name, r) = self.image_ref(*id, images, fonts, out);
                     Resources::add(&mut p.res.x_objects, name.clone(), r);
+                    // SVGs keep their proportions inside the box.
+                    let rect = &self
+                        .svg_sizes
+                        .get(&r)
+                        .map_or(*rect, |s| super::svg_image::meet(*rect, *s));
                     p.save();
                     self.set_alpha(&mut p, *opacity, 1.0, out);
                     p.transform(placement(

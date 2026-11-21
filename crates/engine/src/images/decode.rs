@@ -4,10 +4,25 @@ use std::io::Cursor;
 
 use miniz_oxide::deflate::compress_to_vec_zlib;
 
-use super::{Image, ImageData, ImageError, jpeg};
+use super::{Image, ImageData, ImageError, jpeg, svg};
 
 pub fn decode(bytes: &[u8]) -> Result<Image, ImageError> {
     let invalid = |e: &dyn std::fmt::Display| ImageError::Invalid(e.to_string());
+    if svg::is_svg(bytes) {
+        let (tree, width, height) = svg::parse(bytes)?;
+        let (w, h) = (width.round() as u32, height.round() as u32);
+        let data = ImageData::Svg {
+            tree,
+            width,
+            height,
+        };
+        return Ok(Image {
+            width: w,
+            height: h,
+            orientation: 1,
+            data,
+        });
+    }
     if bytes.starts_with(&[0xFF, 0xD8]) {
         let info = jpeg::read(bytes)?;
         if !matches!(info.components, 1 | 3 | 4) {

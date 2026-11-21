@@ -41,7 +41,7 @@ fn png_alpha_goes_to_a_mask_only_when_used() {
         store.get(gray).data,
         ImageData::Raw { gray: true, .. }
     ));
-    assert_eq!(store.size(see_through), (1, 2));
+    assert_eq!(store.size(see_through), (1.0, 2.0));
     assert!(store.add(b"nope").is_err());
 }
 
@@ -65,7 +65,7 @@ fn jpeg_passes_through_with_exif_orientation() {
     let mut store = ImageStore::new();
     let id = store.add(&jpg).unwrap();
     assert_eq!(store.get(id).orientation, 6);
-    assert_eq!(store.size(id), (30, 40));
+    assert_eq!(store.size(id), (30.0, 40.0));
     assert!(matches!(
         store.get(id).data,
         ImageData::Jpeg { components: 3, .. }
@@ -113,7 +113,7 @@ fn gif_and_webp_decode_to_samples() {
     let mut store = ImageStore::new();
     for bytes in [gif_bytes, webp_bytes] {
         let id = store.add(&bytes).unwrap();
-        assert_eq!(store.size(id), (2, 1));
+        assert_eq!(store.size(id), (2.0, 1.0));
         assert!(matches!(
             store.get(id).data,
             ImageData::Raw {
@@ -123,4 +123,29 @@ fn gif_and_webp_decode_to_samples() {
             }
         ));
     }
+}
+
+#[test]
+fn svg_files_parse_with_their_size() {
+    let mut store = ImageStore::new();
+    let logo = std::fs::read(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../fixtures/assets/logo.svg"
+    ))
+    .unwrap();
+    let id = store.add(&logo).unwrap();
+    assert_eq!(store.size(id), (120.0, 60.0));
+    let ImageData::Svg { tree, .. } = &store.get(id).data else {
+        panic!()
+    };
+    // `stroke-width` became `strokeWidth`; the style attribute became props; <title> is gone.
+    assert_eq!(tree["children"][1]["props"]["strokeWidth"], "4");
+    assert_eq!(tree["children"][2]["props"]["fill"], "#ffd166");
+    assert_eq!(tree["children"].as_array().unwrap().len(), 5);
+    // A viewBox alone gives the size; units convert to points.
+    let id = store.add(br#"<svg viewBox="0 0 30 20"/>"#).unwrap();
+    assert_eq!(store.size(id), (30.0, 20.0));
+    let id = store.add(br#"<svg width="96px" height="1in"/>"#).unwrap();
+    assert_eq!(store.size(id), (72.0, 72.0));
+    assert!(store.add(b"<svg><unclosed></svg>").is_err());
 }
