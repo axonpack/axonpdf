@@ -11,7 +11,7 @@ use super::{Engine, RenderArgs};
 use crate::draw;
 use crate::hooks::waiting_for;
 use crate::layout::remainder::ROWS;
-use crate::paginate::{Cut, Pager, page};
+use crate::paginate::{self, Cut, Pager, next, page};
 use crate::style::Container;
 use crate::tree::{self, RawNode};
 use crate::writer::{Out, Writer, doc_info};
@@ -38,6 +38,8 @@ pub(super) struct Job {
     /// Page counts per `<Page>` from a first run, when the totals are read.
     counts: Option<Vec<u32>>,
     pending_total: bool,
+    /// The document uses the newer pagination engine.
+    newer: bool,
     /// The next `<Page>` to start, and the document page number it starts at.
     next: usize,
     number: u32,
@@ -73,6 +75,7 @@ impl Engine {
             && doc
                 .page_json()
                 .any(|j| !tree::numbers_at(j, ROWS).is_empty());
+        let newer = doc.page_json().any(|j| next::Head::read(j).wants_next());
         let props = doc.props.clone();
         let mut writer = Writer::new(doc_info(&props));
         writer.begin(&mut *out);
@@ -84,6 +87,7 @@ impl Engine {
             outline: Default::default(),
             counts,
             pending_total,
+            newer,
             next: 0,
             number: 1,
             cut: None,
@@ -113,18 +117,13 @@ impl Engine {
                     let Some(range) = job.pages.get(job.next).cloned() else {
                         return Ok(Step::Done);
                     };
-                    let raw: RawNode =
-                        serde_json::from_str(&job.json[range]).map_err(|e| e.to_string())?;
-                    let (node, container) = page::build(raw)?;
-                    let band_base = page::band_base(&node);
-                    let pager = Pager {
-                        assets,
-                        callback: &mut call,
-                        container,
-                        total,
-                        band_base,
-                    };
-                    job.cut = Some((pager.begin(node, job.number), container, band_base));
+                    let json = &job.json[range];
+                    let raw: RawNode = serde_json::from_str(json).map_err(|e| e.to_string())?;
+                    let sub_total = job.counts.as_ref().and_then(|c| c.get(job.next).copied());
+                    let totals = (sub_total, job.pending_total);
+                    let (cut, container, band_base) =
+                        paginate::open(raw, json, job.newer, job.number, totals, &mut call)?;
+                    job.cut = Some((cut, container, band_base));
                 }
                 let (cut, container, band_base) = job.cut.as_mut().unwrap();
                 PAGE.with(|p| p.set(*container));

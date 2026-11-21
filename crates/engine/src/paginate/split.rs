@@ -136,7 +136,7 @@ fn split(node: Node, height: f64, content_area: f64, gone: &mut Vec<NodeId>) -> 
 }
 
 /// Drops the edges that fall inside the break: the bottom ones above it, the top ones below.
-fn cut_edges(n: &mut Node, side: usize) {
+pub(super) fn cut_edges(n: &mut Node, side: usize) {
     // A table keeps its border on every page it runs over, closed at each cut.
     let table = n.has(extras::TABLE);
     let s = Rc::make_mut(&mut n.style);
@@ -187,7 +187,7 @@ fn split_view(
 
 /// Text splits between lines, keeping `orphans` lines above and `widows` below (2 each when
 /// unset or 0).
-fn split_text(node: Node, height: f64) -> (Node, Node) {
+pub(super) fn split_text(node: Node, height: f64) -> (Node, Node) {
     let lines = node
         .text
         .as_ref()

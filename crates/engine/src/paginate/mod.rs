@@ -4,6 +4,7 @@
 //! text split between them.
 
 mod bands;
+pub mod next;
 pub mod page;
 mod split;
 
@@ -50,25 +51,59 @@ pub struct Cut {
     relayout: Option<Vec<NodeId>>,
     /// `wrap={false}`: the page as it is.
     whole: bool,
+    /// The document uses the newer engine.
+    next: Option<next::Cut>,
+}
+
+/// A `<Page>` ready to cut: the cut, the page box, and the page's own padding when it has bands.
+pub type Opened = (Cut, Container, Option<(f64, f64)>);
+
+/// Builds a `<Page>` from its JSON and starts cutting it. `next` cuts it with the newer engine; `sub_total` is its page
+/// count from a first run, `total_pending` whether the total is filled in at the end.
+pub fn open(
+    raw: RawNode,
+    json: &str,
+    next: bool,
+    first: u32,
+    totals: (Option<u32>, bool),
+    call: &mut Callback,
+) -> Result<Opened, String> {
+    if next {
+        let (cut, c) = next::open(raw, &next::Head::read(json), first, totals, call)?;
+        let mut legacy = begin(None, first);
+        legacy.next = Some(cut);
+        return Ok((legacy, c, None));
+    }
+    let (node, c) = page::build(raw)?;
+    let base = page::band_base(&node);
+    Ok((begin(Some(node), first), c, base))
+}
+
+/// Starts cutting `page`, whose first page has number `first`.
+fn begin(page: Option<Node>, first: u32) -> Cut {
+    let whole = page
+        .as_ref()
+        .is_some_and(|p| p.props.get("wrap") == Some(&serde_json::Value::Bool(false)));
+    Cut {
+        page,
+        remainder: Remainder::empty(),
+        first,
+        count: 0,
+        relayout: Some(Vec::new()),
+        whole,
+        next: None,
+    }
 }
 
 impl<'a, 'b> Pager<'a, 'b> {
-    /// Starts cutting a `<Page>` whose first page has number `first`.
-    pub fn begin(&self, page: Node, first: u32) -> Cut {
-        let whole = page.props.get("wrap") == Some(&serde_json::Value::Bool(false));
-        Cut {
-            page: Some(page),
-            remainder: Remainder::empty(),
-            first,
-            count: 0,
-            relayout: Some(Vec::new()),
-            whole,
-        }
-    }
-
     /// The next page of `cut`, or `None` when nothing is left. After an error the call can be
     /// made again (it is how a wait for rows comes out).
     pub fn next(&mut self, cut: &mut Cut) -> Result<Option<Finished>, String> {
+        if let Some(n) = &mut cut.next {
+            let f = n.next(self)?;
+            cut.count = n.count;
+            return Ok(f);
+        }
         let Some(mut page) = cut.page.take() else {
             return Ok(None);
         };
@@ -117,14 +152,8 @@ impl<'a, 'b> Pager<'a, 'b> {
     }
 
     /// Cuts one `<Page>` into pages, handing each to `done` as soon as it is cut. Returns how
-    /// many pages it made. `first` is the document page number of the first one.
-    pub fn paginate(
-        &mut self,
-        page: Node,
-        first: u32,
-        done: &mut Done<'a, 'b>,
-    ) -> Result<u32, String> {
-        let mut cut = self.begin(page, first);
+    /// many pages it made.
+    pub fn paginate(&mut self, mut cut: Cut, done: &mut Done<'a, 'b>) -> Result<u32, String> {
         while let Some(f) = self.next(&mut cut)? {
             done(self, f)?;
         }

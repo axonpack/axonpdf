@@ -9,10 +9,10 @@ use crate::fonts::FontStore;
 use crate::hooks::Hooks;
 use crate::layout::Assets;
 use crate::layout::remainder::{ROWS, ROWS_DONE};
-use crate::paginate::{Finished, Pager, page};
+use crate::paginate::{self, Finished, Pager, next, page};
 use crate::style::Container;
 use crate::tree::node::LAZY;
-use crate::tree::{self, Doc, Node, RenderResult};
+use crate::tree::{self, Doc, Node, RawNode, RenderResult};
 use serde_json::{Map, Value};
 
 /// Builds what layout needs from the engine's stores and the document's props, for `f`.
@@ -109,6 +109,7 @@ fn reads_total(callback: &mut Option<RenderCallback>, doc: &Doc) -> Result<bool,
         }
         count |= tree::has_type(json, "PAGE_COUNT");
         found.extend(tree::numbers_at(json, "render"));
+        found.extend(next::Head::read(json).layout);
     }
     if count {
         return Ok(true);
@@ -144,18 +145,27 @@ fn run(
             .page_json()
             .any(|j| !tree::numbers_at(j, ROWS).is_empty());
     let pages = doc.pages().count();
-    for (i, raw) in doc.pages().enumerate() {
+    let newer = doc.page_json().any(|j| next::Head::read(j).wants_next());
+    let page_list = doc
+        .page_json()
+        .filter_map(|j| match serde_json::from_str::<RawNode>(j) {
+            Ok(n) if n.kind != "PAGE" => None,
+            r => Some((r.map_err(|e| e.to_string()), j)),
+        });
+    for (i, (raw, json)) in page_list.enumerate() {
         let last_page = i + 1 == pages;
-        let (node, container) = page::build(raw?)?;
+        let sub_total = counts.and_then(|c| c.get(made.len()).copied());
+        let totals = (sub_total, pending_total);
+        let (cut, container, band_base) =
+            paginate::open(raw?, json, newer, number, totals, &mut call)?;
         PAGE.with(|p| p.set(container));
         let mut pager = Pager {
             assets,
             callback: &mut call,
             container,
             total,
-            band_base: page::band_base(&node),
+            band_base,
         };
-        let sub_total = counts.and_then(|c| c.get(made.len()).copied());
         let mut done = |pager: &mut Pager, mut f: Finished| -> Result<(), String> {
             let Some(visit) = visit.as_mut() else {
                 return Ok(());
@@ -173,7 +183,7 @@ fn run(
             visit(&f.page, container.width, height);
             Ok(())
         };
-        let count = pager.paginate(node, number, &mut done)?;
+        let count = pager.paginate(cut, &mut done)?;
         number += count;
         made.push(count);
     }

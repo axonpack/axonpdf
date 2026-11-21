@@ -43,6 +43,16 @@
 //!   adapter under that id, and the engine calls it back while it paginates (see
 //!   [`crate::RenderArgs`]). The callback answers `{"children": [<node>...], "readsTotal": bool}`,
 //!   the children in this same shape.
+//! - `layout` (on `PAGE`): the id of the page's `layout` template function. The engine calls it
+//!   through the same callback as `render`, with the same [`crate::RenderArgs`] (`pageNumber`,
+//!   `totalPages`, `subPageNumber`, `subPageTotalPages`), and the adapter calls the function with
+//!   those plus `children`, a placeholder that renders as one `{"type": "SLOT"}` node. The answer
+//!   is `{"children": [<node>...], "readsTotal": bool}` with exactly one `SLOT` somewhere in it;
+//!   the page's content flows where it is, the rest is drawn on every page with its room kept.
+//!   It is called once for page 1 with only `pageNumber` (to lay the content out at the slot's
+//!   width), then once per page cut. Any page with `layout`, or with the
+//!   `"experimentalPagination": true` prop, switches the whole document to the newer pagination
+//!   engine ([`crate::paginate::next`]).
 //! - `paint` (on `CANVAS`): the id of the `paint` function. The engine calls it with the
 //!   canvas's size (NaN, meaning `undefined`, when it only measures) and gets the painter calls
 //!   back as a JSON list (see [`crate::Engine::set_paint_callback`]).

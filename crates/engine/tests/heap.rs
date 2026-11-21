@@ -45,9 +45,11 @@ fn footer() -> Value {
     json!({"type": "TEXT", "props": {"fixed": true}, "style": {"position": "absolute", "bottom": 20, "left": 40, "fontSize": 8}, "render": 1, "children": []})
 }
 
-/// `rows` rows in one long `<Page>`, or split over `<Page>`s of `per_page` rows.
-fn document(rows: usize, per_page: Option<usize>) -> String {
-    let page = |rs: Vec<Value>| json!({"type": "PAGE", "props": {"size": "A4"}, "style": {"padding": 40}, "children": [footer(), {"type": "VIEW", "props": {}, "children": rs}]});
+/// `rows` rows in one long `<Page>`, or split over `<Page>`s of `per_page` rows. `next` uses the
+/// newer pagination engine.
+fn document(rows: usize, per_page: Option<usize>, next: bool) -> String {
+    let props = json!({"size": "A4", "experimentalPagination": next});
+    let page = |rs: Vec<Value>| json!({"type": "PAGE", "props": props, "style": {"padding": 40}, "children": [footer(), {"type": "VIEW", "props": {}, "children": rs}]});
     let all: Vec<Value> = (0..rows).map(row).collect();
     let pages: Vec<Value> = match per_page {
         None => vec![page(all)],
@@ -90,11 +92,16 @@ fn thousand_pages() {
         .unwrap_or(1000);
     // About 37 rows fit a page.
     if std::env::var_os("AXONPDF_ONLY_LONG").is_none() {
-        measure(&format!("{pages} <Page>s"), document(pages * 37, Some(37)));
+        measure(&format!("{pages} <Page>s"), document(pages * 37, Some(37), false));
     }
     measure(
         &format!("one <Page> of {pages} pages"),
-        document(pages * 37, None),
+        document(pages * 37, None, false),
+    );
+    // The newer engine lays a `<Page>`'s content out whole before cutting it.
+    measure(
+        &format!("one <Page> of {pages} pages, newer engine"),
+        document(pages * 37, None, true),
     );
 }
 
