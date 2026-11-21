@@ -132,7 +132,7 @@ pub fn size(raw: &RawNode) -> Result<(f64, Option<f64>, bool), String> {
 pub fn build(mut raw: RawNode) -> Result<(Node, Container), String> {
     let (width, height, landscape) = size(&raw)?;
     let bands = super::bands::take(&mut raw)?;
-    raw.children.extend(bands);
+    raw.children.extend(bands.iter().map(RawNode::boxed));
     let mut style = flatten::flatten(&raw.style);
     style.insert("width".into(), json!(width));
     match height {

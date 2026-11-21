@@ -11,7 +11,8 @@ use crate::layout::Assets;
 use crate::layout::remainder::{ROWS, ROWS_DONE};
 use crate::paginate::{Finished, Pager, page};
 use crate::style::Container;
-use crate::tree::{Doc, Node, RawNode, RenderResult};
+use crate::tree::node::LAZY;
+use crate::tree::{self, Doc, Node, RenderResult};
 
 pub(super) fn layout_pages(
     fonts: &FontStore,
@@ -35,6 +36,13 @@ pub(super) fn layout_pages(
         .collect();
     // A `Rows` batch is styled under the page being cut.
     let more_rows = |n: &mut Node| -> Result<bool, String> {
+        // Children waiting as JSON come first, then a batch from the rows' source.
+        if !n.pending.is_empty() {
+            return Ok(n.build_pending(&PAGE.with(Cell::get), LAZY) > 0);
+        }
+        if !n.has(ROWS) || n.is(ROWS_DONE) {
+            return Ok(false);
+        }
         let id = n.number(ROWS).unwrap_or(0.0) as u32;
         let Some(json) = hooks.rows(id) else {
             n.props.insert(ROWS_DONE.into(), true.into());
@@ -74,31 +82,16 @@ pub(super) fn layout_pages(
 /// ponytail: functions that only appear inside another's output are not asked; if one of
 /// them reads the total it gets `None`. Ask during the cut and restart if that matters.
 fn reads_total(callback: &mut Option<RenderCallback>, doc: &Doc) -> Result<bool, String> {
-    // A page count is drawn with the total, so it needs the count too.
-    fn ids(n: &RawNode, out: &mut Vec<u32>, count: &mut bool) {
-        out.extend(n.render);
-        *count |= n.kind == "PAGE_COUNT";
-        n.children.iter().for_each(|c| ids(c, out, count));
-        // A page's bands: a function's id, or a node.
-        for band in ["header", "footer"].iter().filter_map(|k| n.props.get(*k)) {
-            match serde_json::from_value::<RawNode>(band.clone()) {
-                Ok(b) => ids(&b, out, count),
-                Err(_) => out.extend(
-                    band.get("render")
-                        .and_then(|r| r.as_u64())
-                        .map(|r| r as u32),
-                ),
-            }
-        }
-    }
+    // Read from each page's JSON without building it: `render` ids (bands' included), page
+    // counts, and rows, which are fetched once and cannot be counted ahead.
+    // ponytail: Rows documents get no totals; a deferred total drawn at the end would fix it.
     let (mut found, mut count) = (Vec::new(), false);
-    for page in doc.pages() {
-        ids(&page?, &mut found, &mut count);
-    }
-    // Rows are fetched once and cannot be counted ahead.
-    // ponytail: their documents get no totals; a deferred total drawn at the end would fix it.
-    if doc.pages().any(|p| p.is_ok_and(|p| has_rows(&p))) {
-        return Ok(false);
+    for json in doc.page_json() {
+        if tree::has_type(json, "ROWS") && !tree::numbers_at(json, ROWS).is_empty() {
+            return Ok(false);
+        }
+        count |= tree::has_type(json, "PAGE_COUNT");
+        found.extend(tree::numbers_at(json, "render"));
     }
     if count {
         return Ok(true);
@@ -172,15 +165,11 @@ fn call(
     serde_json::from_str(&cb(id, args)).map_err(|e| format!("render callback {id}: {e}"))
 }
 
-fn has_rows(n: &RawNode) -> bool {
-    (n.kind == "ROWS" && n.props.contains_key(ROWS)) || n.children.iter().any(has_rows)
-}
-
 /// A batch of rows.
 #[derive(serde::Deserialize)]
 struct Batch {
     #[serde(default)]
-    children: Vec<RawNode>,
+    children: Vec<Box<serde_json::value::RawValue>>,
     #[serde(default)]
     done: bool,
 }

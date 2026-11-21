@@ -22,6 +22,11 @@ use crate::tree::{Kind, Node};
 pub const ROWS: &str = "rows";
 pub const ROWS_DONE: &str = "__rows_done";
 
+/// Whether more children are still to come: waiting as JSON, or from a `Rows` source.
+pub fn has_more(n: &Node) -> bool {
+    !n.pending.is_empty() || (n.has(ROWS) && !n.is(ROWS_DONE))
+}
+
 /// Containers with fewer children are kept whole.
 const WINDOW_MIN: usize = 64;
 
@@ -48,6 +53,11 @@ impl Remainder {
 
     /// Everything laid out, as the components do it: the check the kept layout is held to.
     fn whole(page: &mut Node, a: &Assets) -> Result<Self, String> {
+        fn fetch_all(n: &mut Node, a: &Assets) -> Result<(), String> {
+            while has_more(n) && (a.more_rows)(n)? {}
+            n.children.iter_mut().try_for_each(|c| fetch_all(c, a))
+        }
+        fetch_all(page, a)?;
         let mut tree = Tree::new();
         let root = build(&mut tree, page, true, None, None, a)?;
         tree.calculate(root, None, None);
@@ -194,7 +204,7 @@ fn sync(
         };
         // Rows that arrive in batches are fetched until the window is full, or all of them
         // when there is no window.
-        if n.has(ROWS) && !n.is(ROWS_DONE) {
+        if has_more(n) {
             let windowed = can_window(n, is_page, ctx);
             while !windowed || window(n, cut + slack) >= n.children.len() {
                 if !(a.more_rows)(n)? {
@@ -203,7 +213,7 @@ fn sync(
             }
         }
         // Rows come in batches, so they window however few have come yet.
-        let long = n.children.len() > WINDOW_MIN || n.has(ROWS);
+        let long = n.children.len() > WINDOW_MIN || has_more(n);
         n.window = if long && can_window(n, is_page, ctx) {
             window(n, cut + slack)
         } else {
@@ -275,7 +285,7 @@ fn read_near(t: &Tree, n: &mut Node, cut: f64, a: &Assets) -> Result<Read, Strin
             }
         }
     }
-    if shown < n.children.len() {
+    if shown < n.children.len() || has_more(n) {
         if bottom <= cut + 1.0 {
             return Ok(Read::Short);
         }

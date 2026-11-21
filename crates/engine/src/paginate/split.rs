@@ -155,6 +155,8 @@ fn split_view(
 ) -> (Node, Node) {
     let top = node.layout.top;
     let children = std::mem::take(&mut node.children);
+    // Children still waiting as JSON lie below the cut.
+    let pending = std::mem::take(&mut node.pending);
     let (cur_children, next_children) = split_nodes(height - top, content_area, children, gone);
 
     let mut cur = node.clone();
@@ -173,6 +175,7 @@ fn split_view(
         Rc::make_mut(&mut next.style).height = Some(Dim::Pt(rest));
     }
     next.children = next_children;
+    next.pending = pending;
     next.dirty = true;
     (cur, next)
 }

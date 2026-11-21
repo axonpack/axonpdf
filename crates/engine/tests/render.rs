@@ -123,7 +123,13 @@ fn kept_layout_matches_fresh_layout() {
     let fresh = boxes();
     unsafe { std::env::remove_var("AXONPDF_FRESH_LAYOUT") };
     assert!(kept.len() > 1000);
-    assert_eq!(kept, fresh);
+    let first = kept.iter().zip(&fresh).position(|(a, b)| a != b);
+    assert_eq!(
+        (kept.len(), first),
+        (fresh.len(), None),
+        "first difference: {:?}",
+        first.map(|i| (kept[i], fresh[i]))
+    );
 }
 
 #[test]

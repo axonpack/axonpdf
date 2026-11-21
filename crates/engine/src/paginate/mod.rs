@@ -103,14 +103,18 @@ impl<'a, 'b> Pager<'a, 'b> {
             &mut gone,
         );
 
+        // What still waits as JSON stays with the rest of the page.
+        let pending = std::mem::take(&mut page.pending);
         let mut current = page.clone();
+        page.pending = pending;
         current.children = cur;
+        build_all(&mut current, &self.container);
         layout_page(
             &mut current,
             Some(height).filter(|h| !h.is_nan()),
             self.assets,
         )?;
-        if next.iter().all(Node::is_fixed) {
+        if next.iter().all(Node::is_fixed) && page.pending.is_empty() {
             return Ok((current, None));
         }
         page.props.shift_remove("bookmark");
@@ -166,4 +170,14 @@ impl<'a, 'b> Pager<'a, 'b> {
         }
         Ok(())
     }
+}
+
+/// Builds whatever still waits as JSON in a finished page; the cut builds what it reaches, so
+/// this normally finds nothing.
+fn build_all(n: &mut Node, c: &Container) {
+    if !n.pending.is_empty() {
+        n.build_pending(c, usize::MAX);
+        n.dirty = true;
+    }
+    n.children.iter_mut().for_each(|ch| build_all(ch, c));
 }

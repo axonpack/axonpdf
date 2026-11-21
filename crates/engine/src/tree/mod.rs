@@ -58,12 +58,12 @@ pub mod node;
 
 pub use node::{Kind, Node};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use serde_json::{Map, Value};
 
-/// A node as it arrives in the JSON.
-#[derive(Debug, Deserialize)]
+/// A node as it arrives in the JSON. Its children stay JSON until each is built.
+#[derive(Debug, Deserialize, Serialize)]
 pub struct RawNode {
     #[serde(rename = "type")]
     pub kind: String,
@@ -77,13 +77,26 @@ pub struct RawNode {
     #[serde(default)]
     pub paint: Option<u32>,
     #[serde(default)]
-    pub children: Vec<RawNode>,
+    pub children: Vec<Box<RawValue>>,
     /// The text of a `TEXT_INSTANCE`.
     #[serde(default)]
     pub value: Option<String>,
 }
 
 impl RawNode {
+    /// Reads one node. A node the engine cannot read is reported and left empty.
+    pub fn parse(json: &RawValue) -> RawNode {
+        serde_json::from_str(json.get()).unwrap_or_else(|e| {
+            eprintln!("skipping a node the engine cannot read: {e}");
+            serde_json::from_str(r#"{"type":"VIEW"}"#).unwrap()
+        })
+    }
+
+    /// Back to JSON, to sit among other nodes' children.
+    pub fn boxed(&self) -> Box<RawValue> {
+        serde_json::value::to_raw_value(self).expect("a node is always JSON")
+    }
+
     /// A `TEXT_INSTANCE`.
     pub fn text(value: String) -> RawNode {
         RawNode {
@@ -103,7 +116,7 @@ impl RawNode {
 #[serde(rename_all = "camelCase")]
 pub struct RenderResult {
     #[serde(default)]
-    pub children: Vec<RawNode>,
+    pub children: Vec<Box<RawValue>>,
     #[serde(default)]
     pub reads_total: bool,
 }
@@ -129,6 +142,42 @@ impl Doc<'_> {
             .map(|c| serde_json::from_str::<RawNode>(c.get()).map_err(|e| e.to_string()))
             .filter(|r| r.as_ref().map_or(true, |n| n.kind == "PAGE"))
     }
+
+    /// The pages' JSON, unread.
+    pub fn page_json(&self) -> impl Iterator<Item = &str> + '_ {
+        self.children.iter().map(|c| c.get())
+    }
+}
+
+/// Every number given to `key` anywhere in a JSON text. Keys are the only quoted words a
+/// colon follows, so text values cannot match.
+pub fn numbers_at(json: &str, key: &str) -> Vec<u32> {
+    let needle = format!("\"{key}\"");
+    let mut out = Vec::new();
+    for (i, _) in json.match_indices(&needle) {
+        let rest = json[i + needle.len()..].trim_start();
+        let Some(rest) = rest.strip_prefix(':') else {
+            continue;
+        };
+        let digits: String = rest
+            .trim_start()
+            .chars()
+            .take_while(char::is_ascii_digit)
+            .collect();
+        if let Ok(n) = digits.parse() {
+            out.push(n);
+        }
+    }
+    out
+}
+
+/// Whether a node of this `type` is anywhere in a JSON text.
+pub fn has_type(json: &str, kind: &str) -> bool {
+    json.match_indices("\"type\"").any(|(i, _)| {
+        let rest = json[i + 6..].trim_start();
+        rest.strip_prefix(':')
+            .is_some_and(|r| r.trim_start().starts_with(&format!("\"{kind}\"")))
+    })
 }
 
 /// Parses a document. The root must be a `DOCUMENT` of version 1.
@@ -170,8 +219,15 @@ mod tests {
         assert_eq!(doc.props["title"], "T");
         let page = doc.pages().next().unwrap().unwrap();
         assert!(page.style.is_array());
-        assert_eq!(page.children[0].render, Some(3));
-        assert_eq!(page.children[0].children[0].value.as_deref(), Some("hi"));
+        let text = RawNode::parse(&page.children[0]);
+        assert_eq!(text.render, Some(3));
+        assert_eq!(
+            RawNode::parse(&text.children[0]).value.as_deref(),
+            Some("hi")
+        );
+        let json = doc.page_json().next().unwrap();
+        assert_eq!(numbers_at(json, "render"), [3]);
+        assert!(has_type(json, "TEXT_INSTANCE") && !has_type(json, "ROWS"));
     }
 
     #[test]
