@@ -26,16 +26,31 @@ exports+=,_axonpdf_set_paint_callback,_axonpdf_set_hyphenation_callback,_axonpdf
 exports+=,_axonpdf_set_rows_callback,_axonpdf_total_pages_marker,_axonpdf_render_begin,_axonpdf_push_rows
 exports+=,_axonpdf_profile,_axonpdf_profile_report
 
+# $1: the environments, $2: the loader to write; the .wasm lands beside it.
+link() {
+  em++ "$root/target/wasm32-unknown-emscripten/release/libaxonpdf_ffi.a" \
+    -Oz -fwasm-exceptions \
+    -o "$2" \
+    -sMODULARIZE -sEXPORT_ES6 -sEXPORT_NAME=createModule \
+    -sENVIRONMENT="$1" \
+    -sALLOW_MEMORY_GROWTH -sMAXIMUM_MEMORY=4GB \
+    -sALLOW_TABLE_GROWTH \
+    -sEXPORTED_FUNCTIONS="$exports" \
+    -sEXPORTED_RUNTIME_METHODS=addFunction,UTF8ToString,HEAPU8
+}
+
 mkdir -p "$out"
-em++ "$root/target/wasm32-unknown-emscripten/release/libaxonpdf_ffi.a" \
-  -Oz -fwasm-exceptions \
-  -o "$out/axonpdf.mjs" \
-  -sMODULARIZE -sEXPORT_ES6 -sEXPORT_NAME=createModule \
-  -sENVIRONMENT=web,worker,node \
-  -sALLOW_MEMORY_GROWTH -sMAXIMUM_MEMORY=4GB \
-  -sALLOW_TABLE_GROWTH \
-  -sEXPORTED_FUNCTIONS="$exports" \
-  -sEXPORTED_RUNTIME_METHODS=addFunction,UTF8ToString,HEAPU8
+link web,worker,node "$out/axonpdf.mjs"
+# A loader without the Node branch for bundlers that build for browsers (package.json
+# `imports`), so they don't meet Node's built-in modules. It loads the same axonpdf.wasm.
+web=$(mktemp -d)
+link web,worker "$web/axonpdf.mjs"
+if ! cmp -s "$web/axonpdf.wasm" "$out/axonpdf.wasm"; then
+  echo "the browser loader's WebAssembly differs from the shared one" >&2
+  exit 1
+fi
+mv "$web/axonpdf.mjs" "$out/axonpdf.web.mjs"
+rm -rf "$web"
 
 raw=$(wc -c <"$out/axonpdf.wasm" | tr -d ' ')
 gz=$(gzip -9c "$out/axonpdf.wasm" | wc -c | tr -d ' ')

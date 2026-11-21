@@ -1,4 +1,4 @@
-import createModule, { type AxonpdfModule } from "../wasm/axonpdf.mjs";
+import createModule, { type AxonpdfModule } from "#loader";
 import type { Callbacks } from "./engine.type.js";
 
 export interface Active {
