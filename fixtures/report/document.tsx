@@ -1,7 +1,8 @@
 // A three-page report in Helvetica: reusable components fed by props, a bordered table that breaks
 // across pages under a repeating header row, fixed header and footer, page numbers with the total,
 // nested bookmarks, internal and external links, metadata, and the pagination props
-// (break, wrap={false}, minPresenceAhead, orphans, widows).
+// (break, wrap={false}, minPresenceAhead, orphans, widows). A last page uses a `layout` template,
+// which moves the whole document onto the newer pagination engine.
 import { Document, Link, Page, StyleSheet, Text, View } from '@axonpdf/react';
 
 type Line = { sku: string; name: string; qty: number; price: number };
@@ -65,6 +66,20 @@ function Row({ line, index }: { line: Line; index: number }) {
   );
 }
 
+// Page chrome around the content: a header with the page count above, a line below.
+function NotesLayout({ children, pageNumber, totalPages }: { children?: React.ReactNode; pageNumber?: number; totalPages?: number }) {
+  return (
+    <>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottom: '0.5pt solid #999', paddingBottom: 4, marginBottom: 8 }}>
+        <Text style={{ fontFamily: 'Helvetica-Bold' }}>Delivery notes</Text>
+        <Text>{`Page ${pageNumber} of ${totalPages}`}</Text>
+      </View>
+      {children}
+      <Text style={{ marginTop: 8, fontSize: 7, color: '#666' }}>Willow House, stock room</Text>
+    </>
+  );
+}
+
 export default function Report() {
   const total = LINES.reduce((sum, l) => sum + l.qty * l.price, 0);
   return (
@@ -125,6 +140,14 @@ export default function Report() {
         </View>
 
         <Text style={s.footer} fixed render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
+      </Page>
+
+      <Page size="A6" style={{ padding: 24, fontSize: 9 }} bookmark="Delivery notes" layout={NotesLayout}>
+        {Array.from({ length: 5 }, (_, i) => (
+          <Text key={i} style={s.para}>
+            {i + 1}. {PARAGRAPH}
+          </Text>
+        ))}
       </Page>
     </Document>
   );
