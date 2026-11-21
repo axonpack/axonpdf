@@ -235,3 +235,36 @@ fn pushed_rows_resume_the_render() {
     assert!(waits >= 20);
     assert_eq!(pushed, pulled);
 }
+
+#[test]
+fn table_borders_collapse() {
+    let cell = |s: &str| json!({"type": "TABLE_CELL", "props": {}, "style": {"border": "1 solid black", "flex": 1}, "children": [text(s)]});
+    let row = || json!({"type": "TABLE_ROW", "props": {}, "style": {"border": "2 solid black"}, "children": [cell("a"), cell("b"), cell("c")]});
+    let json = doc(json!({"type": "PAGE", "props": {}, "children": [
+        {"type": "TABLE", "props": {}, "style": {"border": "3 solid black"}, "children": [row(), row()]}]}));
+    let mut seen = Vec::new();
+    Engine::new()
+        .layout(&json, &mut |p, _, _| {
+            let table = &p.children[0];
+            for r in &table.children {
+                seen.push((
+                    r.layout.border,
+                    r.children
+                        .iter()
+                        .map(|c| c.layout.border)
+                        .collect::<Vec<_>>(),
+                ));
+            }
+        })
+        .unwrap();
+    // The table's 3pt top wins over the first row's 2pt; the second row's top meets the
+    // first's bottom; in each row the 2pt left wins over the first cell's, and cells share one
+    // border between them.
+    assert_eq!(seen[0].0, [0.0, 2.0, 2.0, 2.0]);
+    assert_eq!(seen[1].0, [0.0, 2.0, 2.0, 2.0]);
+    for (_, cells) in &seen {
+        assert_eq!(cells[0], [1.0, 1.0, 1.0, 0.0]);
+        assert_eq!(cells[1], [1.0, 1.0, 1.0, 0.0]);
+        assert_eq!(cells[2], [1.0, 1.0, 1.0, 0.0]);
+    }
+}

@@ -170,6 +170,7 @@ impl Node {
             if std::mem::replace(&mut self.break_next, after) {
                 n.props.insert("break".into(), true.into());
             }
+            extras::collapse(self, &mut n);
             self.children.push(n);
             built += 1;
         }

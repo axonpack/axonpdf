@@ -8,13 +8,20 @@
 //! - `PAGE_NUMBER` and `PAGE_COUNT` are text the engine fills in: the page's number, and the
 //!   document's page count.
 //! - `ROWS` is a view of its rows.
+//! - Table borders that meet collapse into one.
 
 use serde_json::{Value, json};
 
-use super::RawNode;
+use std::rc::Rc;
+
+use super::{Node, RawNode};
+use crate::style::{BOTTOM, LEFT, RIGHT, TOP};
 
 /// Marks a table, whose border is drawn on every page it reaches.
 pub const TABLE: &str = "__table";
+
+/// Marks a table row, whose cells' borders collapse.
+pub const TABLE_ROW: &str = "__table_row";
 
 /// What a counter shows: `page` or `count`.
 pub const COUNTER: &str = "__counter";
@@ -39,10 +46,12 @@ pub fn translate(mut raw: RawNode) -> RawNode {
         "TABLE_CELL" | "ROWS" => raw.kind = "VIEW".into(),
         "TABLE_ROW" => {
             raw.kind = "VIEW".into();
+            raw.props.insert(TABLE_ROW.into(), true.into());
             row(&mut raw);
         }
         "TABLE_HEADER" => {
             raw.kind = "VIEW".into();
+            raw.props.insert(TABLE_ROW.into(), true.into());
             raw.props.insert("fixed".into(), true.into());
             row(&mut raw);
         }
@@ -64,4 +73,35 @@ pub fn translate(mut raw: RawNode) -> RawNode {
 /// Whether a node asks for a page break after it.
 pub fn breaks_after(raw: &RawNode) -> bool {
     raw.props.get("breakAfter").and_then(Value::as_str) == Some("page")
+}
+
+/// Borders that meet collapse into one, the wider: between rows of a table (and the table's
+/// top edge and its first row), and between cells of a row (and the row's left edge and its
+/// first cell). `child` is about to join `parent` after its last child.
+pub fn collapse(parent: &mut Node, child: &mut Node) {
+    // Rows run down a table, cells across a row: top meets bottom, left meets right.
+    let (near, far) = if parent.has(TABLE) {
+        (TOP, BOTTOM)
+    } else if parent.has(TABLE_ROW) {
+        (LEFT, RIGHT)
+    } else {
+        return;
+    };
+    let width = |n: &Node, side: usize| n.style.border_width[side].unwrap_or(0.0);
+    let theirs = match parent.children.last_mut() {
+        Some(prev) => (width(prev, far), Some(prev)),
+        None => (width(parent, near), None),
+    };
+    let mine = width(child, near);
+    if mine == 0.0 || theirs.0 == 0.0 {
+        return;
+    }
+    if theirs.0 >= mine {
+        Rc::make_mut(&mut child.style).border_width[near] = Some(0.0);
+    } else {
+        match theirs.1 {
+            Some(prev) => Rc::make_mut(&mut prev.style).border_width[far] = Some(0.0),
+            None => Rc::make_mut(&mut parent.style).border_width[near] = Some(0.0),
+        }
+    }
 }
