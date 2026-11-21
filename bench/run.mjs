@@ -1,7 +1,9 @@
 // Runs the benchmark report with axonpdf, react-pdf 4.9.0 and pdfkit, one process per run and one
 // run at a time, and appends every result to bench/RESULTS.md.
 //
-//   node bench/run.mjs [--sizes 10,100,1000,5000] [--engines axonpdf,react-pdf,pdfkit]
+//   node bench/run.mjs [--sizes 10,100,1000,5000] [--engines axonpdf,react-pdf,pdfkit] [--label text]
+//
+// --label is added to the batch heading in RESULTS.md, for example "baseline, not for publishing".
 //
 // A run is stopped past 15 minutes or 8 GB RSS. An engine skips the bigger sizes once a run took
 // over 5 minutes or was stopped. PDFs go to local/bench/ (gitignored). Needs poppler and qpdf.
@@ -20,7 +22,7 @@ const LIMIT_KB = 8 * 2 ** 20;
 const SKIP_AFTER_MS = 5 * 60e3;
 
 const { values: o } = parseArgs({
-  options: { sizes: { type: 'string', default: '10,100,1000,5000' }, engines: { type: 'string', default: 'axonpdf,react-pdf,pdfkit' } },
+  options: { label: { type: 'string' }, sizes: { type: 'string', default: '10,100,1000,5000' }, engines: { type: 'string', default: 'axonpdf,react-pdf,pdfkit' } },
 });
 const sizes = o.sizes.split(',').map(Number);
 const engines = o.engines.split(',');
@@ -37,7 +39,7 @@ const wasmStale = engines.includes('axonpdf') && freshBuild();
 const dirty = sh('git', ['-C', ROOT, 'status', '--porcelain', '--', 'crates', 'packages']) ? ' with uncommitted changes in crates/ or packages/' : '';
 const wasm = resolve(ROOT, 'packages/core/wasm/axonpdf.wasm');
 const header = [
-  `\n## ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC, benchmark report`,
+  `\n## ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC, benchmark report${o.label ? ` (${o.label})` : ''}`,
   '',
   `- Commit: \`${sh('git', ['-C', ROOT, 'rev-parse', '--short', 'HEAD'])}\`${dirty}`,
   `- WASM: ${existsSync(wasm) ? `${statSync(wasm).size} bytes` : 'missing'}${wasmStale ? ', **older than crates/ (stale)**' : ''}`,
@@ -83,7 +85,7 @@ function runOne(engine, size) {
   );
 }
 
-const size = (b) => (b < 2 ** 20 ? `${Math.round(b / 1024)} KB` : `${(b / 2 ** 20).toFixed(1)} MB`);
+const bytes = (b) => (b < 2 ** 20 ? `${Math.round(b / 1024)} KB` : `${(b / 2 ** 20).toFixed(1)} MB`);
 const fmt = (ms) => (ms < 1000 ? `${ms} ms` : ms < 60e3 ? `${(ms / 1000).toFixed(1)} s` : `${Math.floor(ms / 60e3)} min ${Math.round((ms % 60e3) / 1000)} s`);
 for (const engine of engines) {
   let skip = null;
@@ -96,7 +98,7 @@ for (const engine of engines) {
     const r = await runOne(engine, size);
     const line = r.stopped
       ? `| ${engine} | ${size} | ${r.stopped} | ${fmt(r.wallMs)} | | | | ${rerun} |`
-      : `| ${engine} | ${size} | ${r.pages} | ${fmt(r.ms)} | ${r.maxRssMb} MB | ${size(r.bytes)} | ${r.qpdf} | ${rerun} |`;
+      : `| ${engine} | ${size} | ${r.pages} | ${fmt(r.ms)} | ${r.maxRssMb} MB | ${bytes(r.bytes)} | ${r.qpdf} | ${rerun} |`;
     console.log(line);
     appendFileSync(RESULTS, line + '\n');
     if (r.stopped) skip = 'the size before was stopped';
