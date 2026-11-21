@@ -1,5 +1,6 @@
 import { createContext } from "react";
 
+import { fitsIn } from "../tree/stray-text.js";
 import type { Child, Container, Instance, TextInstance } from "../types/instance.type.js";
 
 // React 19's DefaultLane; React 18 reports its own (16) through getCurrentEventPriority.
@@ -63,17 +64,18 @@ export function createHostConfig(onChange: (container: Container) => void) {
     }),
     createTextInstance: (value: string): TextInstance => ({ type: "TEXT_INSTANCE", value }),
     appendInitialChild: (parent: Instance, child: Child) => {
-      parent.children.push(child);
+      if (fitsIn(parent.type, child)) parent.children.push(child);
     },
     appendChild: (parent: Instance, child: Child) => {
       remove(parent.children, child);
-      parent.children.push(child);
+      if (fitsIn(parent.type, child)) parent.children.push(child);
     },
     appendChildToContainer: (container: Container, child: Instance) => {
       container.document = child;
     },
-    insertBefore: (parent: Instance, child: Child, before: Child) =>
-      insert(parent.children, child, before),
+    insertBefore: (parent: Instance, child: Child, before: Child) => {
+      if (fitsIn(parent.type, child)) insert(parent.children, child, before);
+    },
     insertInContainerBefore: (container: Container, child: Instance) => {
       container.document = child;
     },

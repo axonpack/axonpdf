@@ -2,6 +2,7 @@ import { Fragment, isValidElement, type ReactNode } from "react";
 
 import type { Item } from "../types/instance.type.js";
 import { Fallback, callWithHooks, major, readContext, type Scope } from "./dispatcher.js";
+import { fitsIn } from "./stray-text.js";
 
 const is = (name: string) => Symbol.for(`react.${name}`);
 const [MEMO, FORWARD_REF, CONTEXT, CONSUMER, PROVIDER, LAZY] = [
@@ -47,7 +48,7 @@ function* element(
 ): Generator<Item> {
   if (typeof type === "string") {
     const { children, ...rest } = props;
-    yield { type, props: rest, children: walk(children, scope), scope };
+    yield { type, props: rest, children: within(type, walk(children, scope)), scope };
   } else if (WRAPPERS.has(type)) {
     yield* walk(props.children, scope);
   } else if (typeof type === "function") {
@@ -73,6 +74,11 @@ function* element(
   } else {
     throw new Fallback(type?.$$typeof === LAZY ? "lazy" : "an unknown element type");
   }
+}
+
+/** The children a `parent` host keeps. */
+function* within(parent: string, children: Iterable<Item>): Generator<Item> {
+  for (const child of children) if (fitsIn(parent, child)) yield child;
 }
 
 /** Function components lost `defaultProps` in React 19; before, elements already had them. */

@@ -80,12 +80,15 @@ describe("browser components", () => {
         fileName="report.pdf"
         onClick={(_, instance) => clicks.push(instance)}
       >
-        {({ loading }) => (loading ? "Loading" : "Download")}
+        {/* A host renderer keeps strings only inside text, so the label is a Text. */}
+        {({ loading }) => <Text>{loading ? "Loading" : "Download"}</Text>}
       </PDFDownloadLink>,
     );
     expect(host.node).toMatchObject({ type: "a", props: { download: "report.pdf" } });
     await vi.waitFor(() => expect(host.node.props.href).toMatch(/^blob:/));
-    expect(host.node.children).toEqual([{ type: "TEXT_INSTANCE", value: "Download" }]);
+    expect(host.node.children).toMatchObject([
+      { type: "TEXT", children: [{ type: "TEXT_INSTANCE", value: "Download" }] },
+    ]);
     host.node.props.onClick({});
     expect(clicks[0]).toMatchObject({ loading: false, url: host.node.props.href });
   });
