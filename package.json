@@ -31,6 +31,7 @@
     }
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "packages/react/example"
   ]
 }
