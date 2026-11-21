@@ -21,11 +21,19 @@
         "@types/node": "^24.0.0",
       },
     },
+    "packages/font": {
+      "name": "@axonpdf/font",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@types/node": "^24.0.0",
+      },
+    },
     "packages/react": {
       "name": "@axonpdf/react",
       "version": "0.0.0",
       "dependencies": {
         "@axonpdf/core": "*",
+        "@axonpdf/font": "*",
         "react-reconciler-18": "npm:react-reconciler@0.29.2",
         "react-reconciler-19-0": "npm:react-reconciler@0.31.0",
         "react-reconciler-19-2": "npm:react-reconciler@0.33.0",
@@ -58,6 +66,8 @@
   },
   "packages": {
     "@axonpdf/core": ["@axonpdf/core@workspace:packages/core"],
+
+    "@axonpdf/font": ["@axonpdf/font@workspace:packages/font"],
 
     "@axonpdf/react": ["@axonpdf/react@workspace:packages/react"],
 
