@@ -31,6 +31,8 @@ pub struct Attrs {
     pub align: String,
     pub background: Option<Color>,
     pub indent: f64,
+    /// `sub` or `super`.
+    pub vertical_align: Option<String>,
 }
 
 /// One shaped glyph. `index` is the character it starts at; lengths are points.
@@ -56,8 +58,9 @@ pub struct Run {
     pub descent: f64,
     pub line_gap: f64,
     pub glyphs: Vec<Glyph>,
-    /// The glyph drawn for a hyphen added at a break.
+    /// The glyphs drawn for a hyphen added at a break, and for an ellipsis.
     pub hyphen: Glyph,
+    pub ellipsis: Glyph,
 }
 
 impl Run {

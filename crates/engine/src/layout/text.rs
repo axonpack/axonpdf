@@ -70,6 +70,7 @@ pub fn fragments(
         // The outer text's own background is drawn as a box, not per run.
         background: if level == 0 { None } else { s.background_color },
         indent: s.text_indent.unwrap_or(0.0),
+        vertical_align: s.vertical_align.clone(),
     });
     for child in &node.children {
         match child.kind {

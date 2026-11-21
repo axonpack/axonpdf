@@ -118,6 +118,16 @@ fn shape(fonts: &FontStore, attrs: Rc<Attrs>, font: FontId, start: usize, text: 
     let em = m.units_per_em;
     let char_at: Vec<usize> = text.char_indices().map(|(b, _)| b).collect();
     let chars: Vec<char> = text.chars().collect();
+    // `sub` and `super` raise every glyph by a share of the em. The share is taken of the font's
+    // units and then read as thousandths of the font size, so fonts not on a 1000 grid move
+    // further; shaped x offsets are scaled by the size twice.
+    let raise = match attrs.vertical_align.as_deref() {
+        Some("sub") => -0.2,
+        Some("super") => 0.4,
+        _ => 0.0,
+    } * m.units_per_em as f64
+        * attrs.size
+        / 1000.0;
     let glyphs = fonts
         .shape(font, text, em, 0.0, &[])
         .into_iter()
@@ -127,34 +137,30 @@ fn shape(fonts: &FontStore, attrs: Rc<Attrs>, font: FontId, start: usize, text: 
                 id: g.id,
                 index: start + i,
                 advance: g.x_advance as f64 * scale + attrs.letter_spacing,
-                x_offset: g.x_offset as f64 * scale,
-                y_offset: g.y_offset as f64 * scale,
+                x_offset: g.x_offset as f64 * scale * attrs.size / 1000.0,
+                y_offset: raise,
                 whitespace: chars.get(i) == Some(&' '),
             }
         })
         .collect();
-    // The hyphen added at a break. The Standard 14 give it a fixed 400 units.
-    let mut hyphen = fonts.shape(font, "-", em, 0.0, &[]).first().map_or(
+    // The hyphen added at a break and the ellipsis of cut text. The Standard 14 give each a
+    // fixed 400 units.
+    let extra = |s: &str| {
+        let g = fonts
+            .shape(font, s, em, 0.0, &[])
+            .first()
+            .copied()
+            .unwrap_or_default();
+        let standard = matches!(fonts.font(font), Font::Standard(_));
         Glyph {
-            id: 0x2d,
-            index: 0,
-            advance: 0.0,
-            x_offset: 0.0,
-            y_offset: 0.0,
-            whitespace: false,
-        },
-        |g| Glyph {
             id: g.id,
             index: 0,
-            advance: g.x_advance as f64 * scale,
+            advance: if standard { 400.0 } else { g.x_advance as f64 } * scale,
             x_offset: 0.0,
             y_offset: 0.0,
             whitespace: false,
-        },
-    );
-    if matches!(fonts.font(font), Font::Standard(_)) {
-        hyphen.advance = 400.0 * scale;
-    }
+        }
+    };
     Run {
         start,
         end: start + chars.len(),
@@ -164,6 +170,7 @@ fn shape(fonts: &FontStore, attrs: Rc<Attrs>, font: FontId, start: usize, text: 
         descent: m.descent as f64 * scale,
         line_gap: m.line_gap as f64 * scale,
         glyphs,
-        hyphen,
+        hyphen: extra("-"),
+        ellipsis: extra("\u{2026}"),
     }
 }

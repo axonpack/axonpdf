@@ -16,6 +16,7 @@ fn attrs(size: f64, align: &str) -> Rc<Attrs> {
         align: align.into(),
         background: None,
         indent: 0.0,
+        vertical_align: None,
     })
 }
 

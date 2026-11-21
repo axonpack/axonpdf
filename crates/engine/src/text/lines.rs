@@ -32,25 +32,77 @@ pub fn layout(
         block.truncate(left);
         left -= block.len();
         let block_height: f64 = block.iter().map(|l| l.height).sum();
-        // ponytail: no ellipsis yet when maxLines or the height cuts a paragraph.
-        let _ = cut && opts.ellipsis;
         if room >= block_height {
+            if cut && opts.ellipsis {
+                ellipsis(&mut block, p);
+            }
             room -= block_height;
             y += block_height;
-            lines.extend(block);
+            lines.extend(finish(block));
         } else {
+            // Out of room: keep the lines that fit and end the last with an ellipsis.
             let mut used = 0.0;
-            for line in block {
-                used += line.height;
-                if used >= room {
-                    break;
-                }
-                lines.push(line);
-            }
+            block.retain(|l| {
+                used += l.height;
+                used < room
+            });
+            ellipsis(&mut block, p);
+            lines.extend(finish(block));
             break;
         }
     }
     lines
+}
+
+fn finish(block: Vec<Line>) -> impl Iterator<Item = Line> {
+    let n = block.len();
+    block
+        .into_iter()
+        .enumerate()
+        .map(move |(i, l)| finalize(l, i + 1 == n))
+}
+
+/// Drops whitespace from one end of a run; true when nothing is left, so trimming goes on.
+fn trim(r: &mut LineRun, front: bool) -> bool {
+    let chars: Vec<char> = r.text.chars().collect();
+    let (mut a, mut b) = (0, chars.len());
+    while a < b && chars[if front { a } else { b - 1 }].is_whitespace() {
+        if front { a += 1 } else { b -= 1 }
+    }
+    let (s, e) = (r.start + a, r.start + b);
+    r.glyphs.retain(|g| g.index >= s && g.index < e);
+    r.text = chars[a..b].iter().collect();
+    r.start = s;
+    a == b
+}
+
+/// Trims the last line's edge spaces and ends it with an ellipsis.
+fn ellipsis(block: &mut [Line], p: &Paragraph) {
+    let Some(line) = block.last_mut() else { return };
+    for r in line.runs.iter_mut() {
+        if !trim(r, true) {
+            break;
+        }
+    }
+    for r in line.runs.iter_mut().rev() {
+        if !trim(r, false) {
+            break;
+        }
+    }
+    let Some(last) = line.runs.last_mut() else {
+        return;
+    };
+    let end = last.start + last.text.chars().count();
+    let source = p
+        .runs
+        .iter()
+        .rfind(|r| r.font == last.font && r.start <= last.start)
+        .unwrap_or(&p.runs[0]);
+    last.glyphs.push(Glyph {
+        index: end,
+        ..source.ellipsis
+    });
+    last.text.push('…');
 }
 
 fn paragraph_lines(p: &Paragraph, width: f64, top: f64, opts: &Options) -> Vec<Line> {
@@ -89,7 +141,6 @@ fn paragraph_lines(p: &Paragraph, width: f64, top: f64, opts: &Options) -> Vec<L
     }
     ranges.push((start, p.chars.len(), false));
 
-    let count = ranges.len();
     let mut y = top;
     ranges
         .into_iter()
@@ -111,7 +162,7 @@ fn paragraph_lines(p: &Paragraph, width: f64, top: f64, opts: &Options) -> Vec<L
                 runs,
             };
             y += height;
-            finalize(line, i == count - 1)
+            line
         })
         .collect()
 }
