@@ -164,6 +164,7 @@ pub fn fragments(
         vertical_align: s.vertical_align.clone(),
         attachment: None,
         deferred: false,
+        rtl: s.direction.as_deref() == Some("rtl"),
     });
     for child in &node.children {
         match child.kind {

@@ -1,7 +1,8 @@
 // Two pages of text: a registered TTF family with three faces beside the built-in Helvetica, Times
 // and Courier; size, weight, style, line height, alignment including justify, letter and word
 // spacing, transforms, decorations, indent, ellipsis, sub and superscript, nested runs with links,
-// hyphenation (default, soft hyphens, a custom callback) and an emoji drawn from an image source.
+// hyphenation (default, soft hyphens, a custom callback), an emoji drawn from an image source, and
+// right-to-left Arabic and Hebrew with bidi reordering and mirrored brackets.
 import { Document, Font, Link, Page, StyleSheet, Text, View } from '@axonpdf/react';
 
 // Paths are relative to fixtures/, the working directory while a fixture renders.
@@ -13,6 +14,8 @@ Font.register({
     { src: 'assets/Lato-Italic.ttf', fontStyle: 'italic' },
   ],
 });
+Font.register({ family: 'Noto Sans Arabic', src: 'assets/NotoSansArabic-Regular.ttf' });
+Font.register({ family: 'Noto Sans Hebrew', src: 'assets/NotoSansHebrew-Regular.ttf' });
 Font.registerEmojiSource({ builder: (code: string) => `assets/emoji/${code}.png` });
 
 const TEXT =
@@ -108,6 +111,18 @@ export default function Typography() {
           <View style={[s.col, { width: 110 }]}>
             <Text style={s.label}>callback that never splits</Text>
             <Text style={{ fontSize: 12 }} hyphenationCallback={(word: string) => [word]}>{TEXT}</Text>
+          </View>
+          <View style={[s.col, { width: 118, marginRight: 0 }]}>
+            <Text style={s.label}>direction rtl, and Hebrew inside left to right</Text>
+            <Text style={{ direction: 'rtl', fontFamily: ['Noto Sans Arabic', 'Lato'] }}>
+              مرحبا بالعالم، هذا نص عربي (بين قوسين) فيه كلمة PDF والرقم 2026 ويلتف على عدة أسطر.
+            </Text>
+            <Text style={{ direction: 'rtl', fontFamily: ['Noto Sans Hebrew', 'Lato'], marginTop: 4 }}>
+              שלום עולם, זהו טקסט בעברית [עם סוגריים] ומספר 42 באמצע.
+            </Text>
+            <Text style={{ fontFamily: ['Lato', 'Noto Sans Hebrew'], marginTop: 4 }}>
+              Left to right with שלום עולם (inside) and on.
+            </Text>
           </View>
         </View>
       </Page>

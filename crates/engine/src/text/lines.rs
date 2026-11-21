@@ -1,5 +1,6 @@
 //! Paragraphs into lines for a given width.
 
+use super::bidi;
 use super::breaker::{INFINITY, Item, best_fit, knuth_plass};
 use super::exclusion::line_rects;
 use super::finalize::finalize;
@@ -57,10 +58,10 @@ pub fn layout(
 
 fn finish(block: Vec<Line>) -> impl Iterator<Item = Line> {
     let n = block.len();
-    block
-        .into_iter()
-        .enumerate()
-        .map(move |(i, l)| finalize(l, i + 1 == n))
+    block.into_iter().enumerate().map(move |(i, mut l)| {
+        bidi::reorder(&mut l);
+        finalize(l, i + 1 == n)
+    })
 }
 
 /// Drops whitespace from one end of a run; true when nothing is left, so trimming goes on.
@@ -268,6 +269,7 @@ fn slice(p: &Paragraph, s: usize, e: usize, hyphen: bool) -> Vec<LineRun> {
                 attrs: r.attrs.clone(),
                 start: a,
                 font: r.font,
+                level: r.level,
                 text: p.chars[a..b].iter().collect(),
                 glyphs,
                 ascent: r.ascent,

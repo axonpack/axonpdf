@@ -4,12 +4,12 @@
 use super::{Glyph, Line};
 
 pub fn finalize(mut line: Line, last_in_paragraph: bool) -> Line {
-    // The newline that ended the paragraph is not drawn.
-    if let Some(run) = line.runs.last_mut()
-        && run.text.ends_with('\n')
-    {
+    // The newline that ended the paragraph is not drawn. Bidi order may have put its run, and
+    // its glyph in the run, anywhere.
+    if let Some(run) = line.runs.iter_mut().find(|r| r.text.ends_with('\n')) {
         run.text.pop();
-        run.glyphs.pop();
+        let newline = run.start + run.text.chars().count();
+        run.glyphs.retain(|g| g.index != newline);
     }
 
     // Leading and trailing spaces hang outside the line box.

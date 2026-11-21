@@ -74,8 +74,9 @@ impl Embedded {
             .unwrap_or(0)
     }
 
-    /// Shapes left to right with the font's default features (kerning, ligatures) plus
-    /// `features`, each tag turned on or off.
+    /// Shapes with the font's default features (kerning, ligatures) plus `features`, each tag
+    /// turned on or off. Glyphs come back in reading order: a right-to-left script is shaped
+    /// right to left (shaped left to right it would be read as already reversed), then turned.
     pub fn shape(
         &self,
         text: &str,
@@ -86,14 +87,25 @@ impl Embedded {
         let mut buffer = UnicodeBuffer::new();
         buffer.push_str(text);
         buffer.guess_segment_properties();
-        buffer.set_direction(Direction::LeftToRight);
+        let rtl = buffer.direction() == Direction::RightToLeft;
+        if rtl {
+            // Text comes already mirrored by bidi and the shaper mirrors right to left again:
+            // undo ours so the two make one.
+            let unmirrored: String = text.chars().map(crate::text::bidi::mirror).collect();
+            buffer = UnicodeBuffer::new();
+            buffer.push_str(&unmirrored);
+            buffer.guess_segment_properties();
+        } else {
+            buffer.set_direction(Direction::LeftToRight);
+        }
         let features: Vec<Feature> = features
             .iter()
             .map(|&(tag, on)| Feature::new(Tag::from_bytes(&tag), on as u32, ..))
             .collect();
         let out = rustybuzz::shape(self.face(), &features, buffer);
         let scale = size / self.metrics.units_per_em;
-        out.glyph_infos()
+        let mut glyphs: Vec<Glyph> = out
+            .glyph_infos()
             .iter()
             .zip(out.glyph_positions())
             .map(|(info, pos)| Glyph {
@@ -103,6 +115,10 @@ impl Embedded {
                 x_offset: pos.x_offset as f32 * scale,
                 y_offset: pos.y_offset as f32 * scale,
             })
-            .collect()
+            .collect();
+        if rtl {
+            glyphs.reverse();
+        }
+        glyphs
     }
 }

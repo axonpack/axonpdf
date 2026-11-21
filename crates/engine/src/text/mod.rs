@@ -1,6 +1,7 @@
 //! Text: a `Text` node's runs are prepared once (fonts picked, glyphs shaped, words split into
 //! syllables), then broken into lines for whatever width layout asks for.
 
+pub mod bidi;
 pub mod breaker;
 pub mod exclusion;
 mod finalize;
@@ -38,6 +39,8 @@ pub struct Attrs {
     pub attachment: Option<Attachment>,
     /// The run holds room for the page total, which the writer draws there at the end.
     pub deferred: bool,
+    /// `direction: 'rtl'`: the paragraphs this run starts are right to left.
+    pub rtl: bool,
 }
 
 /// An image on a text line. `y_offset` moves it down.
@@ -69,6 +72,8 @@ pub struct Run {
     pub end: usize,
     pub attrs: Rc<Attrs>,
     pub font: FontId,
+    /// The bidi embedding level; odd is right to left.
+    pub level: u8,
     /// Ascent and descent (negative) in points, and the line gap.
     pub ascent: f64,
     pub descent: f64,
@@ -108,6 +113,8 @@ pub struct LineRun {
     /// The paragraph character the run starts at (glyph `index`es count from the paragraph).
     pub start: usize,
     pub font: FontId,
+    pub level: u8,
+    /// The characters in reading order; right-to-left glyphs are in visual order.
     pub text: String,
     pub glyphs: Vec<Glyph>,
     pub ascent: f64,

@@ -3,7 +3,7 @@
 
 use std::rc::Rc;
 
-use super::{Attrs, Glyph, Paragraph, Run};
+use super::{Attrs, Glyph, Paragraph, Run, bidi};
 use crate::display::FontId;
 use crate::fonts::{Font, FontStore};
 
@@ -55,9 +55,12 @@ fn paragraph(
     split: &mut Split,
 ) -> Paragraph {
     let mut last_font: Option<FontId> = None;
-    // Runs: same fragment, same font.
-    let mut pieces: Vec<(usize, FontId, String)> = Vec::new();
-    for &(c, frag) in chars {
+    let text: Vec<char> = chars.iter().map(|x| x.0).collect();
+    let levels = bidi::levels(&text, fragments[chars[0].1].attrs.rtl);
+    // Runs: same fragment, same font, same bidi level.
+    let mut pieces: Vec<(usize, FontId, u8, String)> = Vec::new();
+    for (&(c, frag), &level) in chars.iter().zip(&levels) {
+        let c = if level % 2 == 1 { bidi::mirror(c) } else { c };
         let stack = &fragments[frag].fonts;
         let font = match last_font {
             Some(f) if c == SOFT_HYPHEN => f,
@@ -70,13 +73,13 @@ fn paragraph(
         };
         last_font = Some(font);
         match pieces.last_mut() {
-            Some((f, id, text)) if *f == frag && *id == font => text.push(c),
-            _ => pieces.push((frag, font, c.to_string())),
+            Some((f, id, l, text)) if *f == frag && *id == font && *l == level => text.push(c),
+            _ => pieces.push((frag, font, level, c.to_string())),
         }
     }
 
     let mut p = Paragraph::default();
-    for (frag, font, text) in pieces {
+    for (frag, font, level, text) in pieces {
         let start = p.chars.len();
         // Words split at runs of spaces, then into syllables; soft hyphens are dropped after.
         for word in split_spaces(&text) {
@@ -88,13 +91,9 @@ fn paragraph(
             }
         }
         let run_text: String = p.chars[start..].iter().collect();
-        p.runs.push(shape(
-            fonts,
-            fragments[frag].attrs.clone(),
-            font,
-            start,
-            &run_text,
-        ));
+        let mut run = shape(fonts, fragments[frag].attrs.clone(), font, start, &run_text);
+        run.level = level;
+        p.runs.push(run);
     }
     p
 }
@@ -215,6 +214,7 @@ fn shape(fonts: &FontStore, attrs: Rc<Attrs>, font: FontId, start: usize, text: 
         end: start + chars.len(),
         attrs,
         font,
+        level: 0,
         ascent: (m.ascent as f64 * scale).max(attachment_height),
         descent: m.descent as f64 * scale,
         line_gap: m.line_gap as f64 * scale,

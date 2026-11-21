@@ -19,6 +19,7 @@ fn attrs(size: f64, align: &str) -> Rc<Attrs> {
         vertical_align: None,
         attachment: None,
         deferred: false,
+        rtl: false,
     })
 }
 
