@@ -121,7 +121,7 @@ impl Remainder {
             no_absolute: true,
             again: false,
         };
-        let mut slack = 2.0 * cut.max(200.0);
+        let mut slack = 0.5 * cut.max(200.0);
         loop {
             page.dirty = true;
             let synced = sync(&mut self.tree, page, true, cut, slack, ctx, a);
