@@ -172,6 +172,15 @@ impl Writer {
         if fill.is_none() && stroke.is_none() {
             return;
         }
+        let masked = [fill.map(|f| &f.paint), stroke.map(|s| &s.paint)]
+            .into_iter()
+            .any(
+                |paint| matches!(paint, Some(Paint::Gradient(g)) if super::gradient::has_alpha(g)),
+            );
+        if masked {
+            // The soft mask stays in the graphics state until restored.
+            p.save();
+        }
         let fa = fill.map_or(1.0, |f| self.set_fill_paint(p, &f.paint, out));
         let sa = stroke.map_or(1.0, |s| self.set_stroke(p, s, out));
         self.set_alpha(p, fa, sa, out);
@@ -184,5 +193,8 @@ impl Writer {
             (true, false, true) => p.c.fill_even_odd(),
             _ => p.c.stroke(),
         };
+        if masked {
+            p.restore();
+        }
     }
 }

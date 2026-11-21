@@ -257,6 +257,49 @@ pub fn sample_page(a: &Assets, n: usize) -> PageOut {
             text: "A sticky note".into(),
             color: None,
         },
+        Op::Rect {
+            rect: r(360.0, 380.0, 190.0, 50.0),
+            radii: [8.0; 4],
+            fill: Some(gradient(
+                GradientKind::Linear {
+                    x1: 360.0,
+                    y1: 0.0,
+                    x2: 550.0,
+                    y2: 0.0,
+                },
+                1.0,
+            )),
+            stroke: None,
+        },
+        Op::Path {
+            path: axonpdf::path::ellipse(455.0, 480.0, 60.0, 35.0),
+            fill: Some(Fill {
+                paint: gradient(
+                    GradientKind::Radial {
+                        fx: 440.0,
+                        fy: 470.0,
+                        fr: 0.0,
+                        cx: 455.0,
+                        cy: 480.0,
+                        r: 60.0,
+                    },
+                    0.2,
+                ),
+                rule: FillRule::NonZero,
+            }),
+            stroke: Some(Stroke {
+                paint: gradient(
+                    GradientKind::Linear {
+                        x1: 395.0,
+                        y1: 0.0,
+                        x2: 515.0,
+                        y2: 0.0,
+                    },
+                    1.0,
+                ),
+                ..stroke(Color::BLACK, 4.0, vec![])
+            }),
+        },
     ];
     ops.push(Op::Rect {
         rect: r(0.0, 0.0, 0.0, 0.0),
@@ -269,6 +312,26 @@ pub fn sample_page(a: &Assets, n: usize) -> PageOut {
         height: 841.89,
         ops,
     }
+}
+
+/// Red, yellow, blue; the last stop's alpha is `end_alpha`.
+pub fn gradient(kind: GradientKind, end_alpha: f32) -> Paint {
+    let stops = vec![
+        (0.0, rgb(0.9, 0.1, 0.1)),
+        (0.5, rgb(1.0, 0.85, 0.0)),
+        (
+            1.0,
+            Color {
+                a: end_alpha,
+                ..rgb(0.1, 0.2, 0.9)
+            },
+        ),
+    ];
+    Paint::Gradient(Box::new(Gradient {
+        kind,
+        stops,
+        transform: [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+    }))
 }
 
 pub fn stroke(c: Color, width: f32, dash: Vec<f32>) -> Stroke {
