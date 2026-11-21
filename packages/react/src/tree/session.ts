@@ -1,5 +1,7 @@
 import type { RenderArgs } from "@axonpdf/core";
 
+import type { RowsSource } from "./rows.js";
+
 /** Everything one render collects next to the tree: functions, images and font families. */
 export interface Session {
   nextId: number;
@@ -10,7 +12,7 @@ export interface Session {
   /** Hyphenation functions by id: `(word, builtin) => parts`. */
   hyphenators: Map<number, (word: string, builtin: (word: string) => string[]) => string[]>;
   /** Each `Rows` by id: renders and returns its next batch as JSON. */
-  rows: Map<number, () => string>;
+  rows: Map<number, RowsSource>;
   /** Every emoji the text holds, for the registered emoji source. */
   emoji: Set<string>;
   /** Image bytes by asset id, for the engine's `add_image`. */

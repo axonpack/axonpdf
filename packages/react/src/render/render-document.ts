@@ -1,11 +1,22 @@
-import { createEngine } from "@axonpdf/core";
+import { createEngine, type RenderArgs } from "@axonpdf/core";
 
 import { addEmoji } from "../assets/emoji.js";
 import { Font } from "../font/font-store.js";
 import { addFonts } from "../font/load-fonts.js";
 import { serializeDocument } from "../tree/serialize.js";
-import { createSession, settle } from "../tree/session.js";
+import { createSession, settle, type Session } from "../tree/session.js";
 import type { Instance } from "../types/instance.type.js";
+
+/** Runs `fn` as the engine's callback: nothing async (images) may start inside it. */
+function inCallback<T>(session: Session, fn: () => T): T {
+  const outer = session.inCallback;
+  session.inCallback = true;
+  try {
+    return fn();
+  } finally {
+    session.inCallback = outer;
+  }
+}
 
 /** Renders a committed `Document`; `onChunk` gets each piece of the PDF in order. */
 export async function renderDocument(
@@ -26,14 +37,38 @@ export async function renderDocument(
       ? new Set(Font.getRegisteredFontFamilies())
       : session.families;
     await addFonts(engine, families);
-    for (const [id, bytes] of session.assets) engine.addImage(id, bytes);
+    const added = new Set<number>();
+    const addImages = () => {
+      for (const [id, bytes] of session.assets) {
+        if (!added.has(id)) engine.addImage(id, bytes);
+        added.add(id);
+      }
+    };
+    addImages();
     const builtin = (word: string) => engine.hyphenateBuiltin(word);
-    engine.render(JSON.stringify(tree), onChunk, {
-      render: (id, args) => session.callbacks.get(id)!(args),
-      paint: (id, width, height) => session.paints.get(id)!(width, height),
-      rows: (id) => session.rows.get(id)!(),
-      hyphenate: (id, word) => JSON.stringify(session.hyphenators.get(id)!(word, builtin)),
-    });
+    const callbacks = {
+      render: (id: number, args: RenderArgs) => session.callbacks.get(id)!(args),
+      paint: (id: number, w?: number, h?: number) => session.paints.get(id)!(w, h),
+      hyphenate: (id: number, word: string) =>
+        JSON.stringify(session.hyphenators.get(id)!(word, builtin)),
+    };
+    const json = JSON.stringify(tree);
+    if (![...session.rows.values()].some((source) => source.async)) {
+      // Every Rows is an array or other sync iterable: the engine pulls batches as it goes.
+      const rows = (id: number) =>
+        inCallback(session, () => session.rows.get(id)!.next() as string);
+      engine.render(json, onChunk, { ...callbacks, rows });
+      return;
+    }
+    // An async Rows: the engine stops whenever it needs a batch, and carries on once it's pushed.
+    // Batches are made between engine calls, so images in rows can load then.
+    let id = engine.begin(json, onChunk, callbacks);
+    while (id !== undefined) {
+      const batch = await session.rows.get(id)!.next();
+      await settle(session);
+      addImages();
+      id = engine.pushRows(id, batch);
+    }
   } finally {
     engine.free();
   }

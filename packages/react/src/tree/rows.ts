@@ -3,43 +3,61 @@ import { elementToInstances } from "./element-to-instances.js";
 import { serialize } from "./serialize.js";
 import type { Session } from "./session.js";
 
-/** A `ROWS` node: the engine pulls its rows in batches by id, as its page cut reaches them. */
+/** One `Rows`: hands out its next batch as `{"children":[...],"done":bool}` JSON. */
+export interface RowsSource {
+  /** An async source makes the render resumable: the engine stops and waits for each batch. */
+  async: boolean;
+  next(): string | Promise<string>;
+}
+
+/**
+ * A `ROWS` node: the engine asks for its rows in batches by id as its page cut reaches them.
+ * Only the batch being handed over is held here: rows are read and rendered on demand.
+ */
 export function rows(props: Record<string, any>, session: Session): TreeNode {
   if (session.inCallback) throw new Error("Rows can't be used inside a render function.");
   const id = session.nextId++;
-  const batchSize: number = props.batchSize;
-  let source: Iterable<unknown> = props.rows;
-  if (!(Symbol.iterator in Object(source))) {
-    // ponytail: async rows are read in full before the engine starts (in one pass, so a
-    // generator works); a resumable engine will pull them as it goes.
-    const buffered: unknown[] = [];
-    source = buffered;
-    session.pending.push(
-      (async () => {
-        for await (const row of props.rows as AsyncIterable<unknown>) buffered.push(row);
-      })(),
-    );
-  }
-  let iterator: Iterator<unknown> | undefined;
+  const batchSize = Math.max(1, props.batchSize as number);
   let index = 0;
-  // Each row is rendered when its batch is pulled and is not kept here.
-  session.rows.set(id, () => {
-    iterator ??= source[Symbol.iterator]();
+  const batch = (items: unknown[], done: boolean) => {
     const children: (TreeNode | TreeText)[] = [];
-    const outer = session.inCallback;
-    session.inCallback = true;
-    try {
-      for (let n = 0; n < Math.max(1, batchSize); n++) {
-        const next = iterator.next();
-        if (next.done) return JSON.stringify({ children, done: true });
-        for (const c of elementToInstances(props.renderRow(next.value, index++))) {
-          children.push(serialize(c, session));
-        }
+    for (const item of items) {
+      for (const c of elementToInstances(props.renderRow(item, index++))) {
+        children.push(serialize(c, session));
       }
-      return JSON.stringify({ children, done: false });
-    } finally {
-      session.inCallback = outer;
     }
-  });
+    return JSON.stringify({ children, done });
+  };
+
+  const source = props.rows;
+  if (Symbol.iterator in Object(source)) {
+    let iterator: Iterator<unknown> | undefined;
+    session.rows.set(id, {
+      async: false,
+      next() {
+        iterator ??= (source as Iterable<unknown>)[Symbol.iterator]();
+        const items = [];
+        for (let next = iterator.next(); !next.done; next = iterator.next()) {
+          items.push(next.value);
+          if (items.length === batchSize) return batch(items, false);
+        }
+        return batch(items, true);
+      },
+    });
+  } else {
+    let iterator: AsyncIterator<unknown> | undefined;
+    session.rows.set(id, {
+      async: true,
+      async next() {
+        iterator ??= (source as AsyncIterable<unknown>)[Symbol.asyncIterator]();
+        const items = [];
+        for (let next = await iterator.next(); !next.done; next = await iterator.next()) {
+          items.push(next.value);
+          if (items.length === batchSize) return batch(items, false);
+        }
+        return batch(items, true);
+      },
+    });
+  }
   return { type: "ROWS", props: { rows: id, batchSize }, children: [] };
 }
