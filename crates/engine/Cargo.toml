@@ -7,9 +7,13 @@ description = "The axonpdf PDF engine"
 publish = false
 
 [dependencies]
+rustybuzz = "0.20"
+self_cell = "1"
 serde = { version = "1", features = ["derive"] }
 # preserve_order: style keys apply in the order they were written, as in a JS object.
 serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
+subsetter = { version = "0.2", default-features = false }  # no variable fonts: keeps skrifa and write-fonts out
+wuff = "0.2"
 
 [build-dependencies]
 cc = "1"

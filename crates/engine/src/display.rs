@@ -33,27 +33,59 @@ pub enum Op {
     /// current transform.
     Transform([f32; 6]),
     /// Intersects the clip with a path.
-    Clip { path: Vec<Seg>, rule: FillRule },
+    Clip {
+        path: Vec<Seg>,
+        rule: FillRule,
+    },
     /// Multiplies the alpha of everything drawn until the matching `Restore`.
     Opacity(f32),
     /// A rectangle with per-corner radii (top left, top right, bottom right, bottom left),
     /// clamped to half the width and height.
-    Rect { rect: Rect, radii: [f32; 4], fill: Option<Paint>, stroke: Option<Stroke> },
+    Rect {
+        rect: Rect,
+        radii: [f32; 4],
+        fill: Option<Paint>,
+        stroke: Option<Stroke>,
+    },
     /// Box borders, each side with its own width, color and style.
     Border(Border),
-    Path { path: Vec<Seg>, fill: Option<Fill>, stroke: Option<Stroke> },
+    Path {
+        path: Vec<Seg>,
+        fill: Option<Fill>,
+        stroke: Option<Stroke>,
+    },
     Text(TextRun),
     /// An image stretched over `rect`. JPEG EXIF orientation is applied by the writer.
-    Image { id: ImageId, rect: Rect, opacity: f32 },
+    Image {
+        id: ImageId,
+        rect: Rect,
+        opacity: f32,
+    },
     /// A clickable area.
-    Link { rect: Rect, target: LinkTarget },
+    Link {
+        rect: Rect,
+        target: LinkTarget,
+    },
     /// A named destination (`id` prop) at a point of this page.
-    Dest { name: String, x: f32, y: f32 },
+    Dest {
+        name: String,
+        x: f32,
+        y: f32,
+    },
     Bookmark(Bookmark),
     /// A sticky-note annotation at a point.
-    Note { x: f32, y: f32, text: String, color: Option<Color> },
+    Note {
+        x: f32,
+        y: f32,
+        text: String,
+        color: Option<Color>,
+    },
     /// A form field group. Fields and groups name it as their `parent`.
-    FieldSet { id: u32, name: String, parent: Option<u32> },
+    FieldSet {
+        id: u32,
+        name: String,
+        parent: Option<u32>,
+    },
     Field(Field),
 }
 
@@ -75,7 +107,12 @@ pub struct Color {
 }
 
 impl Color {
-    pub const BLACK: Color = Color { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };
+    pub const BLACK: Color = Color {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    };
 }
 
 /// A path segment. Quadratic curves and arcs become cubics (see [`crate::path`]).
@@ -118,9 +155,21 @@ pub struct Gradient {
 
 #[derive(Clone, Copy, Debug)]
 pub enum GradientKind {
-    Linear { x1: f32, y1: f32, x2: f32, y2: f32 },
+    Linear {
+        x1: f32,
+        y1: f32,
+        x2: f32,
+        y2: f32,
+    },
     /// From the focal circle (`fx`, `fy`, `fr`) to the outer circle (`cx`, `cy`, `r`).
-    Radial { fx: f32, fy: f32, fr: f32, cx: f32, cy: f32, r: f32 },
+    Radial {
+        fx: f32,
+        fy: f32,
+        fr: f32,
+        cx: f32,
+        cy: f32,
+        r: f32,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -191,6 +240,7 @@ pub struct Glyph {
     pub cluster: u32,
     /// Distance to the next glyph, letter spacing and justification included.
     pub x_advance: f32,
+    /// Shift from the pen position; `y_offset` points up, as in the font.
     pub x_offset: f32,
     pub y_offset: f32,
 }

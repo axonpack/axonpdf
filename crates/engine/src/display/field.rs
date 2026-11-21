@@ -38,7 +38,14 @@ pub enum FieldKind {
         border: Option<Color>,
     },
     /// A drop-down (`Select`) when `combo`, else a list box (`List`).
-    Choice { combo: bool, options: Vec<String>, sort: bool, edit: bool, multi_select: bool, no_spell: bool },
+    Choice {
+        combo: bool,
+        options: Vec<String>,
+        sort: bool,
+        edit: bool,
+        multi_select: bool,
+        no_spell: bool,
+    },
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -60,6 +67,15 @@ pub enum FieldFormat {
     Date(String),
     /// 0 to 3, the viewer's time styles.
     Time(u32),
-    Number { decimals: u32, sep_comma: bool, neg_style: String, currency: String, currency_prepend: bool },
-    Percent { decimals: u32, sep_comma: bool },
+    Number {
+        decimals: u32,
+        sep_comma: bool,
+        neg_style: String,
+        currency: String,
+        currency_prepend: bool,
+    },
+    Percent {
+        decimals: u32,
+        sep_comma: bool,
+    },
 }
