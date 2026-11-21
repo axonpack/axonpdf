@@ -131,6 +131,8 @@ pub fn size(raw: &RawNode) -> Result<(f64, Option<f64>, bool), String> {
 /// paddings and of its children's heights become points against the page.
 pub fn build(mut raw: RawNode) -> Result<(Node, Container), String> {
     let (width, height, landscape) = size(&raw)?;
+    let bands = super::bands::take(&mut raw)?;
+    raw.children.extend(bands);
     let mut style = flatten::flatten(&raw.style);
     style.insert("width".into(), json!(width));
     match height {
@@ -190,4 +192,11 @@ pub fn heights(page: &Node) -> (Option<f64>, f64, f64) {
         _ => None,
     };
     (h, pad(0), pad(2))
+}
+
+/// The page's own top and bottom padding if it has header or footer bands.
+pub fn band_base(page: &Node) -> Option<(f64, f64)> {
+    let has = page.children.iter().any(|c| c.has(super::bands::BAND));
+    let (_, top, bottom) = heights(page);
+    has.then_some((top, bottom))
 }

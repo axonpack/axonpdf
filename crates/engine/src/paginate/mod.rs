@@ -3,13 +3,14 @@
 //! cut, `break`, `wrap={false}` and `minPresenceAhead` move nodes to the next page, and boxes and
 //! text split between them.
 
+mod bands;
 pub mod page;
 mod split;
 
 use crate::RenderArgs;
 use crate::layout::{Assets, Remainder, layout_page};
 use crate::style::Container;
-use crate::tree::{Node, RenderResult};
+use crate::tree::{Kind, Node, RawNode, RenderResult, extras};
 
 /// Calls a node's `render` function on the adapter's side.
 pub type Callback<'a> = dyn FnMut(u32, &RenderArgs) -> Result<RenderResult, String> + 'a;
@@ -18,6 +19,10 @@ pub struct Pager<'a, 'b> {
     pub assets: &'a Assets<'a>,
     pub callback: &'a mut Callback<'b>,
     pub container: Container,
+    /// The document's page count when a first run counted it.
+    pub total: Option<u32>,
+    /// The page's own top and bottom padding, when it has bands to add to them.
+    pub band_base: Option<(f64, f64)>,
 }
 
 /// One finished page, laid out at its final size.
@@ -70,7 +75,7 @@ impl<'a, 'b> Pager<'a, 'b> {
         mut page: Node,
         number: u32,
     ) -> Result<(Node, Option<Node>), String> {
-        let (height, pad_top, pad_bottom) = page::heights(&page);
+        let (height, _, pad_bottom) = page::heights(&page);
         let height = height.unwrap_or(f64::NAN);
         if page.dynamic {
             let args = RenderArgs {
@@ -82,6 +87,13 @@ impl<'a, 'b> Pager<'a, 'b> {
             self.resolve_dynamic(&mut page, &args)?;
             remainder.relayout(&mut page, &[], height - pad_bottom, self.assets)?;
         }
+        if let Some(base) = self.band_base
+            && bands::fit(&mut page, base)
+        {
+            let (_, _, pad_bottom) = page::heights(&page);
+            remainder.relayout(&mut page, &[], height - pad_bottom, self.assets)?;
+        }
+        let (_, pad_top, pad_bottom) = page::heights(&page);
         let children = std::mem::take(&mut page.children);
         let mut gone = Vec::new();
         let (cur, next) = split::split_nodes(
@@ -130,6 +142,23 @@ impl<'a, 'b> Pager<'a, 'b> {
         if let Some(id) = node.render {
             let result = (self.callback)(id, args)?;
             node.set_children(result.children, &self.container);
+        }
+        if let Some(what) = node.props.get(extras::COUNTER).and_then(|v| v.as_str()) {
+            // While pages are being counted the total is not known; a digit holds its place.
+            let n = if what == "page" {
+                Some(args.page_number)
+            } else {
+                self.total
+            };
+            let value = n.map_or("0".to_string(), |n| n.to_string());
+            node.children = vec![Node::build(
+                RawNode::text(value),
+                &self.container,
+                Some((&node.style, true)),
+            )];
+        }
+        // Text holding something that changed lays out its lines again.
+        if node.kind == Kind::Text {
             node.text = None;
         }
         for child in &mut node.children {

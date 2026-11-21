@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use serde_json::{Map, Value, json};
 
-use super::{RawNode, truthy};
+use super::{RawNode, extras, truthy};
 use crate::style::{self, Container, Style};
 use crate::text::Line;
 
@@ -92,7 +92,7 @@ impl Node {
     /// Builds a node and its children, resolving styles against the page and inheriting from
     /// `parent` (its style, and whether it is a text node).
     pub fn build(raw: RawNode, c: &Container, parent: Option<(&Rc<Style>, bool)>) -> Node {
-        let raw = substitute_link(raw);
+        let raw = substitute_link(extras::translate(raw));
         let kind = Kind::from(&raw.kind);
         let raw_style = if kind == Kind::Link {
             // Links are blue and underlined unless styled otherwise.
@@ -137,11 +137,32 @@ impl Node {
         // Svg children keep their own styles.
         let inherit = self.kind != Kind::Svg;
         let is_text = self.kind == Kind::Text;
+        let mut break_next = false;
         self.children = raw
             .into_iter()
-            .map(|r| Node::build(r, c, inherit.then_some((&self.style, is_text))))
+            .map(|r| {
+                let after = extras::breaks_after(&r);
+                let mut n = Node::build(r, c, inherit.then_some((&self.style, is_text)));
+                if std::mem::replace(&mut break_next, after) {
+                    n.props.insert("break".into(), true.into());
+                }
+                n
+            })
             .collect();
-        self.dynamic = self.render.is_some() || self.children.iter().any(|c| c.dynamic);
+        self.dynamic = self.render.is_some()
+            || self.has(extras::COUNTER)
+            || self.children.iter().any(|c| c.dynamic);
+    }
+
+    /// Adds `raw` children after the ones there.
+    pub fn append_children(&mut self, raw: Vec<RawNode>, c: &Container) {
+        let kept = std::mem::take(&mut self.children);
+        self.set_children(raw, c);
+        let added = std::mem::replace(&mut self.children, kept);
+        self.children.extend(added);
+        self.dynamic = self.render.is_some()
+            || self.has(extras::COUNTER)
+            || self.children.iter().any(|c| c.dynamic);
     }
 
     pub fn has(&self, prop: &str) -> bool {

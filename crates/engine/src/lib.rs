@@ -16,4 +16,4 @@ pub mod tree;
 pub mod writer;
 
 pub use engine::{Engine, RenderArgs, RenderCallback};
-pub use hooks::{HyphenationCallback, PaintCallback};
+pub use hooks::{HyphenationCallback, PaintCallback, RowsCallback};

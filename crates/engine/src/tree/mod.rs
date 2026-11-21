@@ -53,6 +53,7 @@
 //!   text holds, fetched from the registered emoji source. Emoji without an image stay text.
 //! - Functions other than `render` (`hyphenationCallback`, `onRender`, ...) are not sent.
 
+pub mod extras;
 pub mod node;
 
 pub use node::{Kind, Node};
@@ -80,6 +81,21 @@ pub struct RawNode {
     /// The text of a `TEXT_INSTANCE`.
     #[serde(default)]
     pub value: Option<String>,
+}
+
+impl RawNode {
+    /// A `TEXT_INSTANCE`.
+    pub fn text(value: String) -> RawNode {
+        RawNode {
+            kind: "TEXT_INSTANCE".into(),
+            props: Map::new(),
+            style: Value::Null,
+            render: None,
+            paint: None,
+            children: Vec::new(),
+            value: Some(value),
+        }
+    }
 }
 
 /// What a `render` callback returns.

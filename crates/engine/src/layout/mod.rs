@@ -33,6 +33,8 @@ pub struct Assets<'a> {
     pub hyphenation: Option<u32>,
     /// Emoji images: the emoji text to its asset id.
     pub emoji: &'a [(String, u32)],
+    /// Adds the next batch of rows to a `Rows` node; false once it has no more.
+    pub more_rows: &'a dyn Fn(&mut Node) -> Result<bool, String>,
 }
 
 /// Lays out a page. `height` is the page box's height; `None` lays it out on an endless sheet.

@@ -18,6 +18,10 @@ use super::{
 use crate::style::Dim;
 use crate::tree::{Kind, Node};
 
+/// A `Rows` node's id for its batches, and the mark that it has sent them all.
+pub const ROWS: &str = "rows";
+pub const ROWS_DONE: &str = "__rows_done";
+
 /// Containers with fewer children are kept whole.
 const WINDOW_MIN: usize = 64;
 
@@ -95,7 +99,6 @@ fn can_window(n: &Node, is_page: bool, ctx: Ctx) -> bool {
     let s = &n.style;
     ctx.width_set
         && ctx.no_absolute
-        && n.children.len() > WINDOW_MIN
         && matches!(s.flex_direction, None | Some(FlexDirection::Column))
         && matches!(s.flex_wrap, None | Some(Wrap::NoWrap))
         && matches!(s.justify_content, None | Some(Justify::FlexStart))
@@ -104,11 +107,12 @@ fn can_window(n: &Node, is_page: bool, ctx: Ctx) -> bool {
         && s.max_height.is_none()
 }
 
-/// Whether none of `n`'s children is absolutely placed (fixed ones aside, with `fixed_ok`).
-fn in_flow(n: &Node, fixed_ok: bool) -> bool {
+/// Whether none of `n`'s children is absolutely placed but fixed ones, which a cut copies to
+/// both sides whatever their place.
+fn in_flow(n: &Node) -> bool {
     n.children
         .iter()
-        .all(|c| c.style.position != Some(PositionType::Absolute) || (fixed_ok && c.is_fixed()))
+        .all(|c| c.style.position != Some(PositionType::Absolute) || c.is_fixed())
 }
 
 /// What a child of `n` may rely on.
@@ -185,10 +189,22 @@ fn sync(
     apply::apply(t, id, &n.style, if is_page { None } else { n.style.height });
     if is_container(n) {
         let ctx = Ctx {
-            no_absolute: ctx.no_absolute && in_flow(n, true),
+            no_absolute: ctx.no_absolute && in_flow(n),
             ..ctx
         };
-        n.window = if can_window(n, is_page, ctx) && in_flow(n, false) {
+        // Rows that arrive in batches are fetched until the window is full, or all of them
+        // when there is no window.
+        if n.has(ROWS) && !n.is(ROWS_DONE) {
+            let windowed = can_window(n, is_page, ctx);
+            while !windowed || window(n, cut + slack) >= n.children.len() {
+                if !(a.more_rows)(n)? {
+                    break;
+                }
+            }
+        }
+        // Rows come in batches, so they window however few have come yet.
+        let long = n.children.len() > WINDOW_MIN || n.has(ROWS);
+        n.window = if long && can_window(n, is_page, ctx) {
             window(n, cut + slack)
         } else {
             0
