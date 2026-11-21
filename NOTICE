@@ -10,3 +10,5 @@ axonpdf includes third-party code:
   paragraph is not modified. Adobe Systems has no responsibility or obligation to support the use
   of the AFM files." Thirteen of the files carry a Euro metric line that Adobe's originals lack;
   each says so in a "Comment MODIFIED" line.
+- Lato (Regular, Bold, Italic) by Łukasz Dziedzic, SIL Open Font License 1.1, used as test data only.
+  In fixtures/assets/ with the license in fixtures/assets/OFL.txt.
