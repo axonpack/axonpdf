@@ -41,14 +41,13 @@ pub fn paint(def: &Node, bbox: [f64; 4]) -> Option<Paint> {
             let (cx, cy) = to_box(cx0, cy0);
             let (fx, fy) = to_box(nonzero("fx", cx0), nonzero("fy", cy0));
             let r = nonzero("r", 0.5) * if object { w } else { 1.0 };
-            // The inner circle is the centre and the outer one sits on the focal point, as
-            // documents have always been drawn.
+            // From the focal point out to the circle at the centre, as SVG defines it.
             GradientKind::Radial {
-                fx: f(cx),
-                fy: f(cy),
+                fx: f(fx),
+                fy: f(fy),
                 fr: 0.0,
-                cx: f(fx),
-                cy: f(fy),
+                cx: f(cx),
+                cy: f(cy),
                 r: f(r),
             }
         }
@@ -118,4 +117,35 @@ fn matrix(p: &Props, (w, h): (f64, f64), object: bool) -> [f32; 6] {
         m = multiply(m, step.map(|x| x as f32));
     }
     m
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn def(json: serde_json::Value) -> Node {
+        let raw = serde_json::from_value(json).unwrap();
+        Node::build(raw, &crate::style::Container::default(), None)
+    }
+
+    #[test]
+    fn radial_runs_from_the_focal_point_to_the_centre_circle() {
+        let g = def(serde_json::json!({"type": "RADIAL_GRADIENT",
+            "props": {"cx": "0.5", "cy": "0.5", "r": "0.5", "fx": "0.3", "fy": "0.2"}}));
+        let Some(Paint::Gradient(g)) = paint(&g, [0.0, 0.0, 100.0, 100.0]) else {
+            panic!()
+        };
+        let GradientKind::Radial {
+            fx,
+            fy,
+            fr,
+            cx,
+            cy,
+            r,
+        } = g.kind
+        else {
+            panic!()
+        };
+        assert_eq!((fx, fy, fr, cx, cy, r), (30.0, 20.0, 0.0, 50.0, 50.0, 50.0));
+    }
 }
