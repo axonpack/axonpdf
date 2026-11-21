@@ -8,6 +8,7 @@ pub mod color;
 mod expand;
 pub mod flatten;
 mod inherit;
+pub mod shape;
 mod shorthand;
 pub mod transform;
 pub mod units;
@@ -51,6 +52,9 @@ pub struct Style {
     pub overflow: Option<Overflow>,
     pub z_index: Option<f64>,
     pub float: Option<String>,
+    /// `left`, `right`, `both` or `none`.
+    pub clear: Option<String>,
+    pub shape_outside: Option<shape::ShapeOutside>,
 
     // Paint.
     pub background_color: Option<Color>,

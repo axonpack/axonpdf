@@ -160,3 +160,29 @@ fn hit_slop_enlarges_a_link() {
     let pdf = render(link(json!(5)), &mut Engine::new());
     assert!(String::from_utf8_lossy(&pdf).contains("/Rect [5 165 115 195]"));
 }
+
+#[test]
+fn text_flows_beside_a_float_and_clear_goes_below_it() {
+    let doc = json!({"v": 1, "type": "DOCUMENT", "props": {}, "children": [
+        {"type": "PAGE", "props": {"size": [200, 300]}, "style": {"padding": 10, "fontSize": 10}, "children": [
+            {"type": "VIEW", "props": {}, "style": {"float": "right", "width": 50, "height": 40, "marginLeft": 5}, "children": []},
+            text(&"word ".repeat(15)),
+            {"type": "TEXT", "props": {}, "style": {"clear": "right"}, "children": [{"type": "TEXT_INSTANCE", "value": "After"}]}
+        ]}
+    ]})
+    .to_string();
+    let mut seen = false;
+    Engine::new()
+        .layout(&doc, &mut |p, _, _| {
+            let [float, wrapped, cleared] = &p.children[..] else { panic!() };
+            assert_eq!((float.layout.left, float.layout.top), (140.0, 10.0));
+            let t = wrapped.text.as_ref().unwrap().borrow();
+            let lines = t.wrapped.as_ref().unwrap();
+            // Beside the float, lines end before its left margin.
+            assert!(lines.iter().all(|l| l.x + l.width <= 135.0 + 1e-9));
+            assert_eq!(cleared.layout.top, 50.0);
+            seen = true;
+        })
+        .unwrap();
+    assert!(seen);
+}

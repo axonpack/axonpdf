@@ -1,6 +1,7 @@
 // Three pages of box styles: flex direction, wrap, justify and align, gap, margin and padding
 // shorthands, borders and radii, colours, every unit, absolute positioning, zIndex, opacity,
-// overflow, transforms, aspect ratio, min and max sizes, display none and debug boxes. Page sizes
+// overflow, transforms, aspect ratio, min and max sizes, display none, debug boxes, floats with
+// shapeOutside and clear. Page sizes
 // and orientations differ per page, and one style block switches through media queries.
 import { Document, Page, StyleSheet, Text, View } from '@axonpdf/react';
 
@@ -28,6 +29,15 @@ function Boxes({ n = 3, color }: { n?: number; color?: string }) {
     </>
   );
 }
+
+const WRAP = 'Text flows around the float beside it, one line at a time, then takes the whole width.';
+const FLOATS = [
+  ['left', undefined],
+  ['left', 'circle(50%)'],
+  ['right', 'ellipse(28 20 at 50% 40%)'],
+  ['right', 'polygon(100% 0, 100% 100%, 0 100%)'],
+  ['left', 'inset(0 20 10 0)'],
+] as const;
 
 const JUSTIFY = ['flex-start', 'center', 'flex-end', 'space-between', 'space-around', 'space-evenly'] as const;
 const ALIGN = ['flex-start', 'center', 'flex-end', 'stretch'] as const;
@@ -140,6 +150,16 @@ export default function LayoutStyles() {
         </View>
         <Text style={s.label}>this page is landscape, so the media query picks the landscape colour</Text>
         <Responsive />
+        <Text style={[s.label, { marginTop: 40 }]}>floats: the plain box, then circle, ellipse, polygon and inset shapes; the last line of each clears</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          {FLOATS.map(([float, shapeOutside], i) => (
+            <View key={i} style={{ width: 140 }}>
+              <View style={{ float, shapeOutside, width: 56, height: 56, backgroundColor: '#e9d8a6', [float === 'left' ? 'marginRight' : 'marginLeft']: 6, marginBottom: 4 }} />
+              <Text>{WRAP}</Text>
+              <Text style={{ clear: float, color: '#9b2226' }}>Cleared below the {float} float.</Text>
+            </View>
+          ))}
+        </View>
       </Page>
 
       <Page size={[300, 400]} style={s.page}>

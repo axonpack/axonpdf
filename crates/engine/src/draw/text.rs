@@ -22,7 +22,9 @@ fn alpha(c: Color, opacity: Option<f64>) -> Color {
 pub fn draw(ops: &mut Vec<Op>, n: &Node, x: f64, y: f64, cx: &super::Ctx) {
     let Some(state) = &n.text else { return };
     let state = state.borrow();
-    let Some(lines) = &state.lines else { return };
+    let Some(lines) = state.wrapped.as_ref().or(state.lines.as_ref()) else {
+        return;
+    };
     let first_y = lines.first().map_or(0.0, |l| l.y);
     let ox = x + n.layout.padding[3] - state.align_offset;
     let oy = y + n.layout.padding[0] - first_y;

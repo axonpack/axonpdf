@@ -63,6 +63,9 @@ pub struct TextBox {
     pub lines: Option<Vec<Line>>,
     /// Shift that undoes alignment when the text's box shrank to its lines.
     pub align_offset: f64,
+    /// The lines flowed around floats, drawn instead of `lines`; the box keeps the height of
+    /// `lines`, as the components do.
+    pub wrapped: Option<Vec<Line>>,
 }
 
 #[derive(Clone, Debug)]

@@ -88,6 +88,8 @@ pub fn apply(s: &mut Style, c: &Container, key: &str, v: &Value, flat: &Map<Stri
         }
         "zIndex" => s.z_index = parse_float(v),
         "float" => s.float = text(),
+        "clear" => s.clear = text(),
+        "shapeOutside" => s.shape_outside = text().and_then(|t| super::shape::parse(c, &t)),
 
         "backgroundColor" => s.background_color = text().map(|t| color::parse(&t)),
         "opacity" => s.opacity = parse_float(v),

@@ -3,6 +3,7 @@
 
 mod apply;
 mod canvas;
+mod floats;
 pub mod image;
 pub mod remainder;
 mod svg;
@@ -53,7 +54,8 @@ pub fn layout_page(page: &mut Node, height: Option<f64>, a: &Assets) -> Result<(
     tree.calculate(root, None, None);
     write_back(&tree, page, true);
     drop(tree);
-    fill_text(page, a)
+    fill_text(page, a)?;
+    floats::resolve(page, a)
 }
 
 /// Text that Yoga never measured (hidden, or sized by its style) gets lines for its box.

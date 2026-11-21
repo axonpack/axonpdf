@@ -231,6 +231,7 @@ fn split_text(node: Node, height: f64) -> (Node, Node) {
         Some(Rc::new(RefCell::new(TextBox {
             lines: Some(ls),
             align_offset,
+            wrapped: None,
         })))
     };
 
