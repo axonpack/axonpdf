@@ -82,6 +82,11 @@ impl ImageStore {
     pub fn size(&self, id: ImageId) -> (u32, u32) {
         self.get(id).size()
     }
+
+    /// Takes the bytes of an image the writer is writing; a store serves one document.
+    pub(crate) fn release(&mut self, id: ImageId) -> ImageData {
+        std::mem::replace(&mut self.images[id.0 as usize].data, ImageData::Released)
+    }
 }
 
 /// Maps the image's unit square onto `(x, y, w, h)` (top-left origin, y down), turned and
