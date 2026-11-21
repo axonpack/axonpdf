@@ -1,6 +1,6 @@
 import type { NodeProps } from "./props.type.js";
 
-interface FormCommonProps extends NodeProps {
+export interface FormCommonProps extends NodeProps {
   name?: string;
   required?: boolean;
   noExport?: boolean;
@@ -42,10 +42,23 @@ export interface CheckboxProps extends FormCommonProps {
   xMark?: boolean;
 }
 
-export interface SelectAndListProps extends FormCommonProps {
+export interface SelectAndListPropsBase extends FormCommonProps {
   sort?: boolean;
   edit?: boolean;
   multiSelect?: boolean;
   noSpell?: boolean;
   select?: string[];
 }
+
+export type SelectAndListPropsWithEdit = SelectAndListPropsBase & {
+  edit: boolean;
+  noSpell: boolean;
+};
+
+export type SelectAndListPropsWithNoSpell = SelectAndListPropsBase & {
+  edit: boolean;
+  noSpell: boolean;
+};
+
+/** `edit` and `noSpell` may be left out, so code written with or without them compiles. */
+export type SelectAndListProps = SelectAndListPropsBase;

@@ -134,18 +134,37 @@ export interface LinkProps extends NodeProps {
   hitSlop?: HitSlop;
 }
 
-interface BaseImageProps extends NodeProps {
+export interface BaseImageProps extends NodeProps {
   debug?: boolean;
   cache?: boolean;
   srcSet?: SrcSet;
   sizes?: Sizes;
 }
 
-export type ImageProps = BaseImageProps & ({ src: SourceObject } | { source: SourceObject });
+export interface ImageWithSrcProp extends BaseImageProps {
+  src: SourceObject;
+}
 
-export type ImageBackgroundProps = BaseImageProps & {
+export interface ImageWithSourceProp extends BaseImageProps {
+  source: SourceObject;
+}
+
+export type ImageProps = ImageWithSrcProp | ImageWithSourceProp;
+
+export interface BaseImageBackgroundProps extends BaseImageProps {
+  /** The style of the image behind the children. */
   imageStyle?: Style;
-} & ({ src: SourceObject } | { source: SourceObject });
+}
+
+export interface ImageBackgroundWithSrcProp extends BaseImageBackgroundProps {
+  src: SourceObject;
+}
+
+export interface ImageBackgroundWithSourceProp extends BaseImageBackgroundProps {
+  source: SourceObject;
+}
+
+export type ImageBackgroundProps = ImageBackgroundWithSrcProp | ImageBackgroundWithSourceProp;
 
 export interface NoteProps extends NodeProps {
   children: string;

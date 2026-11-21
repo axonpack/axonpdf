@@ -6,6 +6,7 @@ import createReconciler192 from "react-reconciler-19-2";
 import type { Container } from "../types/instance.type.js";
 import { createHostConfig, react18Update, react19Update } from "./host-config.js";
 
+/** What `createRenderer` returns. */
 export interface Renderer {
   /** Creates a root; `onError` (default `console.error`) gets the errors React catches. */
   createContainer(container: Container, onError?: (error: unknown) => void): unknown;
