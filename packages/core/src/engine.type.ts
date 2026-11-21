@@ -28,6 +28,24 @@ export interface Callbacks {
   rows?: (id: number) => string;
 }
 
+/** Where the engine's time went while timing was on, in milliseconds: each phase's own time,
+ * and each page's time to its last byte. */
+export interface EngineProfile {
+  /** Reading the tree JSON. */
+  parse: number;
+  /** Styles, boxes and cutting pages. */
+  layout: number;
+  /** Shaping text and breaking lines. */
+  text: number;
+  /** Turning pages into drawing operations. */
+  paint: number;
+  /** Writing the PDF. */
+  write: number;
+  /** The `render`, Canvas `paint`, hyphenation and `Rows` functions the engine called. */
+  callbacks: number;
+  pages: number[];
+}
+
 export interface Engine {
   addFont(family: string, weight: number, italic: boolean, bytes: Uint8Array): void;
   addImage(id: number, bytes: Uint8Array): void;
@@ -54,6 +72,12 @@ export interface Engine {
   pushRows(id: number, batchJson: string): number | undefined;
   /** The built-in split of a word: at its soft hyphens, else by the English patterns. */
   hyphenateBuiltin(word: string): string[];
+  /** Turns phase timing on, from nothing measured, or off, for every engine in this process. */
+  profile(on: boolean): void;
+  /** What phase timing measured since it was turned on. */
+  profileReport(): EngineProfile;
+  /** The size of the WebAssembly memory in bytes: the most it has grown to, as it never shrinks. */
+  memoryBytes(): number;
   /** Frees the engine's memory. The engine can't be used afterwards. */
   free(): void;
 }

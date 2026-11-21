@@ -96,6 +96,22 @@ pub extern "C" fn axonpdf_total_pages_marker() -> *const c_char {
     MARKER.as_ptr()
 }
 
+/// Turns phase timing on, from nothing measured, or off, for every engine on this thread.
+#[unsafe(no_mangle)]
+pub extern "C" fn axonpdf_profile(on: bool) {
+    axonpdf::profile::set(on);
+}
+
+/// What phase timing measured since it was turned on, as JSON (`axonpdf::profile::report`),
+/// NUL-terminated, from `axonpdf_alloc`; free it with `axonpdf_dealloc(ptr, strlen + 1)`.
+#[unsafe(no_mangle)]
+pub extern "C" fn axonpdf_profile_report() -> *mut c_char {
+    let json = axonpdf::profile::report();
+    let out = axonpdf_alloc(json.len() + 1);
+    unsafe { ptr::copy_nonoverlapping(json.as_ptr(), out, json.len()) };
+    out.cast()
+}
+
 /// The message of the last failed call, or null. Valid until the next call on this handle.
 ///
 /// # Safety

@@ -45,6 +45,12 @@ export async function createEngine(): Promise<Engine> {
     encoder.encodeInto(text, module.HEAPU8.subarray(ptr, ptr + len));
     return { ptr, len };
   };
+  /** Reads a NUL-terminated string the engine allocated, and frees it. */
+  const takeString = (ptr: number) => {
+    const text = module.UTF8ToString(ptr);
+    module._axonpdf_dealloc(ptr, encoder.encode(text).length + 1);
+    return text;
+  };
   const check = (status: number) => {
     const error = current.error;
     current.error = undefined;
@@ -132,9 +138,16 @@ export async function createEngine(): Promise<Engine> {
       const wordPtr = copy(bytes);
       const out = module._axonpdf_hyphenate_builtin(wordPtr, bytes.length);
       module._axonpdf_dealloc(wordPtr, bytes.length);
-      const json = module.UTF8ToString(out);
-      module._axonpdf_dealloc(out, encoder.encode(json).length + 1);
-      return JSON.parse(json);
+      return JSON.parse(takeString(out));
+    },
+    profile(on) {
+      module._axonpdf_profile(on);
+    },
+    profileReport() {
+      return JSON.parse(takeString(module._axonpdf_profile_report()));
+    },
+    memoryBytes() {
+      return module.HEAPU8.buffer.byteLength;
     },
     free() {
       active.delete(handle);

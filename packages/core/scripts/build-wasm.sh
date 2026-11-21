@@ -24,6 +24,7 @@ exports=_axonpdf_new,_axonpdf_free,_axonpdf_alloc,_axonpdf_dealloc,_axonpdf_add_
 exports+=,_axonpdf_set_render_callback,_axonpdf_render,_axonpdf_last_error
 exports+=,_axonpdf_set_paint_callback,_axonpdf_set_hyphenation_callback,_axonpdf_hyphenate_builtin
 exports+=,_axonpdf_set_rows_callback,_axonpdf_total_pages_marker,_axonpdf_render_begin,_axonpdf_push_rows
+exports+=,_axonpdf_profile,_axonpdf_profile_report
 
 mkdir -p "$out"
 em++ "$root/target/wasm32-unknown-emscripten/release/libaxonpdf_ffi.a" \

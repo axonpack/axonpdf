@@ -1,2 +1,8 @@
 export { createEngine } from "./engine.js";
-export type { Callbacks, Engine, RenderArgs, RenderCallback } from "./engine.type.js";
+export type {
+  Callbacks,
+  Engine,
+  EngineProfile,
+  RenderArgs,
+  RenderCallback,
+} from "./engine.type.js";
