@@ -165,6 +165,7 @@ fn draws_every_svg_element() {
         fonts: &fonts,
         images: &lookup,
         paint: &|_, _, _| None,
+        outline: &Default::default(),
         forms: Default::default(),
     };
     let mut ops = Vec::new();

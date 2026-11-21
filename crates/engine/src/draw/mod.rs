@@ -1,6 +1,7 @@
 //! A finished page's nodes into the display list: backgrounds, borders, text, images, links
 //! and destinations, in paint order.
 
+mod bookmark;
 mod canvas;
 mod debug;
 mod form;
@@ -9,6 +10,7 @@ mod svg;
 mod text;
 mod transform;
 
+pub use bookmark::{Outline, number as number_bookmarks};
 use crate::display::{Border, BorderStyle, Color, ImageId, Op, PageOut, Paint, Rect};
 use crate::fonts::FontStore;
 use crate::layout::image::asset;
@@ -27,6 +29,8 @@ pub struct Ctx<'a> {
     pub paint: &'a dyn Fn(u32, f64, f64) -> Option<String>,
     /// The form field sets open around the node being drawn.
     pub forms: form::Forms,
+    /// The outline made so far.
+    pub outline: &'a Outline,
 }
 
 pub fn page(page: &Node, width: f64, height: f64, cx: &Ctx) -> PageOut {
@@ -72,6 +76,8 @@ fn node(ops: &mut Vec<Op>, n: &Node, ox: f64, oy: f64, cx: &Ctx) {
     let opacity = s.opacity.unwrap_or(1.0);
     let r = radii(s, w, h);
     let origin = transform::origin(s, x, y, w, h);
+    // Outline entries go in document order, a parent before what it holds.
+    cx.outline.add(ops, n);
     ops.push(Op::Save);
     if s.overflow == Some(crate::layout::yoga::Overflow::Hidden) {
         ops.push(Op::Clip {

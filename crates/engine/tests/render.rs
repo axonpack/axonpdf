@@ -125,3 +125,16 @@ fn kept_layout_matches_fresh_layout() {
     assert!(kept.len() > 1000);
     assert_eq!(kept, fresh);
 }
+
+#[test]
+fn bookmarks_make_an_outline() {
+    let doc = json!({"v": 1, "type": "DOCUMENT", "props": {}, "children": [
+        {"type": "PAGE", "props": {"bookmark": "Chapter"}, "children": [
+            {"type": "TEXT", "props": {"bookmark": {"title": "Section", "fit": true}}, "children": [{"type": "TEXT_INSTANCE", "value": "Hi"}]}
+        ]}
+    ]});
+    let pdf = render(doc, &mut Engine::new());
+    let text = String::from_utf8_lossy(&pdf);
+    assert!(text.contains("/Outlines"));
+    assert!(text.matches("/Parent").count() >= 2);
+}

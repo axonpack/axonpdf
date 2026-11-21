@@ -178,6 +178,7 @@ pub fn build(mut raw: RawNode) -> Result<(Node, Container), String> {
             }
         }
     }
+    crate::draw::number_bookmarks(&mut page, None);
     Ok((page, c))
 }
 
