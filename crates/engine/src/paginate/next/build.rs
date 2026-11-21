@@ -8,7 +8,7 @@ use super::flow::is_absolute;
 use super::items::Placed;
 use crate::paginate::split::{cut_edges, split_text};
 use crate::style::{BOTTOM, Dim, TOP};
-use crate::tree::{Kind, Node};
+use crate::tree::{Kind, Node, extras};
 
 /// The nodes a page's placements stand for, in order.
 pub fn nodes(placed: &[Placed]) -> Vec<Node> {
@@ -51,6 +51,8 @@ fn rebuild(p: &Placed, out: &mut Vec<Node>) {
         Rc::make_mut(&mut node.style).height = Some(Dim::Pt(height));
         cut_edges(&mut node, BOTTOM);
     }
+    // Its parts keep what was rendered for them: the whole output again would fill each part.
+    node.render = None;
     if !p.first {
         cut_edges(&mut node, TOP);
         node.props
@@ -98,6 +100,8 @@ pub fn split(node: &Node, avail: f64) -> Option<(Node, Node)> {
         (cur, next)
     };
     for (n, side) in [(&mut cur, BOTTOM), (&mut next, TOP)] {
+        n.render = None;
+        n.props.shift_remove(extras::COUNTER);
         let l = &mut n.layout;
         (l.margin[side], l.padding[side], l.border[side]) = (0.0, 0.0, 0.0);
     }

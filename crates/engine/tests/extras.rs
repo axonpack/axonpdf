@@ -42,6 +42,12 @@ fn pages(engine: &mut Engine, json: &str) -> Vec<String> {
 
 #[test]
 fn bands_numbers_and_counts() {
+    bands_numbers_and_counts_with(false);
+    bands_numbers_and_counts_with(true);
+}
+
+/// `next`: with the newer pagination engine.
+fn bands_numbers_and_counts_with(next: bool) {
     let footer = json!({"type": "VIEW", "props": {}, "style": {"padding": 10}, "children": [
         {"type": "TEXT", "props": {}, "children": [
             {"type": "TEXT_INSTANCE", "value": "Page "}, {"type": "PAGE_NUMBER", "props": {}, "children": []},
@@ -50,7 +56,7 @@ fn bands_numbers_and_counts() {
         json!({"type": "VIEW", "props": {}, "style": {"height": 40}, "children": [text("Header")]});
     let rows: Vec<Value> = (0..60).map(|i| text(&format!("Row {i}"))).collect();
     let json = doc(
-        json!({"type": "PAGE", "props": {"size": "A6", "header": header, "footer": footer},
+        json!({"type": "PAGE", "props": {"size": "A6", "header": header, "footer": footer, "experimentalPagination": next},
         "style": {"padding": 20}, "children": rows}),
     );
     let ps = pages(&mut Engine::new(), &json);
@@ -141,6 +147,11 @@ fn rows_arrive_in_batches() {
 /// told it is the last.
 #[test]
 fn rows_documents_defer_the_total() {
+    rows_documents_defer_the_total_with(false);
+    rows_documents_defer_the_total_with(true);
+}
+
+fn rows_documents_defer_the_total_with(next: bool) {
     let fetched = Rc::new(RefCell::new(0));
     let last = Rc::new(RefCell::new(Vec::new()));
     let mut engine = Engine::new();
@@ -153,7 +164,8 @@ fn rows_documents_defer_the_total() {
     }));
     let seen = last.clone();
     engine.set_render_callback(Box::new(move |_, a| {
-        if a.sub_page_number.is_some() {
+        // The call made when each page is finished.
+        if a.is_last.is_some() {
             seen.borrow_mut().push((a.is_last, a.total_pending));
         }
         json!({"children": [{"type": "TEXT_INSTANCE", "value": "x"}], "readsTotal": true})
@@ -162,7 +174,7 @@ fn rows_documents_defer_the_total() {
     let footer = json!({"type": "TEXT", "props": {}, "children": [
         {"type": "TEXT_INSTANCE", "value": "of "}, {"type": "PAGE_COUNT", "props": {}, "children": []}]});
     let json = doc(
-        json!({"type": "PAGE", "props": {"footer": footer}, "children": [
+        json!({"type": "PAGE", "props": {"footer": footer, "experimentalPagination": next}, "children": [
         {"type": "TEXT", "props": {"fixed": true}, "render": 1, "children": []},
         {"type": "ROWS", "props": {"rows": 1}, "children": []}]}),
     );

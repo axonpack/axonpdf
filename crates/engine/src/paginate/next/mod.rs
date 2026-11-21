@@ -65,6 +65,9 @@ pub struct Cut {
     /// Where the content sits in the first layout, and how many nodes it is.
     content: (Vec<usize>, usize),
     frags: Vec<Fragment>,
+    /// The page's header and footer bands, and its own top and bottom padding they add to.
+    bands: Vec<Node>,
+    base: Option<(f64, f64)>,
     width: Option<f64>,
     numbers: Numbers,
     pub count: u32,
@@ -116,17 +119,22 @@ pub fn open(
         template::check(found)?;
         content = (path, count);
     }
-    let (node, c) = page::build(raw)?;
-    let mut shell = node.clone();
-    shell.children.clear();
-    shell.pending.clear();
-    shell.dynamic = false;
+    let (mut node, c) = page::build(raw)?;
+    let base = page::band_base(&node);
+    let (bands, children) = std::mem::take(&mut node.children)
+        .into_iter()
+        .partition(|n| n.has(super::bands::BAND));
+    let pending = std::mem::take(&mut node.pending);
+    let shell = node.clone();
+    (node.children, node.pending) = (children, pending);
     let cut = Cut {
         built: Some(node),
         shell,
         layout: head.layout,
         content,
         frags: Vec::new(),
+        bands,
+        base,
         width: None,
         numbers: Numbers {
             first,
