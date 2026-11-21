@@ -5,6 +5,7 @@
 mod border;
 mod content;
 mod crypt;
+mod deferred;
 mod emit;
 mod fonts;
 mod forms;
@@ -45,6 +46,8 @@ pub struct Writer {
     gradients: gradient::Written,
     nav: nav::Nav,
     form: forms::Form,
+    /// Deferred texts the pages drew, written at the end.
+    deferred: deferred::Pending,
     /// The file identifier, and the encryption keyed to it.
     id: [u8; 16],
     crypt: Option<crypt::Crypt>,
@@ -80,6 +83,7 @@ impl Writer {
             gradients: Default::default(),
             nav: Default::default(),
             form: Default::default(),
+            deferred: Vec::new(),
             id,
             crypt,
         }
@@ -130,6 +134,7 @@ impl Writer {
     pub fn finish(mut self, fonts: &FontStore, out: Out) {
         // The form names its font, so it goes before the fonts are written.
         let form = self.write_form(out);
+        self.write_deferred(fonts, out);
         self.write_fonts(fonts, out);
         let (pages, kids) = (self.pages, std::mem::take(&mut self.page_refs));
         self.emit.write(out, |c| {

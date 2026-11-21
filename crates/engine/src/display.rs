@@ -80,6 +80,8 @@ pub enum Op {
         text: String,
         color: Option<Color>,
     },
+    /// Text known only after the last page (the page total), drawn when the file ends.
+    Deferred(Deferred),
     /// A form field group. Fields and groups name it as their `parent`.
     FieldSet {
         id: u32,
@@ -263,4 +265,32 @@ pub struct Bookmark {
     pub zoom: Option<f32>,
     pub fit: bool,
     pub expanded: bool,
+}
+
+/// A value the writer fills in at the end of the document.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum DeferredKey {
+    /// The number of pages written.
+    TotalPages,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum TextAlign {
+    #[default]
+    Left,
+    Center,
+    Right,
+}
+
+/// Deferred text, set in a box `width` wide that starts at `x`, on the baseline at `baseline`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Deferred {
+    pub key: DeferredKey,
+    pub font: FontId,
+    pub size: f32,
+    pub color: Color,
+    pub x: f32,
+    pub baseline: f32,
+    pub width: f32,
+    pub align: TextAlign,
 }

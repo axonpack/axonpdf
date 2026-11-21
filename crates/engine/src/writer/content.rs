@@ -107,6 +107,7 @@ impl Writer {
                     let a = self.note((px, py), text, *color, out);
                     p.annots.push(a);
                 }
+                Op::Deferred(d) => self.draw_deferred(&mut p, d, out),
                 Op::FieldSet { id, name, parent } => self.add_field_set(*id, name, *parent),
                 Op::Field(f) => {
                     let a = self.field(f, p.to_pdf(f.rect), out);
