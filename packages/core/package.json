@@ -1,0 +1,42 @@
+{
+  "name": "@axonpdf/core",
+  "version": "0.0.0",
+  "description": "The axonpdf engine as WebAssembly, for Node, browsers and Workers",
+  "bugs": {
+    "url": "https://github.com/axonpack/axonpdf/issues"
+  },
+  "license": "MIT",
+  "author": "Md Asadujjaman <abappi2019@gmail.com> (https://github.com/abappi19)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/axonpack/axonpdf.git",
+    "directory": "packages/core"
+  },
+  "files": [
+    "build",
+    "wasm"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "default": "./build/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "rm -rf build && tsc",
+    "build:wasm": "scripts/build-wasm.sh",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit -p tsconfig.check.json"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0"
+  }
+}
