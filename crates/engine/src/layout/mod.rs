@@ -4,6 +4,7 @@
 mod apply;
 mod canvas;
 pub mod image;
+mod svg;
 pub mod text;
 pub mod yoga;
 
@@ -124,6 +125,7 @@ fn build(
                 t.set_measure(id, m);
             }
         }
+        Kind::Svg => t.set_measure(id, svg::measure(n)),
         Kind::Canvas => {
             if let Some(m) = canvas::measure(n, page_area, a) {
                 t.set_measure(id, m);

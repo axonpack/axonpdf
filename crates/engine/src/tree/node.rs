@@ -90,6 +90,18 @@ impl Node {
                 c,
                 &json!([{"color": "blue", "textDecoration": "underline"}, raw.style]),
             )
+        } else if kind == Kind::Svg {
+            // An Svg's width and height props size its box unless its style says otherwise.
+            let sized: serde_json::Map<String, Value> = ["width", "height"]
+                .iter()
+                .filter_map(|k| {
+                    Some((
+                        k.to_string(),
+                        raw.props.get(*k).filter(|v| !v.is_null())?.clone(),
+                    ))
+                })
+                .collect();
+            style::resolve(c, &json!([sized, raw.style]))
         } else {
             style::resolve(c, &raw.style)
         };
