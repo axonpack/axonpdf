@@ -53,6 +53,7 @@ export function serialize(child: Item, session: Session): TreeNode | TreeText {
   if (type === "ROWS") return rows(all, session, scope ?? rootScope());
 
   const node: TreeNode = { type, props: {}, children: [] };
+  if (type === "PAGE_COUNT") session.pageCount = true;
   for (const [key, value] of Object.entries(all)) {
     if (value === undefined) continue;
     if (key === "style") {

@@ -3,6 +3,7 @@ import { createEngine, type RenderArgs } from "@axonpdf/core";
 import { addEmoji } from "../assets/emoji.js";
 import { Font } from "../font/font-store.js";
 import { addFonts } from "../font/load-fonts.js";
+import { hiddenReadsTotal, readsTotal } from "./plan.js";
 import { serializeDocument } from "../tree/serialize.js";
 import { Fallback } from "../tree/dispatcher.js";
 import { Restart, createSession, settle, type Carried, type Session } from "../tree/session.js";
@@ -69,7 +70,8 @@ export async function renderDocument(
       if (!held)
         throw new Error(`The render could not go on after its first page: ${error.message}`);
       held = [];
-      if (error instanceof Fallback || tries > 0) {
+      // Up to three more tries: after deciding on a count, and twice for images.
+      if (error instanceof Fallback || tries > 2) {
         throw error instanceof Fallback ? error : new Fallback("images in lazy children");
       }
       await settle(session);
@@ -99,6 +101,17 @@ async function renderOnce(
     // are written: the reconciler keeps it whole instead.
     throw new Fallback("lazy children next to <Rows>");
   }
+  const carried = session.carried;
+  if (sources.some((s) => s.lazy) && carried.count === undefined) {
+    // Counted as the engine counts the visible part; if that reads nothing, the lazy content is
+    // built once to look, then the render starts again with what it learned.
+    carried.count = readsTotal(session);
+    if (!carried.count) {
+      carried.count = hiddenReadsTotal(session);
+      throw new Restart();
+    }
+  }
+  if (carried.count) tree.props.countPages = true;
   recorder?.mark("assets");
   await settle(session);
   await addEmoji(tree, session);

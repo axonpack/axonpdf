@@ -89,3 +89,45 @@ describe("lazy children", () => {
     expect(a).toBe(b);
   });
 });
+
+describe("the page total with lazy content", () => {
+  const pages = (late: ReactElement) => (
+    <Document>
+      {[0, 1, 2, 3].map((p) => (
+        <Page key={p} size="A6">
+          {list(25)}
+          {p === 3 ? late : null}
+        </Page>
+      ))}
+    </Document>
+  );
+
+  it.each([
+    [
+      "computes with it",
+      <Text
+        key="a"
+        fixed
+        render={({ pageNumber, totalPages }) => `${totalPages - pageNumber} to go`}
+      />,
+    ],
+    [
+      "compares it",
+      <Text
+        key="b"
+        render={({ pageNumber, totalPages }) => (pageNumber === totalPages ? "end" : "more")}
+      />,
+    ],
+    ["shows it", <Text key="c" render={({ totalPages }) => `of ${totalPages}`} />],
+  ])("gets the counted total from a late page that %s", async (_, late) => {
+    const doc = pages(late);
+    const lazy = await file(doc, false);
+    expect(lazy).toBe(await file(doc, true));
+    expect(lazy).not.toContain("NaN");
+  });
+
+  it("is not counted when nothing reads it", async () => {
+    const doc = pages(<Text>no total here</Text>);
+    expect(await file(doc, false)).toBe(await file(doc, true));
+  });
+});

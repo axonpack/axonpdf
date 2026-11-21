@@ -30,6 +30,8 @@ export interface Session {
   inRender: boolean;
   /** Each page's content waits until the engine opens the page. */
   lazyPages: boolean;
+  /** A `PageCount` was built. */
+  pageCount: boolean;
   /** Kept from an earlier try of the same render (see `render-document.ts`). */
   carried: Carried;
   /** Lazy children met an image or emoji not loaded yet: this try's pages are dropped. */
@@ -44,6 +46,8 @@ export interface Carried {
   /** Every image source met, in the order met, with its bytes once loaded. */
   images: { key: unknown; bytes?: Uint8Array; held: boolean }[];
   emoji: Map<string, Uint8Array | null>;
+  /** Whether a document with lazy content has its pages counted first, once decided. */
+  count?: boolean;
 }
 
 /** A try that met images or emoji not loaded yet, to be made again once they are. */
@@ -65,6 +69,7 @@ export function createSession(carried: Carried = { images: [], emoji: new Map() 
     inBatch: false,
     inRender: false,
     lazyPages: false,
+    pageCount: false,
     carried,
     restart: false,
     carriedIds: new Map(),
