@@ -77,6 +77,21 @@
         "@axonpdf/react",
       ],
     },
+    "packages/types": {
+      "name": "@axonpdf/types",
+      "version": "0.0.0",
+      "dependencies": {
+        "@axonpdf/font": "*",
+        "@axonpdf/stylesheet": "*",
+      },
+      "devDependencies": {
+        "@axonpdf/react": "*",
+        "@types/node": "^24.0.0",
+      },
+      "peerDependencies": {
+        "@axonpdf/react": "*",
+      },
+    },
   },
   "packages": {
     "@axonpdf/core": ["@axonpdf/core@workspace:packages/core"],
@@ -86,6 +101,8 @@
     "@axonpdf/react": ["@axonpdf/react@workspace:packages/react"],
 
     "@axonpdf/stylesheet": ["@axonpdf/stylesheet@workspace:packages/stylesheet"],
+
+    "@axonpdf/types": ["@axonpdf/types@workspace:packages/types"],
 
     "@emnapi/core": ["@emnapi/core@2.0.0-beta.2", "", { "dependencies": { "@emnapi/wasi-threads": "2.2.0", "tslib": "^2.4.0" } }, "sha512-MzCVoWtcg4Pm2B3je5mMvYMvj3MmBKw+fU7vbsJc9/iT8ip6/eYIHo/Dsm/mr+wsHB6SEyJDuxB09Yy6r/8+4A=="],
 
