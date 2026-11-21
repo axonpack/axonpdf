@@ -16,14 +16,16 @@ if ! emcc --version | head -1 | grep -q " $EMSCRIPTEN_VERSION "; then
   exit 1
 fi
 
-cargo build --manifest-path "$root/Cargo.toml" -p axonpdf-ffi --release --target wasm32-unknown-emscripten
+# Size over speed for the web build only; native builds keep the workspace profile.
+CARGO_PROFILE_RELEASE_LTO=true CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 CARGO_PROFILE_RELEASE_OPT_LEVEL=s \
+  cargo build --manifest-path "$root/Cargo.toml" -p axonpdf-ffi --release --target wasm32-unknown-emscripten
 
 exports=_axonpdf_new,_axonpdf_free,_axonpdf_alloc,_axonpdf_dealloc,_axonpdf_add_font,_axonpdf_add_image
 exports+=,_axonpdf_set_render_callback,_axonpdf_render,_axonpdf_last_error
 
 mkdir -p "$out"
 em++ "$root/target/wasm32-unknown-emscripten/release/libaxonpdf_ffi.a" \
-  -O3 -fwasm-exceptions \
+  -Oz -fwasm-exceptions \
   -o "$out/axonpdf.mjs" \
   -sMODULARIZE -sEXPORT_ES6 -sEXPORT_NAME=createModule \
   -sENVIRONMENT=web,worker,node \
