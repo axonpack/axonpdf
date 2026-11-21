@@ -70,8 +70,18 @@ impl PageState {
     }
 }
 
+/// Emits a path. Segments with a NaN or infinite coordinate are left out: one such number
+/// would end the page's drawing in viewers.
 pub(super) fn path(c: &mut Content, segs: &[Seg]) {
     for s in segs {
+        let finite = match *s {
+            Seg::Move(x, y) | Seg::Line(x, y) => x.is_finite() && y.is_finite(),
+            Seg::Cubic(a, b, c2, d, x, y) => [a, b, c2, d, x, y].iter().all(|v| v.is_finite()),
+            Seg::Close => true,
+        };
+        if !finite {
+            continue;
+        }
         match *s {
             Seg::Move(x, y) => c.move_to(x, y),
             Seg::Line(x, y) => c.line_to(x, y),

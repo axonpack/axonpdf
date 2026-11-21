@@ -38,7 +38,9 @@ impl Writer {
             match op {
                 Op::Save => p.save(),
                 Op::Restore => p.restore(),
-                Op::Transform(m) => p.transform(*m),
+                // A matrix with NaN or infinity would end the page's drawing in viewers.
+                Op::Transform(m) if m.iter().all(|v| v.is_finite()) => p.transform(*m),
+                Op::Transform(_) => {}
                 Op::Opacity(o) => p.gfx.opacity *= o,
                 Op::Clip { path: segs, rule } => {
                     path(&mut p.c, segs);
@@ -176,11 +178,18 @@ impl Writer {
         if fill.is_none() && stroke.is_none() {
             return;
         }
-        let masked = [fill.map(|f| &f.paint), stroke.map(|s| &s.paint)]
-            .into_iter()
-            .any(
-                |paint| matches!(paint, Some(Paint::Gradient(g)) if super::gradient::has_alpha(g)),
-            );
+        let masked = |paint: Option<&Paint>| matches!(paint, Some(Paint::Gradient(g)) if super::gradient::has_alpha(g));
+        // A soft mask applies to everything drawn under it, so a fill and a stroke that
+        // need different ones are drawn one after the other.
+        if fill.is_some()
+            && stroke.is_some()
+            && (masked(fill.map(|f| &f.paint)) || masked(stroke.map(|s| &s.paint)))
+        {
+            self.draw_path(p, segs, fill, None, out);
+            self.draw_path(p, segs, None, stroke, out);
+            return;
+        }
+        let masked = masked(fill.map(|f| &f.paint)) || masked(stroke.map(|s| &s.paint));
         if masked {
             // The soft mask stays in the graphics state until restored.
             p.save();
