@@ -99,3 +99,47 @@ Notes on this batch:
 | axonpdf | 5000 | 5000 | 38.4 s | 594 MB | 21.5 MB | ok | `node bench/run.mjs --engines axonpdf --sizes 5000` |
 | axonpdf-rows | 1000 | 1000 | 4.7 s | 150 MB | 4.3 MB | ok | `node bench/run.mjs --engines axonpdf-rows --sizes 1000` |
 | axonpdf-rows | 5000 | 5000 | 23.3 s | 298 MB | 21.7 MB | ok | `node bench/run.mjs --engines axonpdf-rows --sizes 5000` |
+
+## 2026-11-21 19:51 UTC, benchmark report (final after the memory work)
+
+- Commit: `f843e84`
+- WASM: 2879400 bytes
+- Machine: Apple M4, 10 cores, 24 GB RAM, macOS 27.2.1, Node v24.11.0
+- Engines: axonpdf 0.0.0 (dev build), react-pdf 4.9.0, pdfkit 0.21.0
+- React in production mode (`NODE_ENV=production`). Time is the render call alone (Node start-up and bundling excluded); peak RSS is the whole process.
+- Document: bench/report.jsx (axonpdf-generator: bench/report-generator.jsx, axonpdf-rows: bench/report-rows.jsx, pdfkit: bench/report-pdfkit.mjs), A4, a header with a logo, three paragraphs, a 5-column bordered table, "Page n of N" footer
+
+| Engine | Target pages | Pages | Time | Peak RSS | Output | qpdf | Rerun |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| axonpdf | 100 | 100 | 817 ms | 117 MB | 442 KB | ok | `node bench/run.mjs --engines axonpdf --sizes 100` |
+| axonpdf | 1000 | 1000 | 7.8 s | 154 MB | 4.3 MB | ok | `node bench/run.mjs --engines axonpdf --sizes 1000` |
+| axonpdf | 5000 | 5000 | 39.2 s | 471 MB | 21.5 MB | ok | `node bench/run.mjs --engines axonpdf --sizes 5000` |
+| axonpdf-generator | 100 | 100 | 863 ms | 117 MB | 442 KB | ok | `node bench/run.mjs --engines axonpdf-generator --sizes 100` |
+| axonpdf-generator | 1000 | 1000 | 7.8 s | 130 MB | 4.3 MB | ok | `node bench/run.mjs --engines axonpdf-generator --sizes 1000` |
+| axonpdf-generator | 5000 | 5000 | 39.2 s | 215 MB | 21.5 MB | ok | `node bench/run.mjs --engines axonpdf-generator --sizes 5000` |
+| axonpdf-rows | 100 | 100 | 527 ms | 129 MB | 447 KB | ok | `node bench/run.mjs --engines axonpdf-rows --sizes 100` |
+| axonpdf-rows | 1000 | 1000 | 4.8 s | 147 MB | 4.3 MB | ok | `node bench/run.mjs --engines axonpdf-rows --sizes 1000` |
+| axonpdf-rows | 5000 | 5000 | 24.1 s | 259 MB | 21.7 MB | ok | `node bench/run.mjs --engines axonpdf-rows --sizes 5000` |
+| pdfkit | 100 | 100 | 145 ms | 97 MB | 357 KB | ok | `node bench/run.mjs --engines pdfkit --sizes 100` |
+| pdfkit | 1000 | 1000 | 1.1 s | 175 MB | 3.5 MB | ok | `node bench/run.mjs --engines pdfkit --sizes 1000` |
+| pdfkit | 5000 | 5000 | 5.3 s | 347 MB | 17.3 MB | ok | `node bench/run.mjs --engines pdfkit --sizes 5000` |
+
+## 2026-11-21 19:54 UTC, benchmark report (final after the memory work, react-pdf at 100 pages only)
+
+- Commit: `f843e84`
+- WASM: 2879400 bytes
+- Machine: Apple M4, 10 cores, 24 GB RAM, macOS 27.2.1, Node v24.11.0
+- Engines: axonpdf 0.0.0 (dev build), react-pdf 4.9.0, pdfkit 0.21.0
+- React in production mode (`NODE_ENV=production`). Time is the render call alone (Node start-up and bundling excluded); peak RSS is the whole process.
+- Document: bench/report.jsx (axonpdf-generator: bench/report-generator.jsx, axonpdf-rows: bench/report-rows.jsx, pdfkit: bench/report-pdfkit.mjs), A4, a header with a logo, three paragraphs, a 5-column bordered table, "Page n of N" footer
+
+| Engine | Target pages | Pages | Time | Peak RSS | Output | qpdf | Rerun |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| react-pdf | 100 | 100 | 36.1 s | 1289 MB | 643 KB | ok | `node bench/run.mjs --engines react-pdf --sizes 100` |
+
+Notes on the two batches above:
+- `f843e84` is `ecb0699` plus the generator variant of the benchmark; the engine is as of `ecb0699`, with the WASM and the JS packages rebuilt there.
+- react-pdf 4.9.0 was rerun at 100 pages only. Its larger sizes carry forward from the 2026-11-21 17:24 UTC batch (`d1db145`, same react-pdf version and machine): 1000 pages did not finish in 15 min (3.5 to 3.7 GB RSS while it ran), and 5000 pages was not run.
+- axonpdf-generator is the same report with its rows passed as a generator child (`bench/report-generator.jsx`). react-pdf renders that file unchanged too.
+- Why the generator uses less memory than the array at 5000 pages (215 MB against 471 MB): the array of 190,000 `<Row>` elements stays alive for the whole render, so V8 starts placing the elements that `Row` creates straight into its old generation, where they wait for a full garbage collection. With a generator, no such array exists.
+- Output check at 100 pages: axonpdf's first and last pages differ from react-pdf's by 0.13% and 0.12% of pixels, pdfkit's by 16% and 10% (as before). The generator output matches the plain axonpdf output pixel for pixel; `<Rows>` differs from it by 0.02% and 0.03%. qpdf passes on every output.
