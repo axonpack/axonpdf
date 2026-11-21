@@ -237,6 +237,7 @@ pub fn options(node: &Node) -> Options {
             .map(|m| m as usize),
         ellipsis: node.style.text_overflow.as_deref() == Some("ellipsis"),
         hyphenation_penalty: node.number("hyphenationPenalty"),
+        exclusions: Vec::new(),
     }
 }
 

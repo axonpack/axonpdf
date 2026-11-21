@@ -1,6 +1,7 @@
 //! Paragraphs into lines for a given width.
 
 use super::breaker::{INFINITY, Item, best_fit, knuth_plass};
+use super::exclusion::line_rects;
 use super::finalize::finalize;
 use super::{Glyph, Line, LineRun, Options, Paragraph};
 
@@ -110,7 +111,15 @@ fn paragraph_lines(p: &Paragraph, width: f64, top: f64, opts: &Options) -> Vec<L
         return Vec::new();
     };
     let indent = first.attrs.indent;
-    let widths = [width - indent, width];
+    // Beside floats each line has a box of its own; past them one box takes every line left.
+    let band = p.runs.iter().map(|r| r.height()).fold(0.0, f64::max);
+    let rects = line_rects(width, top, band, &opts.exclusions);
+    let mut widths: Vec<f64> = rects.iter().map(|r| r.2).collect();
+    if widths.len() == 1 {
+        widths.insert(0, width - indent);
+    } else {
+        widths[0] -= indent;
+    }
     let items = items(p, opts);
     let mut tolerance = 4.0;
     let mut breaks = knuth_plass(&items, &widths, tolerance);
@@ -141,6 +150,7 @@ fn paragraph_lines(p: &Paragraph, width: f64, top: f64, opts: &Options) -> Vec<L
     }
     ranges.push((start, p.chars.len(), false));
 
+    let mut rect = 0;
     let mut y = top;
     ranges
         .into_iter()
@@ -150,10 +160,15 @@ fn paragraph_lines(p: &Paragraph, width: f64, top: f64, opts: &Options) -> Vec<L
             let runs = slice(p, s, e, hyphen);
             let natural = runs.iter().map(|r| r.height).fold(0.0, f64::max);
             let height = natural.max(first.attrs.line_height.unwrap_or(0.0));
+            if y + height > rects[rect].1 + rects[rect].3 && rect + 1 < rects.len() {
+                rect += 1;
+                y = rects[rect].1;
+            }
+            let (rx, _, rw, _) = rects[rect];
             let line = Line {
-                x: line_indent,
+                x: rx + line_indent,
                 y,
-                width: width - line_indent,
+                width: rw - line_indent,
                 height,
                 ascent: 0.0,
                 x_advance: 0.0,

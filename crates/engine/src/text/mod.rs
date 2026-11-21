@@ -2,6 +2,7 @@
 //! syllables), then broken into lines for whatever width layout asks for.
 
 pub mod breaker;
+pub mod exclusion;
 mod finalize;
 pub mod hyphen;
 mod lines;
@@ -136,6 +137,8 @@ pub struct Options {
     pub max_lines: Option<usize>,
     pub ellipsis: bool,
     pub hyphenation_penalty: Option<f64>,
+    /// Floats the lines flow around.
+    pub exclusions: Vec<exclusion::Exclusion>,
 }
 
 #[cfg(test)]
