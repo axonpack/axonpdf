@@ -6,6 +6,7 @@ mod border;
 mod content;
 mod emit;
 mod fonts;
+mod forms;
 mod gradient;
 mod images;
 mod info;
@@ -38,6 +39,7 @@ pub struct Writer {
     alphas: HashMap<(u32, u32), Ref>,
     gradients: gradient::Written,
     nav: nav::Nav,
+    form: forms::Form,
 }
 
 impl Writer {
@@ -56,6 +58,7 @@ impl Writer {
             alphas: HashMap::new(),
             gradients: Default::default(),
             nav: Default::default(),
+            form: Default::default(),
         }
     }
 
@@ -102,6 +105,8 @@ impl Writer {
 
     /// Writes the fonts, page tree, outline, destinations, catalog, info and trailer.
     pub fn finish(mut self, fonts: &FontStore, out: Out) {
+        // The form names its font, so it goes before the fonts are written.
+        let form = self.write_form(out);
         self.write_fonts(fonts, out);
         let (pages, kids) = (self.pages, std::mem::take(&mut self.page_refs));
         self.emit.write(out, |c| {
@@ -109,7 +114,8 @@ impl Writer {
                 .count(kids.len() as i32)
                 .kids(kids.iter().copied());
         });
-        let nav = self.write_nav(&kids, out);
+        let mut nav = self.write_nav(&kids, out);
+        nav.form = form;
         let info = self.write_info(out);
         self.write_catalog(nav, out);
         let trailer = format!(

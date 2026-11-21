@@ -19,6 +19,7 @@ pub struct Nav {
 pub struct NavRefs {
     pub outline: Option<Ref>,
     pub dests: Option<Ref>,
+    pub form: Option<Ref>,
 }
 
 impl Writer {
@@ -79,7 +80,11 @@ impl Writer {
     pub(super) fn write_nav(&mut self, _pages: &[Ref], out: Out) -> NavRefs {
         let dests = (!self.nav.dests.is_empty()).then(|| self.write_dests(out));
         let outline = (!self.nav.bookmarks.is_empty()).then(|| self.write_outline(out));
-        NavRefs { outline, dests }
+        NavRefs {
+            outline,
+            dests,
+            form: None,
+        }
     }
 
     fn write_dests(&mut self, out: Out) -> Ref {
@@ -171,7 +176,7 @@ impl Writer {
     }
 }
 
-fn annot_base(a: &mut pdf_writer::Dict, subtype: &[u8], rect: [f32; 4]) {
+pub(super) fn annot_base(a: &mut pdf_writer::Dict, subtype: &[u8], rect: [f32; 4]) {
     a.pair(Name(b"Type"), Name(b"Annot"));
     a.pair(Name(b"Subtype"), Name(subtype));
     a.insert(Name(b"Rect")).array().items(rect);

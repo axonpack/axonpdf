@@ -125,6 +125,9 @@ impl Writer {
             if let Some(outline) = nav.outline {
                 cat.pair(Name(b"Outlines"), outline);
             }
+            if let Some(form) = nav.form {
+                cat.pair(Name(b"AcroForm"), form);
+            }
             if let Some(dests) = nav.dests {
                 cat.insert(Name(b"Names"))
                     .dict()
