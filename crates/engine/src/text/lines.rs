@@ -172,7 +172,8 @@ fn items(p: &Paragraph, opts: &Options) -> Vec<Item> {
         p.runs
             .iter()
             .flat_map(|r| &r.glyphs)
-            .filter(|g| g.index >= s && g.index < e)
+            // A ligature counts toward the syllable its last character is in.
+            .filter(|g| g.end > s && g.end <= e)
             .map(|g| g.advance)
             .sum()
     };
@@ -234,12 +235,20 @@ fn slice(p: &Paragraph, s: usize, e: usize, hyphen: bool) -> Vec<LineRun> {
         .filter(|r| r.start < e && r.end > s)
         .map(|r| {
             let (a, b) = (r.start.max(s), r.end.min(e));
-            let glyphs: Vec<Glyph> = r
-                .glyphs
-                .iter()
-                .filter(|g| g.index >= a && g.index < b)
-                .copied()
-                .collect();
+            let mut glyphs: Vec<Glyph> = Vec::new();
+            for g in r.glyphs.iter().filter(|g| g.index < b && g.end > a) {
+                if g.index >= a && g.end <= b {
+                    glyphs.push(*g);
+                    continue;
+                }
+                // A ligature cut by the line's edge: its pieces on this side.
+                let cut = if g.index < a { a } else { b };
+                if let Some((_, _, head, tail)) =
+                    r.splits.iter().find(|x| x.0 == g.index && x.1 == cut)
+                {
+                    glyphs.extend(if g.index < a { tail } else { head });
+                }
+            }
             LineRun {
                 attrs: r.attrs.clone(),
                 start: a,
@@ -257,6 +266,7 @@ fn slice(p: &Paragraph, s: usize, e: usize, hyphen: bool) -> Vec<LineRun> {
         let run = p.runs.iter().rfind(|r| r.start < e && r.end > s).unwrap();
         last.glyphs.push(Glyph {
             index: e,
+            end: e + 1,
             ..run.hyphen
         });
         last.text.push('-');

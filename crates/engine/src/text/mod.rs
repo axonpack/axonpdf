@@ -40,6 +40,8 @@ pub struct Attrs {
 pub struct Glyph {
     pub id: u16,
     pub index: usize,
+    /// The character after the last one the glyph draws (more than one for a ligature).
+    pub end: usize,
     pub advance: f64,
     pub x_offset: f64,
     pub y_offset: f64,
@@ -61,6 +63,9 @@ pub struct Run {
     /// The glyphs drawn for a hyphen added at a break, and for an ellipsis.
     pub hyphen: Glyph,
     pub ellipsis: Glyph,
+    /// Ligatures cut by a line break, shaped again on each side of every possible cut:
+    /// `(ligature start, cut, glyphs before, glyphs after)`.
+    pub splits: Vec<(usize, usize, Vec<Glyph>, Vec<Glyph>)>,
 }
 
 impl Run {

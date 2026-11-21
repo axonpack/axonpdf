@@ -116,7 +116,6 @@ fn shape(fonts: &FontStore, attrs: Rc<Attrs>, font: FontId, start: usize, text: 
     let scale = attrs.size / m.units_per_em as f64;
     // Shaped at one em so advances come back in font units, then scaled here in f64.
     let em = m.units_per_em;
-    let char_at: Vec<usize> = text.char_indices().map(|(b, _)| b).collect();
     let chars: Vec<char> = text.chars().collect();
     // `sub` and `super` raise every glyph by a share of the em. The share is taken of the font's
     // units and then read as thousandths of the font size, so fonts not on a 1000 grid move
@@ -128,21 +127,51 @@ fn shape(fonts: &FontStore, attrs: Rc<Attrs>, font: FontId, start: usize, text: 
     } * m.units_per_em as f64
         * attrs.size
         / 1000.0;
-    let glyphs = fonts
-        .shape(font, text, em, 0.0, &[])
-        .into_iter()
-        .map(|g| {
-            let i = char_at.partition_point(|&b| b < g.cluster as usize);
-            Glyph {
-                id: g.id,
-                index: start + i,
-                advance: g.x_advance as f64 * scale + attrs.letter_spacing,
-                x_offset: g.x_offset as f64 * scale * attrs.size / 1000.0,
-                y_offset: raise,
-                whitespace: chars.get(i) == Some(&' '),
+    let shape_at = |text: &str, from: usize| -> Vec<Glyph> {
+        let char_at: Vec<usize> = text.char_indices().map(|(b, _)| b).collect();
+        let chars: Vec<char> = text.chars().collect();
+        let mut glyphs: Vec<Glyph> = fonts
+            .shape(font, text, em, 0.0, &[])
+            .into_iter()
+            .map(|g| {
+                let i = char_at.partition_point(|&b| b < g.cluster as usize);
+                Glyph {
+                    id: g.id,
+                    index: from + i,
+                    end: from + chars.len(),
+                    advance: g.x_advance as f64 * scale + attrs.letter_spacing,
+                    x_offset: g.x_offset as f64 * scale * attrs.size / 1000.0,
+                    y_offset: raise,
+                    whitespace: chars.get(i) == Some(&' '),
+                }
+            })
+            .collect();
+        // Each glyph ends where the next one starts.
+        let (mut end, mut next) = (from + chars.len(), from + chars.len());
+        for g in glyphs.iter_mut().rev() {
+            if g.index < next {
+                (end, next) = (next, g.index);
             }
-        })
-        .collect();
+            g.end = end;
+        }
+        glyphs
+    };
+    let glyphs = shape_at(text, start);
+    // Ligatures, shaped again on both sides of every cut a line break could make in them.
+    let mut splits = Vec::new();
+    for g in glyphs.iter().filter(|g| g.end - g.index > 1) {
+        for cut in g.index + 1..g.end {
+            let piece = |a: usize, b: usize| {
+                let s: String = chars[a - start..b - start].iter().collect();
+                // Cut pieces take each glyph's own advance: no spacing, no kerning.
+                let mut gs = shape_at(&s, a);
+                gs.iter_mut()
+                    .for_each(|x| x.advance -= attrs.letter_spacing);
+                gs
+            };
+            splits.push((g.index, cut, piece(g.index, cut), piece(cut, g.end)));
+        }
+    }
     // The hyphen added at a break and the ellipsis of cut text. The Standard 14 give each a
     // fixed 400 units.
     let extra = |s: &str| {
@@ -155,6 +184,7 @@ fn shape(fonts: &FontStore, attrs: Rc<Attrs>, font: FontId, start: usize, text: 
         Glyph {
             id: g.id,
             index: 0,
+            end: 0,
             advance: if standard { 400.0 } else { g.x_advance as f64 } * scale,
             x_offset: 0.0,
             y_offset: 0.0,
@@ -172,5 +202,6 @@ fn shape(fonts: &FontStore, attrs: Rc<Attrs>, font: FontId, start: usize, text: 
         glyphs,
         hyphen: extra("-"),
         ellipsis: extra("\u{2026}"),
+        splits,
     }
 }
