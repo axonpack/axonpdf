@@ -81,6 +81,7 @@ impl Node {
     /// Builds a node and its children, resolving styles against the page and inheriting from
     /// `parent` (its style, and whether it is a text node).
     pub fn build(raw: RawNode, c: &Container, parent: Option<(&Style, bool)>) -> Node {
+        let raw = substitute_link(raw);
         let kind = Kind::from(&raw.kind);
         let mut style = if kind == Kind::Link {
             // Links are blue and underlined unless styled otherwise.
@@ -147,4 +148,34 @@ impl Node {
         }
         self.props.get("wrap").is_none_or(truthy)
     }
+}
+
+/// A link with a `render` function draws as text. A link holding only text is given a text node
+/// to hold it, so the text is laid out and styled under the link.
+fn substitute_link(mut raw: RawNode) -> RawNode {
+    if raw.kind != "LINK" {
+        return raw;
+    }
+    if raw.render.is_some() {
+        raw.kind = "TEXT".into();
+        return raw;
+    }
+    let all = |kinds: &[&str]| {
+        raw.children
+            .iter()
+            .all(|c| kinds.contains(&c.kind.as_str()))
+    };
+    let wrap = all(&["TEXT_INSTANCE"]) || (!all(&["TEXT"]) && all(&["TEXT", "TEXT_INSTANCE"]));
+    if wrap {
+        let children = std::mem::take(&mut raw.children);
+        raw.children = vec![RawNode {
+            kind: "TEXT".into(),
+            props: Map::new(),
+            style: Value::Null,
+            render: None,
+            children,
+            value: None,
+        }];
+    }
+    raw
 }
