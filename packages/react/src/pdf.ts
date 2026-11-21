@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 
+import { startStream, type Run } from "./live-stream.js";
 import { platform } from "./platform.js";
 import { createRenderer, type Renderer } from "./reconciler/renderer.js";
 import { renderDocument } from "./render/render-document.js";
@@ -33,13 +34,13 @@ export function mount(initialValue?: ReactElement) {
     renderer!.updateContainer(root, document, callback);
   if (initialValue) updateContainer(initialValue);
 
-  const render = async (onChunk: (chunk: Uint8Array) => void) => {
+  const render = async (onChunk: (chunk: Uint8Array) => void, wait?: () => Promise<void>) => {
     if (error !== undefined) {
       const e = error;
       error = undefined;
       throw e;
     }
-    await renderDocument(container.document, onChunk);
+    await renderDocument(container.document, onChunk, wait);
   };
   return { container, changeListeners, updateContainer, render };
 }
@@ -62,11 +63,10 @@ export function pdf(initialValue?: ReactElement<DocumentProps>) {
       callOnRender({ blob });
       return blob;
     },
-    /** A stream of the PDF (a Node `Readable` in Node), as the name has always meant. */
-    async toBuffer(): Promise<NodeJS.ReadableStream> {
-      const chunks = await render();
-      callOnRender();
-      return platform.toStream(chunks) as NodeJS.ReadableStream;
+    /** A live stream of the PDF (a Node `Readable` in Node), as the name has always meant. */
+    toBuffer(): Promise<NodeJS.ReadableStream> {
+      const run: Run = (write, wait) => renderTo(write, wait).then(() => callOnRender());
+      return startStream(platform.sink(), run) as Promise<NodeJS.ReadableStream>;
     },
     /** @deprecated use `toBuffer` or `toBlob`. */
     async toString(): Promise<string> {

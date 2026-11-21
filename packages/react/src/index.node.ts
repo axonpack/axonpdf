@@ -1,15 +1,15 @@
 import { readFile } from "node:fs/promises";
-import { Readable } from "node:stream";
 
 import * as components from "./components.js";
 import type * as dom from "./index.browser.js";
+import { nodeSink } from "./node/node-sink.js";
 import { renderToFile, renderToStream, renderToString } from "./node/render-to.js";
 import { platform } from "./platform.js";
 import { Font, environmentError, pdf, version } from "./shared.js";
 
 platform.readFile = async (path) =>
   new Uint8Array(await readFile(path.startsWith("file:") ? new URL(path) : path));
-platform.toStream = (chunks) => Readable.from(chunks);
+platform.sink = nodeSink;
 
 export * from "./shared.js";
 export * from "./node/render-to.js";

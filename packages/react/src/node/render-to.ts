@@ -2,8 +2,10 @@ import { closeSync, createReadStream, openSync, writeSync } from "node:fs";
 import { Readable } from "node:stream";
 import type { ReactElement } from "react";
 
+import { startStream, type Run } from "../live-stream.js";
 import { mount, pdf } from "../pdf.js";
 import type { DocumentProps } from "../types/props.type.js";
+import { nodeSink } from "./node-sink.js";
 
 type Element = ReactElement<DocumentProps>;
 
@@ -17,8 +19,16 @@ async function once<T>(element: Element, run: (instance: ReturnType<typeof pdf>)
   }
 }
 
-export const renderToStream = (element: Element): Promise<NodeJS.ReadableStream> =>
-  once(element, (instance) => instance.toBuffer());
+/** A live stream: it resolves with the first chunk, and pages flow out as they are laid out. */
+export function renderToStream(element: Element): Promise<NodeJS.ReadableStream> {
+  const { container, updateContainer, render } = mount(element);
+  const onRender = container.document?.props.onRender;
+  const run: Run = (write, wait) =>
+    render(write, wait)
+      .then(() => onRender?.({}))
+      .finally(() => updateContainer(null));
+  return startStream(nodeSink(), run);
+}
 
 export const renderToBuffer = async (element: Element): Promise<Buffer> => {
   const stream = await renderToStream(element);

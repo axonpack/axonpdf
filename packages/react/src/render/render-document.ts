@@ -18,10 +18,15 @@ function inCallback<T>(session: Session, fn: () => T): T {
   }
 }
 
-/** Renders a committed `Document`; `onChunk` gets each piece of the PDF in order. */
+/**
+ * Renders a committed `Document`; `onChunk` gets each piece of the PDF in order. With an async
+ * `Rows`, pages leave between batches; otherwise the engine runs in one go.
+ */
 export async function renderDocument(
   document: Instance | null,
   onChunk: (chunk: Uint8Array) => void,
+  /** Awaited before each async batch: a stream's reader can hold the render back. */
+  wait?: () => Promise<void>,
 ) {
   if (!document || document.type !== "DOCUMENT") {
     throw new Error("The root element must be a <Document>.");
@@ -64,6 +69,7 @@ export async function renderDocument(
     // Batches are made between engine calls, so images in rows can load then.
     let id = engine.begin(json, onChunk, callbacks);
     while (id !== undefined) {
+      await wait?.();
       const batch = await session.rows.get(id)!.next();
       await settle(session);
       addImages();
