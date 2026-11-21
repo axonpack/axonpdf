@@ -8,5 +8,8 @@
   },
   "dependencies": {
     "yoga-layout": "3.2.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.10"
   }
 }
