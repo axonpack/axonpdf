@@ -45,8 +45,8 @@ impl Embedded {
         let postscript_name = face
             .names()
             .into_iter()
-            .find(|n| n.name_id == rustybuzz::ttf_parser::name_id::POST_SCRIPT_NAME)
-            .and_then(|n| n.to_string())
+            .filter(|n| n.name_id == rustybuzz::ttf_parser::name_id::POST_SCRIPT_NAME)
+            .find_map(|n| n.to_string())
             .unwrap_or_else(|| "Font".into());
         Ok(Embedded {
             cell,
