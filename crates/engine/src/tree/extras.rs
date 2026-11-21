@@ -2,7 +2,7 @@
 //!
 //! - `breakBefore: "page"` is `break`, `breakInside: "avoid"` is `wrap={false}`, and
 //!   `breakAfter: "page"` puts a `break` on the next sibling.
-//! - `TABLE` and `TABLE_CELL` are views, `TABLE_ROW` a view laid out as a row, and
+//! - `TABLE` and `TABLE_CELL` are views (a table's border is drawn on every page it reaches), `TABLE_ROW` a view laid out as a row, and
 //!   `TABLE_HEADER` a row that is `fixed`, so it repeats at the top of every page the table
 //!   reaches.
 //! - `PAGE_NUMBER` and `PAGE_COUNT` are text the engine fills in: the page's number, and the
@@ -12,6 +12,9 @@
 use serde_json::{Value, json};
 
 use super::RawNode;
+
+/// Marks a table, whose border is drawn on every page it reaches.
+pub const TABLE: &str = "__table";
 
 /// What a counter shows: `page` or `count`.
 pub const COUNTER: &str = "__counter";
@@ -29,7 +32,11 @@ pub fn translate(mut raw: RawNode) -> RawNode {
         raw.style = json!([{"flexDirection": "row"}, style]);
     };
     match raw.kind.as_str() {
-        "TABLE" | "TABLE_CELL" | "ROWS" => raw.kind = "VIEW".into(),
+        "TABLE" => {
+            raw.kind = "VIEW".into();
+            raw.props.insert(TABLE.into(), true.into());
+        }
+        "TABLE_CELL" | "ROWS" => raw.kind = "VIEW".into(),
         "TABLE_ROW" => {
             raw.kind = "VIEW".into();
             row(&mut raw);

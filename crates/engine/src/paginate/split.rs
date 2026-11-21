@@ -8,7 +8,7 @@ use crate::layout::remainder::ids;
 use crate::layout::yoga::NodeId;
 use crate::style::{BOTTOM, Dim, TOP};
 use crate::tree::node::TextBox;
-use crate::tree::{Kind, Node};
+use crate::tree::{Kind, Node, extras};
 
 /// Boxes that cross the cut by less than this stay whole.
 const SAFETY: f64 = 0.001;
@@ -137,9 +137,14 @@ fn split(node: Node, height: f64, content_area: f64, gone: &mut Vec<NodeId>) -> 
 
 /// Drops the edges that fall inside the break: the bottom ones above it, the top ones below.
 fn cut_edges(n: &mut Node, side: usize) {
+    // A table keeps its border on every page it runs over, closed at each cut.
+    let table = n.has(extras::TABLE);
     let s = Rc::make_mut(&mut n.style);
     s.margin[side] = Some(Dim::Pt(0.0));
     s.padding[side] = Some(Dim::Pt(0.0));
+    if table {
+        return;
+    }
     s.border_width[side] = Some(0.0);
     let corners = if side == TOP { [0, 1] } else { [2, 3] };
     for c in corners {
