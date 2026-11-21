@@ -104,6 +104,7 @@ impl Engine {
             fonts,
             images: &lookup,
             paint: &paint,
+            forms: Default::default(),
         };
         let mut sink = |page: &Node, width: f64, height: f64| {
             let display = draw::page(page, width, height, &cx);

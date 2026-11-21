@@ -1,7 +1,9 @@
 //! A finished page's nodes into the display list: backgrounds, borders, text, images, links
 //! and destinations, in paint order.
 
+mod canvas;
 mod debug;
+mod form;
 mod image;
 mod svg;
 mod text;
@@ -23,6 +25,8 @@ pub struct Ctx<'a> {
     pub images: &'a ImageLookup<'a>,
     /// Runs a canvas's `paint` function at its content size: painter calls as JSON.
     pub paint: &'a dyn Fn(u32, f64, f64) -> Option<String>,
+    /// The form field sets open around the node being drawn.
+    pub forms: form::Forms,
 }
 
 pub fn page(page: &Node, width: f64, height: f64, cx: &Ctx) -> PageOut {
@@ -98,6 +102,12 @@ fn node(ops: &mut Vec<Op>, n: &Node, ox: f64, oy: f64, cx: &Ctx) {
     }
     match n.kind {
         Kind::Text => text::draw(ops, n, x, y, cx),
+        Kind::Canvas => {
+            let [pt, pr, pb, pl] = l.padding;
+            let calls = n.paint.and_then(|id| (cx.paint)(id, w - pl - pr, h - pt - pb));
+            let calls: Vec<serde_json::Value> = calls.and_then(|c| serde_json::from_str(&c).ok()).unwrap_or_default();
+            canvas::draw(ops, &calls, x + pl, y + pt, cx.fonts);
+        }
         Kind::Svg => svg::draw(ops, n, x, y, r, cx),
         Kind::Image | Kind::ImageBackground => {
             if let Some((id, size)) = asset(n).and_then(cx.images) {
@@ -117,13 +127,14 @@ fn node(ops: &mut Vec<Op>, n: &Node, ox: f64, oy: f64, cx: &Ctx) {
                 });
             }
         }
-        _ => {}
+        _ => form::enter(ops, n, (x, y, w, h), &cx.forms),
     }
     if !matches!(n.kind, Kind::Text | Kind::Svg) {
         for child in by_z_index(&n.children) {
             node(ops, child, x, y, cx);
         }
     }
+    form::leave(n, &cx.forms);
     if let Some(id) = n.props.get("id").and_then(|v| v.as_str()) {
         ops.push(Op::Dest {
             name: id.to_string(),

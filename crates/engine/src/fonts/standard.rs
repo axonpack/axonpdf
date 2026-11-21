@@ -52,6 +52,8 @@ pub struct Standard {
     pub widths: [u16; 256],
     kerns: HashMap<(u8, u8), i16>,
     pub metrics: Metrics,
+    /// The AFM's own ascender (1/1000 em), which canvas text sits under.
+    pub afm_ascender: f32,
 }
 
 /// The parsed font at `index` into [`NAMES`].
@@ -105,8 +107,11 @@ impl Standard {
 fn parse(name: &'static str, afm: &str) -> Standard {
     let mut by_name: HashMap<&str, u16> = HashMap::new();
     let mut kern_lines = Vec::new();
+    let mut afm_ascender = 0.0;
     for line in afm.lines() {
-        if let Some(rest) = line.strip_prefix("C ") {
+        if let Some(v) = line.strip_prefix("Ascender ") {
+            afm_ascender = v.trim().parse().unwrap_or(0.0);
+        } else if let Some(rest) = line.strip_prefix("C ") {
             let field = |key: &str| rest.split(';').find_map(|f| f.trim().strip_prefix(key));
             if let (Some(wx), Some(n)) = (field("WX "), field("N ")) {
                 by_name.insert(n.trim(), wx.trim().parse().unwrap_or(0));
@@ -144,6 +149,7 @@ fn parse(name: &'static str, afm: &str) -> Standard {
         widths,
         kerns,
         metrics: metrics(name),
+        afm_ascender,
     }
 }
 
