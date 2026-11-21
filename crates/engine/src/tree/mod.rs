@@ -58,6 +58,7 @@ pub mod node;
 pub use node::{Kind, Node};
 
 use serde::Deserialize;
+use serde_json::value::RawValue;
 use serde_json::{Map, Value};
 
 /// A node as it arrives in the JSON.
@@ -91,25 +92,39 @@ pub struct RenderResult {
     pub reads_total: bool,
 }
 
-/// Parses a document. The root must be a `DOCUMENT` of version 1.
-pub fn parse(json: &str) -> Result<RawNode, String> {
-    #[derive(Deserialize)]
-    struct Versioned {
-        v: u32,
-        #[serde(flatten)]
-        root: RawNode,
+/// A document, its pages left as JSON until each is reached, so only one page is ever held as
+/// a tree.
+#[derive(Debug, Deserialize)]
+pub struct Doc<'a> {
+    v: u32,
+    #[serde(rename = "type")]
+    kind: String,
+    #[serde(default)]
+    pub props: Map<String, Value>,
+    #[serde(borrow, default)]
+    children: Vec<&'a RawValue>,
+}
+
+impl Doc<'_> {
+    /// The `PAGE` children, parsed one at a time.
+    pub fn pages(&self) -> impl Iterator<Item = Result<RawNode, String>> + '_ {
+        self.children
+            .iter()
+            .map(|c| serde_json::from_str::<RawNode>(c.get()).map_err(|e| e.to_string()))
+            .filter(|r| r.as_ref().map_or(true, |n| n.kind == "PAGE"))
     }
-    let doc: Versioned = serde_json::from_str(json).map_err(|e| e.to_string())?;
+}
+
+/// Parses a document. The root must be a `DOCUMENT` of version 1.
+pub fn parse(json: &str) -> Result<Doc<'_>, String> {
+    let doc: Doc = serde_json::from_str(json).map_err(|e| e.to_string())?;
     if doc.v != 1 {
         return Err(format!("unsupported document version {}", doc.v));
     }
-    if doc.root.kind != "DOCUMENT" {
-        return Err(format!(
-            "the root must be a DOCUMENT, not {}",
-            doc.root.kind
-        ));
+    if doc.kind != "DOCUMENT" {
+        return Err(format!("the root must be a DOCUMENT, not {}", doc.kind));
     }
-    Ok(doc.root)
+    Ok(doc)
 }
 
 /// Whether a JSON value counts as true the way a JS condition reads it.
@@ -137,7 +152,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(doc.props["title"], "T");
-        let page = &doc.children[0];
+        let page = doc.pages().next().unwrap().unwrap();
         assert!(page.style.is_array());
         assert_eq!(page.children[0].render, Some(3));
         assert_eq!(page.children[0].children[0].value.as_deref(), Some("hi"));

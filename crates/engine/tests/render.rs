@@ -86,7 +86,7 @@ fn render_props_get_page_numbers_and_the_total() {
 fn kept_layout_matches_fresh_layout() {
     let row = |i: usize| {
         let cell = |s: String, style: Value| json!({"type": "VIEW", "props": {}, "style": style, "children": [text(&s)]});
-        json!({"type": "VIEW", "props": {"wrap": i % 7 != 0, "minPresenceAhead": if i % 11 == 0 { 40 } else { 0 }},
+        json!({"type": "VIEW", "props": {"wrap": !i.is_multiple_of(7), "minPresenceAhead": if i.is_multiple_of(11) { 40 } else { 0 }},
                "style": {"flexDirection": "row", "padding": "2 4", "borderBottom": "1 solid #ccc", "fontSize": 9 + (i % 4) as i64},
                "children": [
             cell(format!("Item {i}"), json!({"width": "25%"})),
@@ -102,7 +102,7 @@ fn kept_layout_matches_fresh_layout() {
             text("The end."),
         ]},
         {"type": "PAGE", "props": {"size": "A6"}, "style": {"padding": 20, "fontSize": 10}, "children":
-            (0..300).map(|i| text(&format!("Line {i}: some words to fill the line, and more on every fifth. {}", if i % 5 == 0 { "Extra words go here." } else { "" }))).collect::<Vec<_>>()
+            (0..300usize).map(|i| text(&format!("Line {i}: some words to fill the line, and more on every fifth. {}", if i.is_multiple_of(5) { "Extra words go here." } else { "" }))).collect::<Vec<_>>()
         }
     ]})
     .to_string();

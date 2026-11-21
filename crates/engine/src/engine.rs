@@ -9,7 +9,7 @@ use crate::hooks::{Hooks, HyphenationCallback, PaintCallback};
 use crate::images::ImageStore;
 use crate::layout::Assets;
 use crate::paginate::{Finished, Pager, page};
-use crate::tree::{self, Node, RawNode, RenderResult};
+use crate::tree::{self, Doc, Node, RawNode, RenderResult};
 use crate::writer::{DocInfo, Writer};
 
 /// What a `render` function is called with. `None` is `undefined` on the adapter's side: while
@@ -110,15 +110,7 @@ impl Engine {
             let display = draw::page(page, width, height, &cx);
             writer.write_page(&display, fonts, images, out);
         };
-        layout_pages(
-            fonts,
-            &sizes,
-            hooks,
-            &mut self.callback,
-            tree_json,
-            doc,
-            &mut sink,
-        )?;
+        layout_pages(fonts, &sizes, hooks, &mut self.callback, doc, &mut sink)?;
         writer.finish(&self.fonts, out);
         Ok(())
     }
@@ -133,7 +125,6 @@ impl Engine {
             &sizes,
             &self.hooks,
             &mut self.callback,
-            tree_json,
             doc,
             visit,
         )
@@ -156,8 +147,7 @@ fn layout_pages(
     sizes: &HashMap<u32, (f64, f64)>,
     hooks: &Hooks,
     callback: &mut Option<RenderCallback>,
-    json: &str,
-    doc: RawNode,
+    doc: Doc,
     visit: &mut Visit,
 ) -> Result<(), String> {
     hooks.reset();
@@ -185,24 +175,26 @@ fn layout_pages(
         emoji: &emoji,
     };
     let counts = if reads_total(callback, &doc)? {
-        Some(run(&assets, callback, tree::parse(json)?, None, None)?)
+        Some(run(&assets, callback, &doc, None, None)?)
     } else {
         None
     };
-    run(&assets, callback, doc, counts.as_deref(), Some(visit))?;
+    run(&assets, callback, &doc, counts.as_deref(), Some(visit))?;
     Ok(())
 }
 
 /// Whether any `render` function in the tree reads the totals. Each is called once to see.
 /// ponytail: functions that only appear inside another's output are not asked; if one of
 /// them reads the total it gets `None`. Ask during the cut and restart if that matters.
-fn reads_total(callback: &mut Option<RenderCallback>, doc: &RawNode) -> Result<bool, String> {
+fn reads_total(callback: &mut Option<RenderCallback>, doc: &Doc) -> Result<bool, String> {
     fn ids(n: &RawNode, out: &mut Vec<u32>) {
         out.extend(n.render);
         n.children.iter().for_each(|c| ids(c, out));
     }
     let mut found = Vec::new();
-    ids(doc, &mut found);
+    for page in doc.pages() {
+        ids(&page?, &mut found);
+    }
     let args = RenderArgs {
         page_number: 1,
         ..Default::default()
@@ -220,7 +212,7 @@ fn reads_total(callback: &mut Option<RenderCallback>, doc: &RawNode) -> Result<b
 fn run(
     assets: &Assets,
     callback: &mut Option<RenderCallback>,
-    doc: RawNode,
+    doc: &Doc,
     counts: Option<&[u32]>,
     mut visit: Option<&mut Visit>,
 ) -> Result<Vec<u32>, String> {
@@ -228,8 +220,8 @@ fn run(
     let mut call = |id: u32, args: &RenderArgs| call(callback, id, args);
     let mut made = Vec::new();
     let mut number = 1;
-    for raw in doc.children.into_iter().filter(|r| r.kind == "PAGE") {
-        let (node, container) = page::build(raw)?;
+    for raw in doc.pages() {
+        let (node, container) = page::build(raw?)?;
         let mut pager = Pager {
             assets,
             callback: &mut call,
@@ -270,7 +262,7 @@ fn call(
 }
 
 /// The document's metadata props.
-fn doc_info(doc: &RawNode) -> DocInfo {
+fn doc_info(doc: &Doc) -> DocInfo {
     let text = |k: &str| {
         doc.props
             .get(k)
