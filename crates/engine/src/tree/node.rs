@@ -4,10 +4,9 @@ use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
 
-use serde_json::value::RawValue;
 use serde_json::{Map, Value, json};
 
-use super::{RawNode, extras, truthy};
+use super::{Json, RawNode, extras, truthy};
 use crate::style::{self, Container, Style};
 use crate::text::Line;
 use crate::text::exclusion::Exclusion;
@@ -102,7 +101,7 @@ pub struct Node {
     /// How many children the kept layout holds; the rest wait below it (0: all).
     pub window: usize,
     /// Children not built yet, after `children`: a long list is built as the cut nears it.
-    pub pending: VecDeque<Box<RawValue>>,
+    pub pending: VecDeque<Json>,
     /// The child built last asked for a break after it.
     pub break_next: bool,
     /// Added to the top margin so `clear` puts the node below the floats before it.
@@ -158,7 +157,7 @@ impl Node {
 
     /// Replaces the children with `raw` ones, styled under this node. Past the first
     /// [`LAZY`] children of a container, plain ones wait as JSON until [`Node::build_pending`].
-    pub fn set_children(&mut self, raw: Vec<Box<RawValue>>, c: &Container) {
+    pub fn set_children(&mut self, raw: Vec<Json>, c: &Container) {
         self.children.clear();
         self.pending = raw.into();
         let container = !matches!(self.kind, Kind::Text | Kind::Svg | Kind::Note);
@@ -198,8 +197,12 @@ impl Node {
     }
 
     /// Adds `raw` children after the ones there, built now.
-    pub fn append_children(&mut self, raw: Vec<Box<RawValue>>, c: &Container) {
-        self.pending.extend(raw);
+    pub fn append_children(
+        &mut self,
+        raw: impl IntoIterator<Item = impl Into<Json>>,
+        c: &Container,
+    ) {
+        self.pending.extend(raw.into_iter().map(Into::into));
         self.build_pending(c, usize::MAX);
     }
 

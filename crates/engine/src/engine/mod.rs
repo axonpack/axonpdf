@@ -15,7 +15,7 @@ use crate::fonts::FontStore;
 use crate::hooks::{Hooks, HyphenationCallback, PaintCallback, RowsCallback};
 use crate::images::ImageStore;
 use crate::profile::{self, Phase};
-use crate::tree::{self, Doc, Node};
+use crate::tree::{self, Doc, Json, Node};
 use crate::writer::{Writer, doc_info};
 
 /// What a `render` function is called with. `None` is `undefined` on the adapter's side: while
@@ -115,8 +115,19 @@ impl Engine {
     /// pages finish. When a `render` function reads the page total, pages are cut once to count
     /// them, then again to draw them.
     pub fn render(&mut self, tree_json: &str, out: &mut dyn FnMut(&[u8])) -> Result<(), String> {
+        self.render_owned(tree_json.to_owned(), out)
+    }
+
+    /// [`Engine::render`], reading the JSON in place: the pages' waiting children point into it
+    /// instead of holding copies.
+    pub fn render_owned(
+        &mut self,
+        tree_json: String,
+        out: &mut dyn FnMut(&[u8]),
+    ) -> Result<(), String> {
         let _time = profile::enter(Phase::Layout);
-        let doc = parse(tree_json)?;
+        let text = Json::new(tree_json);
+        let doc = parse(&text)?;
         let mut writer = Writer::new(doc_info(&doc.props));
         writer.begin(out);
         let sizes = self.image_sizes();
@@ -146,7 +157,8 @@ impl Engine {
     /// Lays out every page of a document tree, handing each to `visit` with its width and
     /// height as soon as it is final, then dropping it. For checking layout without a PDF.
     pub fn layout(&mut self, tree_json: &str, visit: &mut Visit) -> Result<(), String> {
-        let doc = tree::parse(tree_json)?;
+        let text = Json::new(tree_json.into());
+        let doc = tree::parse(&text)?;
         let sizes = self.image_sizes();
         layout_pages(
             &self.fonts,
@@ -171,7 +183,7 @@ impl Engine {
 }
 
 /// Reads the tree JSON, timed as its own phase.
-pub(super) fn parse(tree_json: &str) -> Result<Doc<'_>, String> {
+pub(super) fn parse(tree_json: &Json) -> Result<Doc<'_>, String> {
     let _time = profile::enter(Phase::Parse);
     tree::parse(tree_json)
 }

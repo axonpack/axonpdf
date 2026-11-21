@@ -96,9 +96,9 @@ export async function createEngine(): Promise<Engine> {
         rowsCallbackSet = true;
       }
       try {
+        // The engine takes the JSON and reads it in place.
         check(module._axonpdf_render(handle, json.ptr, json.len, pointers.output, handle));
       } finally {
-        module._axonpdf_dealloc(json.ptr, json.len);
         current.onChunk = undefined;
         current.callbacks = {};
       }
@@ -107,13 +107,10 @@ export async function createEngine(): Promise<Engine> {
       current.onChunk = onChunk;
       current.callbacks = callbacks;
       const json = copyText(treeJson);
-      try {
-        return step(
-          module._axonpdf_render_begin(handle, json.ptr, json.len, pointers.output, handle, rowsId),
-        );
-      } finally {
-        module._axonpdf_dealloc(json.ptr, json.len);
-      }
+      // The engine takes the JSON, as `render` does.
+      return step(
+        module._axonpdf_render_begin(handle, json.ptr, json.len, pointers.output, handle, rowsId),
+      );
     },
     pushRows(id, batchJson) {
       const json = copyText(batchJson);

@@ -157,6 +157,11 @@ unsafe fn take(ptr: *mut u8, len: usize) -> Vec<u8> {
     unsafe { Box::from_raw(ptr::slice_from_raw_parts_mut(ptr, len)) }.into_vec()
 }
 
+/// Takes a buffer from `axonpdf_alloc(len)` as a string, without copying it.
+pub(crate) unsafe fn owned_text(ptr: *mut u8, len: usize) -> Result<String, String> {
+    String::from_utf8(unsafe { take(ptr, len) }).map_err(|e| e.to_string())
+}
+
 pub(crate) unsafe fn text<'a>(ptr: *const u8, len: usize) -> Result<&'a str, String> {
     let bytes = if len == 0 {
         &[][..]

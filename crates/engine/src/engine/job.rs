@@ -14,7 +14,7 @@ use crate::layout::remainder::ROWS;
 use crate::paginate::{self, Cut, Pager, next, page};
 use crate::profile::{self, Phase};
 use crate::style::Container;
-use crate::tree::{self, RawNode};
+use crate::tree::{self, Json, RawNode};
 use crate::writer::{Out, Writer, doc_info};
 
 /// What a resumable render needs next.
@@ -30,7 +30,8 @@ pub enum Step {
 type PageCut = (Cut, Container, Option<(f64, f64)>);
 
 pub(super) struct Job {
-    json: String,
+    /// The document; its pages and their waiting children point into it.
+    json: Json,
     /// Where each `PAGE` sits in `json`.
     pages: Vec<Range<usize>>,
     props: Map<String, Value>,
@@ -54,8 +55,9 @@ impl Engine {
         let _time = profile::enter(Phase::Layout);
         self.hooks.reset();
         self.hooks.pushed.borrow_mut().clear();
-        let doc = parse(&tree_json)?;
-        let base = tree_json.as_ptr() as usize;
+        let json = Json::new(tree_json);
+        let doc = parse(&json)?;
+        let base = json.get().as_ptr() as usize;
         #[derive(serde::Deserialize)]
         struct Kind {
             #[serde(rename = "type")]
@@ -82,7 +84,7 @@ impl Engine {
         let mut writer = Writer::new(doc_info(&props));
         writer.begin(&mut *out);
         self.job = Some(Job {
-            json: tree_json,
+            json: json.clone(),
             pages,
             props,
             writer,
@@ -120,8 +122,9 @@ impl Engine {
                     let Some(range) = job.pages.get(job.next).cloned() else {
                         return Ok(Step::Done);
                     };
-                    let json = &job.json[range];
-                    let raw: RawNode = serde_json::from_str(json).map_err(|e| e.to_string())?;
+                    let page = job.json.part(&job.json.get()[range]);
+                    let raw = RawNode::read(&page)?;
+                    let json = page.get();
                     let sub_total = job.counts.as_ref().and_then(|c| c.get(job.next).copied());
                     let totals = (sub_total, job.pending_total);
                     let (cut, container, band_base) =

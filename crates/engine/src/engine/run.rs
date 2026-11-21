@@ -13,7 +13,7 @@ use crate::paginate::{self, Finished, Pager, next, page};
 use crate::profile::{self, Phase};
 use crate::style::Container;
 use crate::tree::node::LAZY;
-use crate::tree::{self, Doc, Node, RawNode, RenderResult};
+use crate::tree::{self, Doc, Node, RenderResult};
 use serde_json::{Map, Value};
 
 /// Builds what layout needs from the engine's stores and the document's props, for `f`.
@@ -147,12 +147,10 @@ fn run(
             .any(|j| !tree::numbers_at(j, ROWS).is_empty());
     let pages = doc.pages().count();
     let newer = doc.page_json().any(|j| next::Head::read(j).wants_next());
-    let page_list = doc
-        .page_json()
-        .filter_map(|j| match serde_json::from_str::<RawNode>(j) {
-            Ok(n) if n.kind != "PAGE" => None,
-            r => Some((r.map_err(|e| e.to_string()), j)),
-        });
+    let page_list = doc.page_json().filter_map(|j| match doc.read(j) {
+        Ok(n) if n.kind != "PAGE" => None,
+        r => Some((r, j)),
+    });
     for (i, (raw, json)) in page_list.enumerate() {
         let last_page = i + 1 == pages;
         let sub_total = counts.and_then(|c| c.get(made.len()).copied());
