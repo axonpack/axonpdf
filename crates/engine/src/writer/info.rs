@@ -26,6 +26,8 @@ pub struct DocInfo {
     pub page_layout: Option<PageLayout>,
     /// Passwords and permissions; the method follows `pdf_version`.
     pub encryption: Option<super::crypt::Encryption>,
+    /// PDF/A conformance: XMP metadata and an sRGB output intent.
+    pub conformance: Option<super::pdfa::Conformance>,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -110,6 +112,7 @@ impl Writer {
     pub(super) fn write_catalog(&mut self, nav: NavRefs, out: Out) {
         let (catalog, pages) = (self.catalog, self.pages);
         let ext3 = self.info.pdf_version == PdfVersion::V1_7Ext3;
+        let srgb = self.seal(catalog, b"sRGB IEC61966-2.1".to_vec());
         let lang = self
             .info
             .language
@@ -144,6 +147,9 @@ impl Writer {
             }
             if let Some(layout) = page_layout {
                 cat.pair(Name(b"PageLayout"), Name(layout.as_bytes()));
+            }
+            if let Some(refs) = &nav.pdfa {
+                super::pdfa::catalog_entries(&mut cat, refs, &srgb);
             }
             if ext3 {
                 let mut ext = cat.insert(Name(b"Extensions")).dict();

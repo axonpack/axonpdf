@@ -12,6 +12,7 @@ mod gradient;
 mod images;
 mod info;
 mod nav;
+mod pdfa;
 mod security;
 mod state;
 mod strings;
@@ -28,6 +29,7 @@ pub use crypt::{Encryption, Permissions, Printing};
 use emit::Emitter;
 pub use emit::Out;
 pub use info::{DocInfo, PageLayout, PageMode, PdfVersion};
+pub use pdfa::Conformance;
 pub use strings::Date;
 
 pub struct Writer {
@@ -49,7 +51,15 @@ pub struct Writer {
 }
 
 impl Writer {
-    pub fn new(info: DocInfo) -> Self {
+    pub fn new(mut info: DocInfo) -> Self {
+        // PDF/A-1 is PDF 1.4; the later parts are 1.7.
+        if let (Some(c), PdfVersion::V1_3) = (info.conformance, info.pdf_version) {
+            info.pdf_version = if c.part == 1 {
+                PdfVersion::V1_4
+            } else {
+                PdfVersion::V1_7
+            };
+        }
         let mut emit = Emitter::default();
         let catalog = emit.alloc();
         let pages = emit.alloc();
@@ -129,6 +139,7 @@ impl Writer {
         });
         let mut nav = self.write_nav(&kids, out);
         nav.form = form;
+        nav.pdfa = self.write_pdfa(out);
         let info = self.write_info(out);
         self.write_catalog(nav, out);
         let encrypt = self.write_encrypt(out);

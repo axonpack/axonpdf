@@ -20,6 +20,7 @@ pub struct NavRefs {
     pub outline: Option<Ref>,
     pub dests: Option<Ref>,
     pub form: Option<Ref>,
+    pub pdfa: Option<super::pdfa::PdfaRefs>,
 }
 
 impl Writer {
@@ -84,6 +85,7 @@ impl Writer {
             outline,
             dests,
             form: None,
+            pdfa: None,
         }
     }
 

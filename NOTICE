@@ -12,3 +12,5 @@ axonpdf includes third-party code:
   each says so in a "Comment MODIFIED" line.
 - Lato (Regular, Bold, Italic) by Łukasz Dziedzic, SIL Open Font License 1.1, used as test data only.
   In fixtures/assets/ with the license in fixtures/assets/OFL.txt.
+- sRGB-v2-micro.icc from Compact ICC Profiles (https://github.com/saucecontrol/Compact-ICC-Profiles),
+  CC0 1.0 Universal (public domain dedication). In vendor/icc/ with its license.
