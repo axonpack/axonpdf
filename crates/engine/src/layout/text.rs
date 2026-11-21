@@ -211,18 +211,19 @@ pub fn options(node: &Node) -> Options {
 /// later call asks for.
 pub fn measure(
     state: Rc<RefCell<TextBox>>,
-    paragraphs: Option<Rc<Vec<Paragraph>>>,
+    mut paragraphs: Option<Vec<Paragraph>>,
     opts: Options,
     align: Option<String>,
 ) -> impl FnMut(f32, MeasureMode, f32, MeasureMode) -> (f32, f32) {
     move |w, wm, h, _| {
         let (w, h) = (w as f64, h as f64);
         let mut st = state.borrow_mut();
-        let layout = |st: &mut TextBox| {
+        let mut layout = |st: &mut TextBox| {
+            // The prepared paragraphs are dropped once the lines exist.
             if st.lines.is_none()
-                && let Some(p) = &paragraphs
+                && let Some(p) = paragraphs.take()
             {
-                st.lines = Some(text::layout(p, w, (!h.is_nan()).then_some(h), &opts));
+                st.lines = Some(text::layout(&p, w, (!h.is_nan()).then_some(h), &opts));
                 return true;
             }
             false

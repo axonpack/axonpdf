@@ -4,9 +4,12 @@
 mod apply;
 mod canvas;
 pub mod image;
+pub mod remainder;
 mod svg;
 pub mod text;
 pub mod yoga;
+
+pub use remainder::Remainder;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -35,7 +38,6 @@ pub struct Assets<'a> {
 /// Lays out a page. `height` is the page box's height; `None` lays it out on an endless sheet.
 pub fn layout_page(page: &mut Node, height: Option<f64>, a: &Assets) -> Result<(), String> {
     let mut tree = Tree::new();
-    let mut ids = Vec::new();
     let page_area = height.map(|h| {
         let p = |i: usize| match page.style.padding[i] {
             Some(Dim::Pt(x)) => x,
@@ -43,10 +45,9 @@ pub fn layout_page(page: &mut Node, height: Option<f64>, a: &Assets) -> Result<(
         };
         h - p(0) - p(2)
     });
-    let root = build(&mut tree, page, true, height, page_area, a, &mut ids)?;
+    let root = build(&mut tree, page, true, height, page_area, a)?;
     tree.calculate(root, None, None);
-    let mut ids = ids.into_iter();
-    write_back(&tree, page, &mut ids);
+    write_back(&tree, page, true);
     drop(tree);
     fill_text(page, a)
 }
@@ -91,10 +92,10 @@ fn build(
     page_height: Option<f64>,
     page_area: Option<f64>,
     a: &Assets,
-    ids: &mut Vec<NodeId>,
 ) -> Result<NodeId, String> {
     let id = t.node();
-    ids.push(id);
+    n.yoga = Some(id);
+    n.dirty = false;
     let height = if is_page {
         page_height.map(Dim::Pt)
     } else {
@@ -102,24 +103,7 @@ fn build(
     };
     apply::apply(t, id, &n.style, height);
     match n.kind {
-        Kind::Text => {
-            let state = n
-                .text
-                .get_or_insert_with(|| Rc::new(RefCell::new(TextBox::default())))
-                .clone();
-            let paragraphs = if state.borrow().lines.is_none() {
-                Some(Rc::new(text::paragraphs(n, a)?))
-            } else {
-                None
-            };
-            let m = text::measure(
-                state,
-                paragraphs,
-                text::options(n),
-                n.style.text_align.clone(),
-            );
-            t.set_measure(id, Box::new(m));
-        }
+        Kind::Text => set_text_measure(t, id, n, a)?,
         Kind::Image => {
             if let Some(m) = image::measure(n, page_area, a) {
                 t.set_measure(id, m);
@@ -138,15 +122,37 @@ fn build(
             if child.kind == Kind::TextInstance {
                 continue;
             }
-            let c = build(t, child, false, page_height, page_area, a, ids)?;
+            let c = build(t, child, false, page_height, page_area, a)?;
             t.push_child(id, c);
         }
     }
     Ok(id)
 }
 
-fn write_back(t: &Tree, n: &mut Node, ids: &mut impl Iterator<Item = NodeId>) {
-    let id = ids.next().unwrap();
+/// Yoga measures a text through its kept lines, making them first if there are none.
+fn set_text_measure(t: &mut Tree, id: NodeId, n: &mut Node, a: &Assets) -> Result<(), String> {
+    let state = n
+        .text
+        .get_or_insert_with(|| Rc::new(RefCell::new(TextBox::default())))
+        .clone();
+    let paragraphs = if state.borrow().lines.is_none() {
+        Some(text::paragraphs(n, a)?)
+    } else {
+        None
+    };
+    let m = text::measure(
+        state,
+        paragraphs,
+        text::options(n),
+        n.style.text_align.clone(),
+    );
+    t.set_measure(id, Box::new(m));
+    Ok(())
+}
+
+/// Copies one node's box from Yoga; with `deep`, its whole subtree's.
+fn write_back(t: &Tree, n: &mut Node, deep: bool) {
+    let Some(id) = n.yoga else { return };
     let r = t.layout(id);
     let mut l = Layout {
         left: r.left as f64,
@@ -169,7 +175,9 @@ fn write_back(t: &Tree, n: &mut Node, ids: &mut impl Iterator<Item = NodeId>) {
             .iter_mut()
             .filter(|c| c.kind != Kind::TextInstance)
         {
-            write_back(t, child, ids);
+            if deep {
+                write_back(t, child, true);
+            }
         }
     }
 }

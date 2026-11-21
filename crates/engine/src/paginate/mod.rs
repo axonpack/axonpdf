@@ -7,7 +7,7 @@ pub mod page;
 mod split;
 
 use crate::RenderArgs;
-use crate::layout::{Assets, layout_page};
+use crate::layout::{Assets, Remainder, layout_page};
 use crate::style::Container;
 use crate::tree::{Node, RenderResult};
 
@@ -39,15 +39,16 @@ impl<'a, 'b> Pager<'a, 'b> {
         first: u32,
         done: &mut Done<'a, 'b>,
     ) -> Result<u32, String> {
-        layout_page(&mut page, None, self.assets)?;
         if page.props.get("wrap") == Some(&serde_json::Value::Bool(false)) {
+            layout_page(&mut page, None, self.assets)?;
             done(self, Finished { page, sub_index: 0 })?;
             return Ok(1);
         }
+        let mut remainder = Remainder::new(&mut page, self.assets)?;
         let mut count = 0;
         let mut rest = Some(page);
         while let Some(p) = rest {
-            let (current, next) = self.split_page(p, first + count)?;
+            let (current, next) = self.split_page(&mut remainder, p, first + count)?;
             done(
                 self,
                 Finished {
@@ -61,10 +62,15 @@ impl<'a, 'b> Pager<'a, 'b> {
         Ok(count)
     }
 
-    fn split_page(&mut self, mut page: Node, number: u32) -> Result<(Node, Option<Node>), String> {
+    fn split_page(
+        &mut self,
+        remainder: &mut Remainder,
+        mut page: Node,
+        number: u32,
+    ) -> Result<(Node, Option<Node>), String> {
         let (height, pad_top, pad_bottom) = page::heights(&page);
         let height = height.unwrap_or(f64::NAN);
-        if has_dynamic(&page) {
+        if page.dynamic {
             let args = RenderArgs {
                 page_number: number,
                 total_pages: None,
@@ -72,11 +78,16 @@ impl<'a, 'b> Pager<'a, 'b> {
                 sub_page_total_pages: None,
             };
             self.resolve_dynamic(&mut page, &args)?;
-            layout_page(&mut page, None, self.assets)?;
+            remainder.relayout(&mut page, &[], height - pad_bottom, self.assets)?;
         }
         let children = std::mem::take(&mut page.children);
-        let (cur, next) =
-            split::split_nodes(height - pad_bottom, height - pad_top - pad_bottom, children);
+        let mut gone = Vec::new();
+        let (cur, next) = split::split_nodes(
+            height - pad_bottom,
+            height - pad_top - pad_bottom,
+            children,
+            &mut gone,
+        );
 
         let mut current = page.clone();
         current.children = cur;
@@ -90,14 +101,14 @@ impl<'a, 'b> Pager<'a, 'b> {
         }
         page.props.shift_remove("bookmark");
         page.children = next;
-        layout_page(&mut page, None, self.assets)?;
+        remainder.relayout(&mut page, &gone, height - pad_bottom, self.assets)?;
         Ok((current, Some(page)))
     }
 
     /// Runs `render` functions once more with the final numbers, and lays the page out again.
     /// The cut stays where it was even if the content grew.
     pub fn finish(&mut self, page: &mut Node, args: &RenderArgs) -> Result<(), String> {
-        if has_dynamic(page) {
+        if page.dynamic {
             self.resolve_dynamic(page, args)?;
             let (height, ..) = page::heights(page);
             let height =
@@ -107,7 +118,13 @@ impl<'a, 'b> Pager<'a, 'b> {
         Ok(())
     }
 
+    /// Calls the `render` functions under `node`, replacing their children, and marks the way
+    /// down to them as changed.
     fn resolve_dynamic(&mut self, node: &mut Node, args: &RenderArgs) -> Result<(), String> {
+        if !node.dynamic {
+            return Ok(());
+        }
+        node.dirty = true;
         if let Some(id) = node.render {
             let result = (self.callback)(id, args)?;
             node.set_children(result.children, &self.container);
@@ -118,8 +135,4 @@ impl<'a, 'b> Pager<'a, 'b> {
         }
         Ok(())
     }
-}
-
-fn has_dynamic(n: &Node) -> bool {
-    n.render.is_some() || n.children.iter().any(has_dynamic)
 }

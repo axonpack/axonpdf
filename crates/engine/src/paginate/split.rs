@@ -4,6 +4,8 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
+use crate::layout::remainder::ids;
+use crate::layout::yoga::NodeId;
 use crate::style::{BOTTOM, Dim, TOP};
 use crate::tree::node::TextBox;
 use crate::tree::{Kind, Node};
@@ -14,7 +16,13 @@ const SAFETY: f64 = 0.001;
 /// Splits `nodes` (siblings, tops relative to their parent) at `height`: what stays above the
 /// cut, and what goes to the next page (tops moved up by `height`). `content_area` is the page's
 /// height inside its padding.
-pub fn split_nodes(height: f64, content_area: f64, nodes: Vec<Node>) -> (Vec<Node>, Vec<Node>) {
+/// The Yoga nodes of whatever moves whole onto the finished page are added to `gone`.
+pub fn split_nodes(
+    height: f64,
+    content_area: f64,
+    nodes: Vec<Node>,
+    gone: &mut Vec<NodeId>,
+) -> (Vec<Node>, Vec<Node>) {
     let mut current: Vec<Node> = Vec::new();
     let mut next: Vec<Node> = Vec::new();
     let mut rest: VecDeque<Node> = nodes.into();
@@ -43,6 +51,7 @@ pub fn split_nodes(height: f64, content_area: f64, nodes: Vec<Node>) -> (Vec<Nod
                 "Node of type {:?} can't wrap between pages and it's bigger than available page height",
                 child.kind
             );
+            ids(&child, gone);
             current.push(child);
             next.extend(rest);
             break;
@@ -58,11 +67,19 @@ pub fn split_nodes(height: f64, content_area: f64, nodes: Vec<Node>) -> (Vec<Nod
         }
         if height + SAFETY < top + h {
             let had_children = !child.children.is_empty();
-            let original = child.clone();
-            let (cur, nxt) = split(child, height, content_area);
+            let mark = gone.len();
+            let saved = (child.style.clone(), child.props.clone(), child.layout);
+            let (cur, nxt) = split(child, height, content_area, gone);
             // Nothing of a parent stays: move it whole, unless the page would be empty.
             if had_children && cur.children.is_empty() {
+                // Every child went on, so the next piece is the parent once its own edges and
+                // props are put back.
+                gone.truncate(mark);
+                let mut original = nxt;
+                (original.style, original.props, original.layout) = saved;
+                original.dirty = true;
                 if current.is_empty() {
+                    ids(&original, gone);
                     current.push(original);
                     current.extend(future_fixed(&rest));
                     next.extend(rest);
@@ -79,6 +96,7 @@ pub fn split_nodes(height: f64, content_area: f64, nodes: Vec<Node>) -> (Vec<Nod
             next.push(nxt);
             continue;
         }
+        ids(&child, gone);
         current.push(child);
     }
     (current, next)
@@ -103,11 +121,11 @@ fn should_break(child: &Node, future: &VecDeque<Node>, height: f64, previous: &[
     child.is("break") || (crosses && !child.can_wrap()) || (!crosses && end > height && improves)
 }
 
-fn split(node: Node, height: f64, content_area: f64) -> (Node, Node) {
+fn split(node: Node, height: f64, content_area: f64, gone: &mut Vec<NodeId>) -> (Node, Node) {
     if node.kind == Kind::Text {
         split_text(node, height)
     } else {
-        split_view(node, height, content_area)
+        split_view(node, height, content_area, gone)
     }
 }
 
@@ -123,10 +141,15 @@ fn cut_edges(n: &mut Node, side: usize) {
     }
 }
 
-fn split_view(mut node: Node, height: f64, content_area: f64) -> (Node, Node) {
+fn split_view(
+    mut node: Node,
+    height: f64,
+    content_area: f64,
+    gone: &mut Vec<NodeId>,
+) -> (Node, Node) {
     let top = node.layout.top;
     let children = std::mem::take(&mut node.children);
-    let (cur_children, next_children) = split_nodes(height - top, content_area, children);
+    let (cur_children, next_children) = split_nodes(height - top, content_area, children, gone);
 
     let mut cur = node.clone();
     cut_edges(&mut cur, BOTTOM);
@@ -144,6 +167,7 @@ fn split_view(mut node: Node, height: f64, content_area: f64) -> (Node, Node) {
         next.style.height = Some(Dim::Pt(rest));
     }
     next.children = next_children;
+    next.dirty = true;
     (cur, next)
 }
 
@@ -201,10 +225,15 @@ fn split_text(node: Node, height: f64) -> (Node, Node) {
     cur.layout.height = current_height;
     cur.text = piece(lines[..cut].to_vec());
 
+    // The next piece keeps the text box Yoga measures through, with the remaining lines.
     let mut next = node;
     cut_edges(&mut next, TOP);
     next.layout.top = 0.0;
     next.layout.height -= current_height;
-    next.text = piece(lines[cut..].to_vec());
+    match &next.text {
+        Some(t) => t.borrow_mut().lines = Some(lines[cut..].to_vec()),
+        None => next.text = piece(lines[cut..].to_vec()),
+    }
+    next.dirty = true;
     (cur, next)
 }

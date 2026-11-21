@@ -80,3 +80,48 @@ fn render_props_get_page_numbers_and_the_total() {
         [(1, Some(3)), (2, Some(3)), (3, Some(3))]
     );
 }
+
+/// Long pages keep one Yoga tree between cuts; it must give the boxes a fresh layout gives.
+#[test]
+fn kept_layout_matches_fresh_layout() {
+    let row = |i: usize| {
+        let cell = |s: String, style: Value| json!({"type": "VIEW", "props": {}, "style": style, "children": [text(&s)]});
+        json!({"type": "VIEW", "props": {"wrap": i % 7 != 0, "minPresenceAhead": if i % 11 == 0 { 40 } else { 0 }},
+               "style": {"flexDirection": "row", "padding": "2 4", "borderBottom": "1 solid #ccc", "fontSize": 9 + (i % 4) as i64},
+               "children": [
+            cell(format!("Item {i}"), json!({"width": "25%"})),
+            cell("A longer description that wraps over a few lines once in a while to make rows of different heights. ".repeat(1 + i % 3), json!({"flex": 1})),
+            cell(format!("{}", i * 7), json!({"width": 50, "textAlign": "right"})),
+        ]})
+    };
+    let rows: Vec<Value> = (0..400).map(row).collect();
+    let doc = json!({"v": 1, "type": "DOCUMENT", "props": {}, "children": [
+        {"type": "PAGE", "props": {"size": "A5"}, "style": {"padding": 30}, "children": [
+            {"type": "VIEW", "props": {"fixed": true}, "style": {"height": 20}, "children": []},
+            {"type": "VIEW", "props": {}, "style": {"border": "1 solid black", "padding": 5}, "children": rows},
+            text("The end."),
+        ]},
+        {"type": "PAGE", "props": {"size": "A6"}, "style": {"padding": 20, "fontSize": 10}, "children":
+            (0..300).map(|i| text(&format!("Line {i}: some words to fill the line, and more on every fifth. {}", if i % 5 == 0 { "Extra words go here." } else { "" }))).collect::<Vec<_>>()
+        }
+    ]})
+    .to_string();
+    let boxes = || {
+        let mut out = Vec::new();
+        fn walk(n: &axonpdf::tree::Node, out: &mut Vec<[f64; 4]>) {
+            out.push([n.layout.left, n.layout.top, n.layout.width, n.layout.height]);
+            n.children.iter().for_each(|c| walk(c, out));
+        }
+        Engine::new()
+            .layout(&doc, &mut |p, _, _| walk(p, &mut out))
+            .unwrap();
+        out
+    };
+    let kept = boxes();
+    // SAFETY: tests in this file do not read the variable concurrently with this write.
+    unsafe { std::env::set_var("AXONPDF_FRESH_LAYOUT", "1") };
+    let fresh = boxes();
+    unsafe { std::env::remove_var("AXONPDF_FRESH_LAYOUT") };
+    assert!(kept.len() > 1000);
+    assert_eq!(kept, fresh);
+}

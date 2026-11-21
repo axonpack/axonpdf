@@ -76,6 +76,14 @@ pub struct Node {
     pub layout: Layout,
     /// Set by layout on `Text` nodes.
     pub text: Option<Rc<RefCell<TextBox>>>,
+    /// The node's Yoga node in the tree that last laid it out.
+    pub yoga: Option<usize>,
+    /// Changed since that layout (style, children or lines), so Yoga must hear of it.
+    pub dirty: bool,
+    /// It or something under it has a `render` function.
+    pub dynamic: bool,
+    /// How many children the kept layout holds; the rest wait below it (0: all).
+    pub window: usize,
 }
 
 impl Node {
@@ -118,6 +126,10 @@ impl Node {
             value: raw.value.unwrap_or_default(),
             layout: Layout::default(),
             text: None,
+            yoga: None,
+            dirty: false,
+            dynamic: false,
+            window: 0,
         };
         node.set_children(raw.children, c);
         node
@@ -132,6 +144,7 @@ impl Node {
             .into_iter()
             .map(|r| Node::build(r, c, inherit.then_some((&self.style, is_text))))
             .collect();
+        self.dynamic = self.render.is_some() || self.children.iter().any(|c| c.dynamic);
     }
 
     pub fn has(&self, prop: &str) -> bool {
