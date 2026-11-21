@@ -328,8 +328,14 @@ fn shared_style(c: &Container, raw: Value, parent: Option<(&Rc<Style>, bool)>) -
     }
     let style = Rc::new(style);
     STYLES.with(|m| {
-        m.borrow_mut()
-            .insert(key, (parent.map(|(p, _)| p.clone()), style.clone()))
+        let mut m = m.borrow_mut();
+        // A page cut gives the rest of a split box a style of its own, so rows built under it
+        // add entries on every page. Drop those whose parent only the cache still holds, each
+        // time the cache doubles, so it stays the size of what is alive.
+        if m.len() >= 64 && m.len().is_power_of_two() {
+            m.retain(|_, (p, _)| p.as_ref().is_none_or(|p| Rc::strong_count(p) > 1));
+        }
+        m.insert(key, (parent.map(|(p, _)| p.clone()), style.clone()))
     });
     style
 }
