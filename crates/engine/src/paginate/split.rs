@@ -1,0 +1,185 @@
+//! Cutting laid out content at a page break.
+
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::rc::Rc;
+
+use crate::style::{BOTTOM, Dim, TOP};
+use crate::tree::node::TextBox;
+use crate::tree::{Kind, Node};
+
+/// Boxes that cross the cut by less than this stay whole.
+const SAFETY: f64 = 0.001;
+
+/// Splits `nodes` (siblings, tops relative to their parent) at `height`: what stays above the
+/// cut, and what goes to the next page (tops moved up by `height`). `content_area` is the page's
+/// height inside its padding.
+pub fn split_nodes(height: f64, content_area: f64, nodes: Vec<Node>) -> (Vec<Node>, Vec<Node>) {
+    let mut current: Vec<Node> = Vec::new();
+    let mut next: Vec<Node> = Vec::new();
+    let mut rest: VecDeque<Node> = nodes.into();
+    let future_fixed = |rest: &VecDeque<Node>| rest.iter().filter(|n| n.is_fixed()).cloned().collect::<Vec<_>>();
+    while let Some(mut child) = rest.pop_front() {
+        let top = child.layout.top;
+        let h = child.layout.height;
+        if child.is_fixed() {
+            current.push(child.clone());
+            next.push(child);
+            continue;
+        }
+        if height <= top {
+            child.layout.top -= height;
+            next.push(child);
+            continue;
+        }
+        let can_wrap = child.can_wrap();
+        if h > content_area && !can_wrap {
+            eprintln!("Node of type {:?} can't wrap between pages and it's bigger than available page height", child.kind);
+            current.push(child);
+            next.extend(rest);
+            break;
+        }
+        if should_break(&child, &rest, height, &current) {
+            child.layout.top -= height;
+            child.props.insert("wrap".into(), true.into());
+            child.props.insert("break".into(), false.into());
+            current.extend(future_fixed(&rest));
+            next.push(child);
+            next.extend(rest);
+            break;
+        }
+        if height + SAFETY < top + h {
+            let had_children = !child.children.is_empty();
+            let original = child.clone();
+            let (cur, nxt) = split(child, height, content_area);
+            // Nothing of a parent stays: move it whole, unless the page would be empty.
+            if had_children && cur.children.is_empty() {
+                if current.is_empty() {
+                    current.push(original);
+                    current.extend(future_fixed(&rest));
+                    next.extend(rest);
+                } else {
+                    let mut moved = original;
+                    moved.layout.top -= height;
+                    current.extend(future_fixed(&rest));
+                    next.push(moved);
+                    next.extend(rest);
+                }
+                break;
+            }
+            current.push(cur);
+            next.push(nxt);
+            continue;
+        }
+        current.push(child);
+    }
+    (current, next)
+}
+
+fn should_break(child: &Node, future: &VecDeque<Node>, height: f64, previous: &[Node]) -> bool {
+    if child.has("fixed") {
+        return false;
+    }
+    let l = &child.layout;
+    let crosses = height < l.top + l.height;
+    let presence = l.top + l.height + l.margin[BOTTOM] + child.number("minPresenceAhead").unwrap_or(0.0);
+    let furthest = future
+        .iter()
+        .filter(|n| !n.has("fixed"))
+        .map(|n| n.layout.top + n.layout.height)
+        .fold(None, |m: Option<f64>, e| Some(m.map_or(e, |m| m.max(e))));
+    let end = furthest.map_or(presence, |f| presence.min(f));
+    // Breaking only helps when something else is already on this page.
+    let improves = previous.iter().any(|n| !n.is_fixed());
+    child.is("break") || (crosses && !child.can_wrap()) || (!crosses && end > height && improves)
+}
+
+fn split(node: Node, height: f64, content_area: f64) -> (Node, Node) {
+    if node.kind == Kind::Text { split_text(node, height) } else { split_view(node, height, content_area) }
+}
+
+/// Drops the edges that fall inside the break: the bottom ones above it, the top ones below.
+fn cut_edges(n: &mut Node, side: usize) {
+    let s = &mut n.style;
+    s.margin[side] = Some(Dim::Pt(0.0));
+    s.padding[side] = Some(Dim::Pt(0.0));
+    s.border_width[side] = Some(0.0);
+    let corners = if side == TOP { [0, 1] } else { [2, 3] };
+    for c in corners {
+        s.border_radius[c] = Some(Dim::Pt(0.0));
+    }
+}
+
+fn split_view(mut node: Node, height: f64, content_area: f64) -> (Node, Node) {
+    let top = node.layout.top;
+    let children = std::mem::take(&mut node.children);
+    let (cur_children, next_children) = split_nodes(height - top, content_area, children);
+
+    let mut cur = node.clone();
+    cut_edges(&mut cur, BOTTOM);
+    cur.style.height = Some(Dim::Pt(height - top));
+    cur.children = cur_children;
+
+    let fixed_height = node.style.height.is_some();
+    let mut next = node;
+    cut_edges(&mut next, TOP);
+    next.layout.top = 0.0;
+    next.props.insert("bookmark".into(), serde_json::Value::Null);
+    let rest = next.layout.height - (height - top);
+    if fixed_height && rest != 0.0 {
+        next.style.height = Some(Dim::Pt(rest));
+    }
+    next.children = next_children;
+    (cur, next)
+}
+
+/// Text splits between lines, keeping `orphans` lines above and `widows` below (2 each when
+/// unset or 0).
+fn split_text(node: Node, height: f64) -> (Node, Node) {
+    let lines = node.text.as_ref().and_then(|t| t.borrow().lines.clone()).unwrap_or_default();
+    let align_offset = node.text.as_ref().map_or(0.0, |t| t.borrow().align_offset);
+    let top_of = |i: usize| -> f64 {
+        if lines.is_empty() || i == 0 {
+            return 0.0;
+        }
+        let y0 = lines[0].y;
+        match lines.get(i) {
+            Some(l) => l.y - y0,
+            None => lines[lines.len() - 1].y - y0 + lines[lines.len() - 1].height,
+        }
+    };
+    let at = {
+        let limit = height - node.layout.top;
+        (0..lines.len()).find(|&i| top_of(i) + lines[i].height > limit).unwrap_or(lines.len())
+    };
+    let n = lines.len();
+    let widows = node.number("widows").filter(|w| *w != 0.0).unwrap_or(2.0) as usize;
+    let orphans = node.number("orphans").filter(|o| *o != 0.0).unwrap_or(2.0) as usize;
+    let cut = if at == 0 {
+        0
+    } else if n < orphans {
+        n
+    } else if at < orphans || n < orphans + widows {
+        0
+    } else if n == orphans + widows {
+        orphans
+    } else if n - at < widows {
+        n - widows
+    } else {
+        at
+    };
+    let current_height = top_of(cut);
+    let piece = |ls: Vec<crate::text::Line>| Some(Rc::new(RefCell::new(TextBox { lines: Some(ls), align_offset })));
+
+    let mut cur = node.clone();
+    cut_edges(&mut cur, BOTTOM);
+    cur.layout.height = current_height;
+    cur.text = piece(lines[..cut].to_vec());
+
+    let mut next = node;
+    cut_edges(&mut next, TOP);
+    next.layout.top = 0.0;
+    next.layout.height -= current_height;
+    next.text = piece(lines[cut..].to_vec());
+    (cur, next)
+}
