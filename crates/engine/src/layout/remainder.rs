@@ -11,7 +11,7 @@
 //! come from its content, and nothing absolute around it) keeps only a window of its first
 //! children in Yoga, enough to pass the next cut. What lies past the window is below the cut.
 
-use super::yoga::{Align, FlexDirection, Justify, NodeId, PositionType, Tree, Wrap};
+use super::yoga::{Align, Dim as YDim, FlexDirection, Justify, NodeId, PositionType, Tree, Wrap};
 use super::{
     Assets, apply, fill_text, floats, full, is_container, set_leaf_measure, set_text_measure,
     write_back,
@@ -58,15 +58,23 @@ impl Remainder {
 
     /// Everything laid out, as the components do it: the check the kept layout is held to, and
     /// the layout of a page with floats, which move what is below them.
-    fn whole(page: &mut Node, a: &Assets) -> Result<Tree, String> {
+    fn whole(page: &mut Node, sized: bool, a: &Assets) -> Result<Tree, String> {
         fn fetch_all(n: &mut Node, a: &Assets) -> Result<(), String> {
             while has_more(n) && (a.more_rows)(n)? {}
             n.children.iter_mut().try_for_each(|c| fetch_all(c, a))
         }
         fetch_all(page, a)?;
-        let mut tree = full(page, None, a)?;
+        let pass = |p: &mut Node| {
+            let tree = full(p, None, a)?;
+            if !sized {
+                return Ok(tree);
+            }
+            let height = p.layout.height;
+            full(p, Some(height), a)
+        };
+        let mut tree = pass(page)?;
         floats::settle(page, a, |p| {
-            tree = full(p, None, a)?;
+            tree = pass(p)?;
             Ok(())
         })?;
         Ok(tree)
@@ -75,17 +83,21 @@ impl Remainder {
     /// Lays out what is left after a cut, `gone` being the Yoga nodes of what left with the
     /// finished page, and reads the boxes a cut at `cut` will look at.
     /// After an error it can be called again; `gone` is emptied once freed.
+    /// `sized` lays the page out once more at the height it came to, as the components do
+    /// before cutting a page with dynamic content: Yoga sizes some boxes differently (`flex: 1`
+    /// rows in stretched columns) once the page has a height.
     pub fn relayout(
         &mut self,
         page: &mut Node,
         gone: &mut Vec<NodeId>,
         cut: f64,
+        sized: bool,
         a: &Assets,
     ) -> Result<(), String> {
         // A check switch: lay the rest out from scratch, as the components do, to compare.
         let fresh = std::env::var_os("AXONPDF_FRESH_LAYOUT").is_some();
         if fresh || *self.floats.get_or_insert_with(|| floats::has(page)) {
-            self.tree = Remainder::whole(page, a)?;
+            self.tree = Remainder::whole(page, sized, a)?;
             return Ok(());
         }
         // Rows that come in batches may bring the first float.
@@ -115,7 +127,18 @@ impl Remainder {
             }
             synced?;
             gone.drain(..).for_each(|id| self.tree.free(id));
-            self.tree.calculate(page.yoga.unwrap(), None, None);
+            let root = page.yoga.unwrap();
+            self.tree.height(root, YDim::Auto);
+            self.tree.calculate(root, None, None);
+            if sized {
+                // Again at the height it came to, fresh as the components lay it out: Yoga keeps
+                // flex bases and boxes measured without the height, and some differ with it.
+                let height = self.tree.layout(root).height;
+                touch(page);
+                sync(&mut self.tree, page, true, cut, slack, ctx, a)?;
+                self.tree.height(root, YDim::Pt(height));
+                self.tree.calculate(root, None, None);
+            }
             write_back(&self.tree, page, false);
             match read_near(&self.tree, page, cut, a)? {
                 Read::Short => slack *= 4.0,
@@ -123,9 +146,18 @@ impl Remainder {
             }
         }
         if found.get() {
-            self.tree = Remainder::whole(page, a)?;
+            self.tree = Remainder::whole(page, sized, a)?;
         }
         Ok(())
+    }
+}
+
+/// Marks every node Yoga holds as changed, so the next sync gives them all their style and
+/// children again, which drops what Yoga kept of them.
+fn touch(n: &mut Node) {
+    if n.yoga.is_some() {
+        n.dirty = true;
+        n.children.iter_mut().for_each(touch);
     }
 }
 

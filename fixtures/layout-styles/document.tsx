@@ -2,7 +2,9 @@
 // shorthands, borders and radii, colours, every unit, absolute positioning, zIndex, opacity,
 // overflow, transforms, aspect ratio, min and max sizes, display none, debug boxes, floats with
 // shapeOutside and clear. Page sizes
-// and orientations differ per page, and one style block switches through media queries.
+// and orientations differ per page, and one style block switches through media queries. A last
+// page with a page number holds rows whose `flex: 1` and `minHeight` parts come out smaller once
+// the page has a height, so all three fit on it.
 import { Document, Page, StyleSheet, Text, View } from '@axonpdf/react';
 
 const s = StyleSheet.create({
@@ -41,6 +43,39 @@ const FLOATS = [
 
 const JUSTIFY = ['flex-start', 'center', 'flex-end', 'space-between', 'space-around', 'space-evenly'] as const;
 const ALIGN = ['flex-start', 'center', 'flex-end', 'stretch'] as const;
+
+// One unbreakable row: `n` slots down two stretched columns, each closed by a `flex: 1` row.
+function Slots({ n }: { n: number }) {
+  const last = { flexDirection: 'row', flex: 1, minHeight: 20 } as const;
+  const pad = { alignSelf: 'stretch', paddingVertical: 10, justifyContent: 'center' } as const;
+  return (
+    <View wrap={false} style={{ flexDirection: 'row', borderBottomWidth: 1, borderLeftWidth: 1 }}>
+      <View style={{ width: 70, justifyContent: 'center' }}>
+        <Text>{`${n} slots`}</Text>
+      </View>
+      <View style={{ alignSelf: 'stretch' }}>
+        {Array.from({ length: n }, (_, i) => (
+          <View key={i} style={{ width: 40, height: 36, justifyContent: 'center', borderBottomWidth: 1 }}>
+            <Text>AM</Text>
+          </View>
+        ))}
+        <View style={last}>
+          <View style={[pad, { width: 40 }]}>
+            <Text>Now</Text>
+          </View>
+        </View>
+      </View>
+      <View style={{ flex: 1 }}>
+        {Array.from({ length: n }, (_, i) => (
+          <View key={i} style={{ height: 36, borderBottomWidth: 1 }} />
+        ))}
+        <View style={last}>
+          <View style={[pad, { flex: 1 }]} />
+        </View>
+      </View>
+    </View>
+  );
+}
 
 function Responsive() {
   return (
@@ -170,6 +205,13 @@ export default function LayoutStyles() {
       <Page size={{ width: 300 }} style={s.page}>
         <Text style={s.label}>width-only page: height grows to its content</Text>
         <Boxes n={4} color="#b5838d" />
+      </Page>
+
+      <Page size={[400, 300]} style={{ padding: 20, fontSize: 8 }}>
+        {[3, 2, 1].map((n) => (
+          <Slots key={n} n={n} />
+        ))}
+        <Text fixed style={{ position: 'absolute', bottom: 6, left: 20 }} render={({ pageNumber }) => `Page ${pageNumber}`} />
       </Page>
     </Document>
   );
