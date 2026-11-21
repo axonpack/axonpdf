@@ -1,7 +1,7 @@
 // Runs the benchmark report with axonpdf, react-pdf 4.9.0 and pdfkit, one process per run and one
 // run at a time, and appends every result to bench/RESULTS.md.
 //
-//   node bench/run.mjs [--sizes 10,100,1000,5000] [--engines axonpdf,axonpdf-rows,react-pdf,pdfkit] [--label text]
+//   node bench/run.mjs [--sizes 10,100,1000,5000] [--engines axonpdf,axonpdf-generator,axonpdf-rows,react-pdf,pdfkit] [--label text]
 //
 // --label is added to the batch heading in RESULTS.md, for example "baseline, not for publishing".
 //
@@ -22,7 +22,7 @@ const LIMIT_KB = 8 * 2 ** 20;
 const SKIP_AFTER_MS = 5 * 60e3;
 
 const { values: o } = parseArgs({
-  options: { label: { type: 'string' }, sizes: { type: 'string', default: '10,100,1000,5000' }, engines: { type: 'string', default: 'axonpdf,axonpdf-rows,react-pdf,pdfkit' } },
+  options: { label: { type: 'string' }, sizes: { type: 'string', default: '10,100,1000,5000' }, engines: { type: 'string', default: 'axonpdf,axonpdf-generator,axonpdf-rows,react-pdf,pdfkit' } },
 });
 const sizes = o.sizes.split(',').map(Number);
 const engines = o.engines.split(',');
@@ -31,6 +31,7 @@ const sh = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8' }).trim();
 const version = (path) => JSON.parse(readFileSync(path, 'utf8')).version;
 const VERSIONS = {
   axonpdf: `${version(resolve(ROOT, 'packages/react/package.json'))} (dev build)`,
+  'axonpdf-generator': `${version(resolve(ROOT, 'packages/react/package.json'))} (dev build, rows from a generator child)`,
   'axonpdf-rows': `${version(resolve(ROOT, 'packages/react/package.json'))} (dev build, <Rows>)`,
   'react-pdf': version(resolve(HERE, 'node_modules/@react-pdf/renderer/package.json')),
   pdfkit: version(resolve(HERE, 'node_modules/pdfkit/package.json')),
@@ -47,7 +48,7 @@ const header = [
   `- Machine: ${sh('sysctl', ['-n', 'machdep.cpu.brand_string'])}, ${cpus().length} cores, ${Math.round(totalmem() / 2 ** 30)} GB RAM, macOS ${sh('sw_vers', ['-productVersion'])}, Node ${process.version}`,
   `- Engines: axonpdf ${VERSIONS.axonpdf}, react-pdf ${VERSIONS['react-pdf']}, pdfkit ${VERSIONS.pdfkit}`,
   '- React in production mode (`NODE_ENV=production`). Time is the render call alone (Node start-up and bundling excluded); peak RSS is the whole process.',
-  '- Document: bench/report.jsx (axonpdf-rows: bench/report-rows.jsx, pdfkit: bench/report-pdfkit.mjs), A4, a header with a logo, three paragraphs, a 5-column bordered table, "Page n of N" footer',
+  '- Document: bench/report.jsx (axonpdf-generator: bench/report-generator.jsx, axonpdf-rows: bench/report-rows.jsx, pdfkit: bench/report-pdfkit.mjs), A4, a header with a logo, three paragraphs, a 5-column bordered table, "Page n of N" footer',
   '',
   '| Engine | Target pages | Pages | Time | Peak RSS | Output | qpdf | Rerun |',
   '| --- | --- | --- | --- | --- | --- | --- | --- |',
