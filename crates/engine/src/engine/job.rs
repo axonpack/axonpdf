@@ -6,7 +6,7 @@ use std::ops::Range;
 
 use serde_json::{Map, Value};
 
-use super::run::{PAGE, call, count, with_assets};
+use super::run::{PAGE, call, count, fill_page, with_assets};
 use super::{Engine, RenderArgs, paint_page, parse};
 use crate::draw;
 use crate::hooks::waiting_for;
@@ -123,7 +123,8 @@ impl Engine {
                         return Ok(Step::Done);
                     };
                     let page = job.json.part(&job.json.get()[range]);
-                    let raw = RawNode::read(&page)?;
+                    let mut raw = RawNode::read(&page)?;
+                    fill_page(&mut raw, assets)?;
                     let json = page.get();
                     let sub_total = job.counts.as_ref().and_then(|c| c.get(job.next).copied());
                     let totals = (sub_total, job.pending_total);

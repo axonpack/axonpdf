@@ -68,3 +68,48 @@ fn lazy_children_are_counted_and_fetched_once() {
     );
     assert_eq!(pdf, eager, "the same file as with the children inline");
 }
+
+/// Pages whose children all come from the adapter when each page is opened.
+#[test]
+fn lazy_pages_are_filled_when_opened() {
+    let page = |children: Value, lazy: Option<u32>| {
+        let footer = json!({"type": "TEXT", "props": {"fixed": true}, "render": 1, "children": []});
+        let props = lazy.map_or(json!({}), |id| json!({"lazy": id}));
+        let mut kids = vec![footer];
+        kids.extend(children.as_array().unwrap().iter().cloned());
+        let kids = if lazy.is_some() {
+            json!([])
+        } else {
+            json!(kids)
+        };
+        json!({"type": "PAGE", "props": props, "children": kids})
+    };
+    let body = |p: usize| json!((0..80).map(|i| row(p * 1000 + i)).collect::<Vec<_>>());
+    let fetched = Rc::new(RefCell::new(Vec::new()));
+    let mut lazy = engine(Rc::default());
+    let log = fetched.clone();
+    lazy.set_rows_callback(Box::new(move |id| {
+        log.borrow_mut().push(id);
+        let footer = json!({"type": "TEXT", "props": {"fixed": true}, "render": 1, "children": []});
+        let mut kids = vec![footer];
+        kids.extend(body(id as usize).as_array().unwrap().iter().cloned());
+        json!({"children": kids, "done": true}).to_string()
+    }));
+    let doc_of = |pages: Vec<Value>| {
+        json!({"v": 1, "type": "DOCUMENT", "props": {}, "children": pages}).to_string()
+    };
+    let pdf = render(
+        &mut lazy,
+        &doc_of(vec![page(json!([]), Some(1)), page(json!([]), Some(2))]),
+    );
+    assert_eq!(
+        *fetched.borrow(),
+        [1, 2],
+        "each page fetched once, in order"
+    );
+    let eager = render(
+        &mut engine(Rc::default()),
+        &doc_of(vec![page(body(1), None), page(body(2), None)]),
+    );
+    assert_eq!(pdf, eager, "the same file as with the children inline");
+}

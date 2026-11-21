@@ -13,7 +13,7 @@ use crate::paginate::{self, Finished, Pager, next, page};
 use crate::profile::{self, Phase};
 use crate::style::Container;
 use crate::tree::node::LAZY;
-use crate::tree::{self, Doc, Node, RenderResult};
+use crate::tree::{self, Doc, Json, Node, RawNode, RenderResult};
 use serde_json::{Map, Value};
 
 /// Builds what layout needs from the engine's stores and the document's props, for `f`.
@@ -34,6 +34,10 @@ pub(super) fn with_assets<R>(
         .flatten()
         .filter_map(|(k, v)| Some((k.clone(), v.get("asset")?.as_u64()? as u32)))
         .collect();
+    let batch = |id: u32| {
+        let (children, done) = hooks.rows(id)?;
+        Ok((children.into_iter().map(Json::from).collect(), done))
+    };
     // Children waiting as JSON come first, then a batch from the rows' source; both are styled
     // under the page being cut.
     let more_rows = |n: &mut Node| -> Result<bool, String> {
@@ -62,6 +66,7 @@ pub(super) fn with_assets<R>(
             .map(|v| v as u32),
         emoji: &emoji,
         more_rows: &more_rows,
+        batch: &batch,
         total_digits: &Cell::new(2),
     };
     f(&assets)
@@ -161,8 +166,10 @@ fn run(
         let last_page = i + 1 == pages;
         let sub_total = counts.and_then(|c| c.get(made.len()).copied());
         let totals = (sub_total, pending_total);
+        let mut raw = raw?;
+        fill_page(&mut raw, assets)?;
         let (cut, container, band_base) =
-            paginate::open(raw?, json, newer, number, totals, &mut call)?;
+            paginate::open(raw, json, newer, number, totals, &mut call)?;
         PAGE.with(|p| p.set(container));
         let mut pager = Pager {
             assets,
@@ -210,4 +217,21 @@ pub(super) fn call(
 thread_local! {
     /// The container of the page being cut, for styling rows as they arrive.
     pub(super) static PAGE: Cell<Container> = Cell::new(Container::default());
+}
+
+/// A page sent without its children (`"lazy": id`, no `children`) gets them all from the adapter
+/// when it is opened, so it is cut exactly as if they had been inline.
+pub(super) fn fill_page(raw: &mut RawNode, a: &Assets) -> Result<(), String> {
+    let lazy = raw.props.get(LAZY_CHILDREN).and_then(|v| v.as_u64());
+    let Some(id) = lazy.filter(|_| raw.kind == "PAGE" && raw.children.is_empty()) else {
+        return Ok(());
+    };
+    raw.props.shift_remove(LAZY_CHILDREN);
+    loop {
+        let (children, done) = (a.batch)(id as u32)?;
+        raw.children.extend(children);
+        if done {
+            return Ok(());
+        }
+    }
 }
