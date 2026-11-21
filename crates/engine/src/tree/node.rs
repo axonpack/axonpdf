@@ -205,11 +205,14 @@ fn substitute_link(mut raw: RawNode) -> RawNode {
     raw
 }
 
+/// The raw style, the inherited style's address, and whether it was inherited from a text.
+type StyleKey = (String, usize, bool);
+
 thread_local! {
     /// Resolved styles by what they were resolved from: the raw style as written and the style
     /// inherited from (kept alive here, so its address stays its own). Rows of a long table
     /// resolve to the same few styles.
-    static STYLES: RefCell<HashMap<(String, usize, bool), (Option<Rc<Style>>, Rc<Style>)>> =
+    static STYLES: RefCell<HashMap<StyleKey, (Option<Rc<Style>>, Rc<Style>)>> =
         RefCell::new(HashMap::new());
 }
 
