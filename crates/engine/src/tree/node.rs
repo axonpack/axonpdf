@@ -313,6 +313,28 @@ pub fn clear_styles() {
     STYLES.with(|s| s.borrow_mut().clear());
 }
 
+/// Drops the entries whose parent style nothing outside the cache holds: no node can ask for
+/// them again. Repeated, since a dropped entry can leave its own style held by the cache alone.
+fn forget_dead(m: &mut HashMap<StyleKey, Shared>) {
+    loop {
+        let mut held: HashMap<*const Style, usize> = HashMap::new();
+        for (p, s) in m.values() {
+            *held.entry(Rc::as_ptr(s)).or_default() += 1;
+            if let Some(p) = p {
+                *held.entry(Rc::as_ptr(p)).or_default() += 1;
+            }
+        }
+        let before = m.len();
+        m.retain(|_, (p, _)| {
+            p.as_ref()
+                .is_none_or(|p| Rc::strong_count(p) > held[&Rc::as_ptr(p)])
+        });
+        if m.len() == before {
+            return;
+        }
+    }
+}
+
 fn shared_style(c: &Container, raw: Value, parent: Option<(&Rc<Style>, bool)>) -> Rc<Style> {
     let key = (
         raw.to_string(),
@@ -330,10 +352,10 @@ fn shared_style(c: &Container, raw: Value, parent: Option<(&Rc<Style>, bool)>) -
     STYLES.with(|m| {
         let mut m = m.borrow_mut();
         // A page cut gives the rest of a split box a style of its own, so rows built under it
-        // add entries on every page. Drop those whose parent only the cache still holds, each
-        // time the cache doubles, so it stays the size of what is alive.
+        // add entries on every page. Each time the cache doubles, drop those whose parent only
+        // the cache still holds, so it stays the size of what is alive.
         if m.len() >= 64 && m.len().is_power_of_two() {
-            m.retain(|_, (p, _)| p.as_ref().is_none_or(|p| Rc::strong_count(p) > 1));
+            forget_dead(&mut m);
         }
         m.insert(key, (parent.map(|(p, _)| p.clone()), style.clone()))
     });
