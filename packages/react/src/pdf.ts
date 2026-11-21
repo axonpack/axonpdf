@@ -36,7 +36,7 @@ function reconcile(element: ReactElement | null, changeListeners: (() => void)[]
     error = e;
   });
   const update = (document: ReactElement | null, callback?: () => void) =>
-    renderer!.updateContainer(root, document, callback);
+    renderer!.updateContainer(document, root, null, callback);
   if (element) update(element);
   const takeError = () => {
     const e = error;

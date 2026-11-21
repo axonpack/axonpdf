@@ -27,12 +27,12 @@ function mountHost(element: React.ReactElement) {
   const root = renderer.createContainer(container, (e) => {
     throw e;
   });
-  renderer.updateContainer(root, element);
+  renderer.updateContainer(element, root, null);
   return {
     get node() {
       return container.document!;
     },
-    update: (next: React.ReactElement | null) => renderer.updateContainer(root, next),
+    update: (next: React.ReactElement | null) => renderer.updateContainer(next, root, null),
   };
 }
 
