@@ -17,7 +17,8 @@
  * - `breakBefore` / `breakAfter` (`"page" | "auto"`) and `breakInside` (`"avoid" | "auto"`) are
  *   props on any node: `breakBefore: "page"` means `break`, `breakInside: "avoid"` means
  *   `wrap: false`, and `breakAfter: "page"` starts a new page after the node.
- * - `ROWS`: `props.batchSize` (default 100); `children` are the rows, already rendered.
+ * - `ROWS`: `props.rows` is the id the engine pulls batches by (`{"children":[...],"done":bool}`),
+ *   `props.batchSize` (default 100) how many rows a batch holds; `children` is empty.
  * - `PAGE_NUMBER` and `PAGE_COUNT`: no children; the engine draws the number as text in `style`.
  * - `TABLE`, `TABLE_HEADER`, `TABLE_ROW`, `TABLE_CELL`: a table is a column of rows, a row lays
  *   out its cells like a View row (`width` or `flex` in the cell's style), borders between cells

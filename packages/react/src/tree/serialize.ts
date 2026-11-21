@@ -7,6 +7,7 @@ import type { Child, Instance, TextInstance } from "../types/instance.type.js";
 import type { TreeDocument, TreeNode, TreeText } from "../types/tree.type.js";
 import { recordPaint } from "./canvas-painter.js";
 import { elementToInstances } from "./element-to-instances.js";
+import { rows } from "./rows.js";
 import type { Session } from "./session.js";
 
 type Mark = () => void;
@@ -131,24 +132,6 @@ function asset(source: unknown, useCache: boolean, session: Session) {
     );
   }
   return { asset: id };
-}
-
-function rows(props: Record<string, any>, session: Session): TreeNode {
-  const node: TreeNode = { type: "ROWS", props: { batchSize: props.batchSize }, children: [] };
-  if (session.inCallback) throw new Error("Rows can't be used inside a render function.");
-  // ponytail: rows are all rendered before the engine starts; batch streaming needs an engine
-  // push API, then this turns into a pull per batch.
-  session.pending.push(
-    (async () => {
-      let index = 0;
-      for await (const row of props.rows as AsyncIterable<unknown>) {
-        for (const c of elementToInstances(props.renderRow(row, index++))) {
-          node.children.push(serialize(c, session));
-        }
-      }
-    })(),
-  );
-  return node;
 }
 
 function collectFamilies(style: unknown, out: Set<string>) {

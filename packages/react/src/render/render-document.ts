@@ -1,6 +1,7 @@
 import { createEngine } from "@axonpdf/core";
 
 import { addEmoji } from "../assets/emoji.js";
+import { Font } from "../font/font-store.js";
 import { addFonts } from "../font/load-fonts.js";
 import { serializeDocument } from "../tree/serialize.js";
 import { createSession, settle } from "../tree/session.js";
@@ -20,12 +21,17 @@ export async function renderDocument(
   await addEmoji(tree, session);
   const engine = await createEngine();
   try {
-    await addFonts(engine, session.families);
+    // ponytail: rows render after fonts are loaded, so with Rows every registered family loads.
+    const families = session.rows.size
+      ? new Set(Font.getRegisteredFontFamilies())
+      : session.families;
+    await addFonts(engine, families);
     for (const [id, bytes] of session.assets) engine.addImage(id, bytes);
     const builtin = (word: string) => engine.hyphenateBuiltin(word);
     engine.render(JSON.stringify(tree), onChunk, {
       render: (id, args) => session.callbacks.get(id)!(args),
       paint: (id, width, height) => session.paints.get(id)!(width, height),
+      rows: (id) => session.rows.get(id)!(),
       hyphenate: (id, word) => JSON.stringify(session.hyphenators.get(id)!(word, builtin)),
     });
   } finally {
