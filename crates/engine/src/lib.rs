@@ -4,6 +4,7 @@ pub mod consts;
 pub mod display;
 pub mod draw;
 mod engine;
+pub mod hooks;
 pub mod fonts;
 pub mod images;
 pub mod layout;
@@ -15,3 +16,4 @@ pub mod tree;
 pub mod writer;
 
 pub use engine::{Engine, RenderArgs, RenderCallback};
+pub use hooks::{HyphenationCallback, PaintCallback};

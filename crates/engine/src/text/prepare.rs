@@ -3,7 +3,7 @@
 
 use std::rc::Rc;
 
-use super::{Attrs, Glyph, Paragraph, Run, hyphen};
+use super::{Attrs, Glyph, Paragraph, Run};
 use crate::display::FontId;
 use crate::fonts::{Font, FontStore};
 
@@ -15,11 +15,14 @@ pub struct Fragment {
     pub fonts: Vec<FontId>,
 }
 
-const SOFT_HYPHEN: char = '\u{ad}';
+use super::hyphen::SOFT_HYPHEN;
 /// Line and paragraph separators and the word joiner, dropped when the font cannot draw them.
 const IGNORABLE: [char; 3] = ['\u{2028}', '\u{2029}', '\u{2060}'];
 
-pub fn prepare(fonts: &FontStore, fragments: &[Fragment]) -> Vec<Paragraph> {
+/// Splits a word into syllables: the built-in [`hyphen::builtin`] or a document's callback.
+pub type Split<'a> = dyn FnMut(&str) -> Vec<String> + 'a;
+
+pub fn prepare(fonts: &FontStore, fragments: &[Fragment], split: &mut Split) -> Vec<Paragraph> {
     // The whole string with each character's fragment.
     let mut chars: Vec<(char, usize)> = Vec::new();
     for (i, f) in fragments.iter().enumerate() {
@@ -39,13 +42,18 @@ pub fn prepare(fonts: &FontStore, fragments: &[Fragment]) -> Vec<Paragraph> {
             .iter()
             .position(|(c, _)| *c == '\n')
             .map_or(chars.len(), |p| start + p + 1);
-        out.push(paragraph(fonts, fragments, &chars[start..end]));
+        out.push(paragraph(fonts, fragments, &chars[start..end], split));
         start = end;
     }
     out
 }
 
-fn paragraph(fonts: &FontStore, fragments: &[Fragment], chars: &[(char, usize)]) -> Paragraph {
+fn paragraph(
+    fonts: &FontStore,
+    fragments: &[Fragment],
+    chars: &[(char, usize)],
+    split: &mut Split,
+) -> Paragraph {
     let mut last_font: Option<FontId> = None;
     // Runs: same fragment, same font.
     let mut pieces: Vec<(usize, FontId, String)> = Vec::new();
@@ -70,14 +78,9 @@ fn paragraph(fonts: &FontStore, fragments: &[Fragment], chars: &[(char, usize)])
     let mut p = Paragraph::default();
     for (frag, font, text) in pieces {
         let start = p.chars.len();
-        // Words split at runs of spaces; author's soft hyphens replace the patterns.
+        // Words split at runs of spaces, then into syllables; soft hyphens are dropped after.
         for word in split_spaces(&text) {
-            let parts = if word.contains(SOFT_HYPHEN) {
-                word.split(SOFT_HYPHEN).map(str::to_string).collect()
-            } else {
-                hyphen::syllables(word)
-            };
-            for part in parts {
+            for part in split(word) {
                 let part: String = part.chars().filter(|&c| c != SOFT_HYPHEN).collect();
                 let s = p.chars.len();
                 p.chars.extend(part.chars());
@@ -156,7 +159,22 @@ fn shape(fonts: &FontStore, attrs: Rc<Attrs>, font: FontId, start: usize, text: 
         }
         glyphs
     };
-    let glyphs = shape_at(text, start);
+    let mut glyphs = shape_at(text, start);
+    // An attachment takes its own width in place of the replacement character's.
+    // and draws as a space under the image.
+    if let Some(a) = &attrs.attachment {
+        let space = fonts
+            .shape(font, " ", em, 0.0, &[])
+            .first()
+            .map_or(0, |g| g.id);
+        for g in glyphs
+            .iter_mut()
+            .filter(|g| chars.get(g.index - start) == Some(&'\u{fffc}'))
+        {
+            g.advance = a.width;
+            g.id = space;
+        }
+    }
     // Ligatures, shaped again on both sides of every cut a line break could make in them.
     let mut splits = Vec::new();
     for g in glyphs.iter().filter(|g| g.end - g.index > 1) {
@@ -191,12 +209,13 @@ fn shape(fonts: &FontStore, attrs: Rc<Attrs>, font: FontId, start: usize, text: 
             whitespace: false,
         }
     };
+    let attachment_height = attrs.attachment.map_or(0.0, |a| a.height);
     Run {
         start,
         end: start + chars.len(),
         attrs,
         font,
-        ascent: m.ascent as f64 * scale,
+        ascent: (m.ascent as f64 * scale).max(attachment_height),
         descent: m.descent as f64 * scale,
         line_gap: m.line_gap as f64 * scale,
         glyphs,

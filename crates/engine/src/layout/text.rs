@@ -3,12 +3,71 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use super::Assets;
 use super::yoga::MeasureMode;
 use crate::display::Color;
 use crate::fonts::FontStore;
-use crate::text::{self, Attrs, Fragment, Options, Paragraph};
+use crate::text::{self, Attachment, Attrs, Fragment, Options, Paragraph, hyphen};
 use crate::tree::node::TextBox;
 use crate::tree::{Kind, Node};
+
+/// A text node's paragraphs, ready to break, with its hyphenation callback or the document's.
+pub fn paragraphs(n: &Node, a: &Assets) -> Result<Vec<Paragraph>, String> {
+    let mut frags = Vec::new();
+    fragments(a.fonts, n, None, 0, &mut frags)?;
+    let frags = emoji(frags, a.emoji);
+    let callback = n
+        .number("hyphenationCallback")
+        .map(|i| i as u32)
+        .or(a.hyphenation);
+    let mut split = |w: &str| {
+        callback
+            .and_then(|id| (a.hyphenate)(id, w))
+            .unwrap_or_else(|| hyphen::builtin(w))
+    };
+    Ok(text::prepare(a.fonts, &frags, &mut split))
+}
+
+/// Puts each emoji that has an image into a fragment of its own, drawn as that image at the
+/// font size and dropped by a tenth of it. The text before the emoji shares its fragment.
+fn emoji(frags: Vec<Fragment>, emoji: &[(String, u32)]) -> Vec<Fragment> {
+    if emoji.is_empty() {
+        return frags;
+    }
+    let mut out = Vec::new();
+    for f in frags {
+        let mut rest = f.text.as_str();
+        while let Some((at, (e, id))) = emoji
+            .iter()
+            .filter_map(|x| rest.find(x.0.as_str()).map(|i| (i, x)))
+            .min_by_key(|(i, x)| (*i, usize::MAX - x.0.len()))
+        {
+            let size = f.attrs.size;
+            let attrs = Attrs {
+                attachment: Some(Attachment {
+                    width: size,
+                    height: size,
+                    y_offset: (size * 0.1).floor(),
+                    asset: *id,
+                }),
+                ..(*f.attrs).clone()
+            };
+            out.push(Fragment {
+                text: format!("{}\u{fffc}", &rest[..at]),
+                attrs: Rc::new(attrs),
+                fonts: f.fonts.clone(),
+            });
+            rest = &rest[at + e.len()..];
+        }
+        if !rest.is_empty() {
+            out.push(Fragment {
+                text: rest.to_string(),
+                ..f
+            });
+        }
+    }
+    out
+}
 
 /// The styled pieces of a `Text` and everything nested in it.
 pub fn fragments(
@@ -71,6 +130,7 @@ pub fn fragments(
         background: if level == 0 { None } else { s.background_color },
         indent: s.text_indent.unwrap_or(0.0),
         vertical_align: s.vertical_align.clone(),
+        attachment: None,
     });
     for child in &node.children {
         match child.kind {
@@ -79,8 +139,29 @@ pub fn fragments(
                 attrs: attrs.clone(),
                 fonts: stack.clone(),
             }),
-            // ponytail: images inside text are skipped until inline attachments land.
-            Kind::Image => {}
+            // An image inside text sits on the line, its style's size or the font size.
+            Kind::Image => {
+                if let Some(id) = super::image::asset(child) {
+                    let side = |d: Option<crate::style::Dim>| match d {
+                        Some(crate::style::Dim::Pt(v)) if v != 0.0 => v,
+                        _ => attrs.size,
+                    };
+                    let a = Attrs {
+                        attachment: Some(Attachment {
+                            width: side(child.style.width),
+                            height: side(child.style.height),
+                            y_offset: 0.0,
+                            asset: id,
+                        }),
+                        ..(*attrs).clone()
+                    };
+                    out.push(Fragment {
+                        text: "\u{fffc}".into(),
+                        attrs: Rc::new(a),
+                        fonts: stack.clone(),
+                    });
+                }
+            }
             _ => fragments(fonts, child, link.as_deref(), level + 1, out)?,
         }
     }

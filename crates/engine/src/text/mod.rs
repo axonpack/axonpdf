@@ -33,6 +33,17 @@ pub struct Attrs {
     pub indent: f64,
     /// `sub` or `super`.
     pub vertical_align: Option<String>,
+    /// An image drawn in place of each U+FFFC in the run (inline images and emoji).
+    pub attachment: Option<Attachment>,
+}
+
+/// An image on a text line. `y_offset` moves it down.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Attachment {
+    pub width: f64,
+    pub height: f64,
+    pub y_offset: f64,
+    pub asset: u32,
 }
 
 /// One shaped glyph. `index` is the character it starts at; lengths are points.

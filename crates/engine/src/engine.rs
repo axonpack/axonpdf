@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use crate::display::ImageId;
 use crate::draw;
 use crate::fonts::FontStore;
+use crate::hooks::{Hooks, HyphenationCallback, PaintCallback};
 use crate::images::ImageStore;
 use crate::layout::Assets;
 use crate::paginate::{Finished, Pager, page};
@@ -33,6 +34,7 @@ pub struct Engine {
     /// The document's asset ids to stored images.
     assets: HashMap<u32, ImageId>,
     callback: Option<RenderCallback>,
+    hooks: Hooks,
 }
 
 impl Default for Engine {
@@ -48,6 +50,7 @@ impl Engine {
             images: ImageStore::new(),
             assets: HashMap::new(),
             callback: None,
+            hooks: Hooks::default(),
         }
     }
 
@@ -74,6 +77,17 @@ impl Engine {
         self.callback = Some(cb);
     }
 
+    /// Canvas `paint` functions, by the `paint` id on `CANVAS` nodes.
+    pub fn set_paint_callback(&mut self, cb: PaintCallback) {
+        *self.hooks.paint.get_mut() = Some(cb);
+    }
+
+    /// Hyphenation functions, by the `hyphenationCallback` id on `TEXT` and `DOCUMENT` props.
+    /// The built-in split they may fall back to is [`crate::text::hyphen::builtin`].
+    pub fn set_hyphenation_callback(&mut self, cb: HyphenationCallback) {
+        *self.hooks.hyphenate.get_mut() = Some(cb);
+    }
+
     /// Renders a document tree (see [`crate::tree`]), sending the PDF to `out` in order as
     /// pages finish. When a `render` function reads the page total, pages are cut once to count
     /// them, then again to draw them.
@@ -84,12 +98,26 @@ impl Engine {
         let sizes = self.image_sizes();
         let (fonts, images, assets) = (&self.fonts, &mut self.images, &self.assets);
         let lookup = |id: u32| Some((*assets.get(&id)?, *sizes.get(&id)?));
-        let cx = draw::Ctx { fonts, images: &lookup };
+        let hooks = &self.hooks;
+        let paint = |id: u32, w: f64, h: f64| hooks.paint(id, w, h);
+        let cx = draw::Ctx {
+            fonts,
+            images: &lookup,
+            paint: &paint,
+        };
         let mut sink = |page: &Node, width: f64, height: f64| {
             let display = draw::page(page, width, height, &cx);
             writer.write_page(&display, fonts, images, out);
         };
-        layout_pages(fonts, &sizes, &mut self.callback, tree_json, doc, &mut sink)?;
+        layout_pages(
+            fonts,
+            &sizes,
+            hooks,
+            &mut self.callback,
+            tree_json,
+            doc,
+            &mut sink,
+        )?;
         writer.finish(&self.fonts, out);
         Ok(())
     }
@@ -102,6 +130,7 @@ impl Engine {
         layout_pages(
             &self.fonts,
             &sizes,
+            &self.hooks,
             &mut self.callback,
             tree_json,
             doc,
@@ -124,15 +153,35 @@ impl Engine {
 fn layout_pages(
     fonts: &FontStore,
     sizes: &HashMap<u32, (f64, f64)>,
+    hooks: &Hooks,
     callback: &mut Option<RenderCallback>,
     json: &str,
     doc: RawNode,
     visit: &mut Visit,
 ) -> Result<(), String> {
+    hooks.reset();
     let image_size = |id: u32| sizes.get(&id).copied();
+    let paint = |id: u32, w: f64, h: f64| hooks.paint(id, w, h);
+    let hyphenate = |id: u32, word: &str| hooks.hyphenate(id, word);
+    let emoji: Vec<(String, u32)> = doc
+        .props
+        .get("emoji")
+        .and_then(|e| e.as_object())
+        .into_iter()
+        .flatten()
+        .filter_map(|(k, v)| Some((k.clone(), v.get("asset")?.as_u64()? as u32)))
+        .collect();
     let assets = Assets {
         fonts,
         image_size: &image_size,
+        paint: &paint,
+        hyphenate: &hyphenate,
+        hyphenation: doc
+            .props
+            .get("hyphenationCallback")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32),
+        emoji: &emoji,
     };
     let counts = if reads_total(callback, &doc)? {
         Some(run(&assets, callback, tree::parse(json)?, None, None)?)

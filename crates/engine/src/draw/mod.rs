@@ -21,6 +21,8 @@ pub type ImageLookup<'a> = dyn Fn(u32) -> Option<(ImageId, (f64, f64))> + 'a;
 pub struct Ctx<'a> {
     pub fonts: &'a FontStore,
     pub images: &'a ImageLookup<'a>,
+    /// Runs a canvas's `paint` function at its content size: painter calls as JSON.
+    pub paint: &'a dyn Fn(u32, f64, f64) -> Option<String>,
 }
 
 pub fn page(page: &Node, width: f64, height: f64, cx: &Ctx) -> PageOut {
@@ -95,7 +97,7 @@ fn node(ops: &mut Vec<Op>, n: &Node, ox: f64, oy: f64, cx: &Ctx) {
         }));
     }
     match n.kind {
-        Kind::Text => text::draw(ops, n, x, y),
+        Kind::Text => text::draw(ops, n, x, y, cx),
         Kind::Svg => svg::draw(ops, n, x, y, r, cx),
         Kind::Image | Kind::ImageBackground => {
             if let Some((id, size)) = asset(n).and_then(cx.images) {

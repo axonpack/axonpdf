@@ -17,6 +17,7 @@ fn attrs(size: f64, align: &str) -> Rc<Attrs> {
         background: None,
         indent: 0.0,
         vertical_align: None,
+        attachment: None,
     })
 }
 
@@ -28,7 +29,12 @@ fn lines(text: &str, align: &str, width: f64) -> Vec<Line> {
         attrs: attrs(12.0, align),
         fonts: vec![helvetica],
     }];
-    layout(&prepare(&fonts, &frags), width, None, &Options::default())
+    layout(
+        &prepare(&fonts, &frags, &mut hyphen::builtin),
+        width,
+        None,
+        &Options::default(),
+    )
 }
 
 fn text(l: &Line) -> String {

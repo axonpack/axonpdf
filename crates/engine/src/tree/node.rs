@@ -69,6 +69,7 @@ pub struct Node {
     pub props: Map<String, Value>,
     pub style: Style,
     pub render: Option<u32>,
+    pub paint: Option<u32>,
     pub children: Vec<Node>,
     /// The text of a `TEXT_INSTANCE`.
     pub value: String,
@@ -100,6 +101,7 @@ impl Node {
             props: raw.props,
             style,
             render: raw.render,
+            paint: raw.paint,
             children: Vec::new(),
             value: raw.value.unwrap_or_default(),
             layout: Layout::default(),
@@ -173,6 +175,7 @@ fn substitute_link(mut raw: RawNode) -> RawNode {
             props: Map::new(),
             style: Value::Null,
             render: None,
+            paint: None,
             children,
             value: None,
         }];

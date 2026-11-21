@@ -43,6 +43,14 @@
 //!   adapter under that id, and the engine calls it back while it paginates (see
 //!   [`crate::RenderArgs`]). The callback answers `{"children": [<node>...], "readsTotal": bool}`,
 //!   the children in this same shape.
+//! - `paint` (on `CANVAS`): the id of the `paint` function. The engine calls it with the
+//!   canvas's size (NaN, meaning `undefined`, when it only measures) and gets the painter calls
+//!   back as a JSON list (see [`crate::Engine::set_paint_callback`]).
+//! - `hyphenationCallback` (a `TEXT` prop, and a `DOCUMENT` prop for the one registered with the
+//!   font store): the id of a function the engine calls per word
+//!   ([`crate::Engine::set_hyphenation_callback`]).
+//! - `emoji` (a `DOCUMENT` prop): `{"<emoji>": {"asset": <id>}}`, the image of each emoji the
+//!   text holds, fetched from the registered emoji source. Emoji without an image stay text.
 //! - Functions other than `render` (`hyphenationCallback`, `onRender`, ...) are not sent.
 
 pub mod node;
@@ -63,6 +71,9 @@ pub struct RawNode {
     pub style: Value,
     #[serde(default)]
     pub render: Option<u32>,
+    /// A `CANVAS`'s `paint` function, by id.
+    #[serde(default)]
+    pub paint: Option<u32>,
     #[serde(default)]
     pub children: Vec<RawNode>,
     /// The text of a `TEXT_INSTANCE`.

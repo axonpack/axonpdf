@@ -5,6 +5,17 @@ use std::sync::OnceLock;
 
 const PATTERNS: &str = include_str!("en-us.txt");
 const MIN_WORD_LENGTH: usize = 5;
+pub const SOFT_HYPHEN: char = '\u{ad}';
+
+/// The default split of a word: at the author's soft hyphens when it has any, else by the
+/// patterns. This is the built-in a hyphenation callback is handed.
+pub fn builtin(word: &str) -> Vec<String> {
+    if word.contains(SOFT_HYPHEN) {
+        word.split(SOFT_HYPHEN).map(str::to_string).collect()
+    } else {
+        syllables(word)
+    }
+}
 
 struct Entry {
     levels: Vec<u8>,

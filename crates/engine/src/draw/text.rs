@@ -19,7 +19,7 @@ fn alpha(c: Color, opacity: Option<f64>) -> Color {
 }
 
 /// Draws the lines of a text whose border box starts at (`x`, `y`).
-pub fn draw(ops: &mut Vec<Op>, n: &Node, x: f64, y: f64) {
+pub fn draw(ops: &mut Vec<Op>, n: &Node, x: f64, y: f64, cx: &super::Ctx) {
     let Some(state) = &n.text else { return };
     let state = state.borrow();
     let Some(lines) = &state.lines else { return };
@@ -27,11 +27,11 @@ pub fn draw(ops: &mut Vec<Op>, n: &Node, x: f64, y: f64) {
     let ox = x + n.layout.padding[3] - state.align_offset;
     let oy = y + n.layout.padding[0] - first_y;
     for line in lines {
-        draw_line(ops, line, ox + line.x, oy + line.y);
+        draw_line(ops, line, ox + line.x, oy + line.y, cx);
     }
 }
 
-fn draw_line(ops: &mut Vec<Op>, line: &Line, lx: f64, ly: f64) {
+fn draw_line(ops: &mut Vec<Op>, line: &Line, lx: f64, ly: f64, cx: &super::Ctx) {
     let baseline = ly + line.ascent;
     let mut pen = lx;
     let last = line.runs.len().saturating_sub(1);
@@ -55,6 +55,9 @@ fn draw_line(ops: &mut Vec<Op>, line: &Line, lx: f64, ly: f64) {
                 ),
                 target: target(href),
             });
+        }
+        if let Some(a) = run.attrs.attachment {
+            attachments(ops, run, a, pen, baseline, cx);
         }
         ops.push(Op::Text(glyphs(run, pen, baseline)));
         pen += run.x_advance;
@@ -138,5 +141,42 @@ fn decorations(ops: &mut Vec<Op>, line: &Line, lx: f64, ly: f64) {
             });
         }
         x += width;
+    }
+}
+
+/// Images standing in for U+FFFC: each ends at the pen after its slot, sits on the baseline
+/// (moved down by its offset) and fits its box, centred, bottom aligned.
+fn attachments(
+    ops: &mut Vec<Op>,
+    run: &LineRun,
+    a: crate::text::Attachment,
+    x: f64,
+    baseline: f64,
+    cx: &super::Ctx,
+) {
+    let Some((id, (iw, ih))) = (cx.images)(a.asset) else {
+        return;
+    };
+    let chars: Vec<char> = run.text.chars().collect();
+    let mut pen = x;
+    for g in &run.glyphs {
+        pen += g.advance;
+        if chars.get(g.index - run.start) != Some(&'\u{fffc}') {
+            continue;
+        }
+        let scale = (a.width / iw).min(a.height / ih);
+        let (w, h) = (iw * scale, ih * scale);
+        let left = pen - a.width + (a.width - w) / 2.0;
+        let top = baseline - a.height + a.y_offset + (a.height - h);
+        ops.push(Op::Image {
+            id,
+            rect: display::Rect {
+                x: left as f32,
+                y: top as f32,
+                w: w as f32,
+                h: h as f32,
+            },
+            opacity: 1.0,
+        });
     }
 }
