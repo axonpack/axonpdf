@@ -37,7 +37,8 @@ impl Writer {
             } => {
                 let (w, h) = (rect[2] - rect[0], rect[3] - rect[1]);
                 let on = self.check_look(if *x_mark { b'8' } else { b'4' }, w, h, out);
-                let off = self.check_look(if *x_mark { b' ' } else { b'8' }, w, h, out);
+                // Unchecked is blank, whatever the mark.
+                let off = self.check_look(b' ', w, h, out);
                 let state = if *checked { on_state } else { off_state };
                 Some((on_state.clone(), on, off_state.clone(), off, state.clone()))
             }

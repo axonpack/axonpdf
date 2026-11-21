@@ -22,6 +22,14 @@ fn field(name: &str, y: f32, parent: Option<u32>, kind: FieldKind) -> Op {
     })
 }
 
+/// A 14pt-high field, so its looks are not shared with the 20pt ones.
+fn small(mut op: Op) -> Op {
+    if let Op::Field(f) = &mut op {
+        f.rect.h = 14.0;
+    }
+    op
+}
+
 #[test]
 fn form_fields_make_a_valid_acroform() {
     let mut a = common::assets();
@@ -67,7 +75,7 @@ fn form_fields_make_a_valid_acroform() {
             },
             field("name", 20.0, Some(1), text),
             field("agree", 50.0, Some(1), check(true, false)),
-            field("cross", 80.0, None, check(false, true)),
+            small(field("cross", 80.0, None, check(false, true))),
             field("pick", 110.0, None, choice(true)),
             field("list", 140.0, None, choice(false)),
         ],
@@ -78,6 +86,12 @@ fn form_fields_make_a_valid_acroform() {
     w.begin(&mut out);
     w.write_page(&page, &a.fonts, &mut a.images, &mut out);
     w.finish(&a.fonts, &mut out);
+    // Looks: a check for "agree", a cross for "cross", and unchecked blank for both sizes.
+    let count = |needle: &[u8]| pdf.windows(needle.len()).filter(|w| *w == needle).count();
+    assert_eq!(
+        (count(b"(4) Tj"), count(b"(8) Tj"), count(b"( ) Tj")),
+        (1, 1, 2)
+    );
     let path = std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("forms.pdf");
     std::fs::write(&path, &pdf).unwrap();
     if let Some(r) = common::tool("qpdf", &["--check", path.to_str().unwrap()]) {
