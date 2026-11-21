@@ -5,8 +5,20 @@ import { COLS, HEAD_H, PAD, PARAGRAPHS, ROW_H, TITLE, row } from './layout.mjs';
 
 const cell = (c, extra) => ({ width: c.width, paddingHorizontal: 4, paddingTop: 4, textAlign: c.align, borderRightWidth: 0.5, borderColor: '#555', ...extra });
 
-// `logo` comes in as a prop: this file is bundled, so it can't find the image from its own URL.
-export default function Report({ rows, logo }) {
+export function Row({ i }) {
+  const r = row(i);
+  return (
+    <View wrap={false} style={{ flexDirection: 'row', height: ROW_H, borderBottomWidth: 0.5, borderColor: '#555' }}>
+      {COLS.map((c) => (
+        <Text key={c.key} style={cell(c)}>{r[c.key]}</Text>
+      ))}
+    </View>
+  );
+}
+
+// The page around the table rows, shared with report-rows.jsx. `logo` comes in as a prop: this
+// file is bundled, so it can't find the image from its own URL.
+export function ReportPage({ logo, children }) {
   return (
     <Document title={TITLE}>
       <Page size="A4" style={{ paddingTop: PAD.top, paddingBottom: PAD.bottom, paddingHorizontal: PAD.x, fontFamily: 'Helvetica', fontSize: 9 }}>
@@ -23,19 +35,20 @@ export default function Report({ rows, logo }) {
               <Text key={c.key} style={cell(c, { fontFamily: 'Helvetica-Bold', paddingTop: 5 })}>{c.title}</Text>
             ))}
           </View>
-          {Array.from({ length: rows }, (_, i) => {
-            const r = row(i);
-            return (
-              <View key={i} wrap={false} style={{ flexDirection: 'row', height: ROW_H, borderBottomWidth: 0.5, borderColor: '#555' }}>
-                {COLS.map((c) => (
-                  <Text key={c.key} style={cell(c)}>{r[c.key]}</Text>
-                ))}
-              </View>
-            );
-          })}
+          {children}
         </View>
         <Text fixed style={{ position: 'absolute', bottom: 25, left: PAD.x, right: PAD.x, textAlign: 'center', fontSize: 8, color: '#555' }} render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
       </Page>
     </Document>
+  );
+}
+
+export default function Report({ rows, logo }) {
+  return (
+    <ReportPage logo={logo}>
+      {Array.from({ length: rows }, (_, i) => (
+        <Row key={i} i={i} />
+      ))}
+    </ReportPage>
   );
 }

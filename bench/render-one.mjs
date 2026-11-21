@@ -1,7 +1,9 @@
 // One benchmark render in this process; prints one JSON line with pages, time, peak RSS and bytes.
 // run.mjs starts one of these per run, so the peak RSS belongs to that render alone.
 //
-//   node bench/render-one.mjs <axonpdf|react-pdf|pdfkit> <pages> <out.pdf>
+//   node bench/render-one.mjs <axonpdf|axonpdf-rows|react-pdf|pdfkit> <pages> <out.pdf>
+//
+// axonpdf-rows is the same report with its table rows in axonpdf's <Rows> (report-rows.jsx).
 //
 // <pages> is the target page count; the row count comes from layout.mjs rowsFor.
 import { build } from 'esbuild';
@@ -14,8 +16,8 @@ import { LOGO, rowsFor } from './layout.mjs';
 const HERE = import.meta.dirname;
 const ROOT = resolve(HERE, '..');
 const [engine, pages, outArg] = process.argv.slice(2);
-if (!['axonpdf', 'react-pdf', 'pdfkit'].includes(engine) || !(+pages > 0) || !outArg) {
-  throw new Error('usage: render-one.mjs <axonpdf|react-pdf|pdfkit> <pages> <out.pdf>');
+if (!['axonpdf', 'axonpdf-rows', 'react-pdf', 'pdfkit'].includes(engine) || !(+pages > 0) || !outArg) {
+  throw new Error('usage: render-one.mjs <axonpdf|axonpdf-rows|react-pdf|pdfkit> <pages> <out.pdf>');
 }
 const rows = rowsFor(+pages);
 const out = resolve(outArg);
@@ -28,11 +30,11 @@ if (engine === 'pdfkit') {
 } else {
   // The bundle sits where its imports should resolve: the repo root for axonpdf (the workspace
   // package), bench/ for react-pdf, with `@axonpdf/react` aliased to `@react-pdf/renderer`.
-  const dir = engine === 'axonpdf' ? ROOT : HERE;
-  const bundle = resolve(dir, 'node_modules/.cache/axonpdf-bench/report.mjs');
+  const dir = engine === 'react-pdf' ? HERE : ROOT;
+  const bundle = resolve(dir, 'node_modules/.cache/axonpdf-bench', `${engine}.mjs`);
   await build({
     stdin: {
-      contents: `export { default as Report } from './report.jsx';
+      contents: `export { default as Report } from './${engine === 'axonpdf-rows' ? 'report-rows' : 'report'}.jsx';
         export { renderToFile } from '@axonpdf/react';
         export { createElement } from 'react';`,
       resolveDir: HERE,

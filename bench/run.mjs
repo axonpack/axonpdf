@@ -1,7 +1,7 @@
 // Runs the benchmark report with axonpdf, react-pdf 4.9.0 and pdfkit, one process per run and one
 // run at a time, and appends every result to bench/RESULTS.md.
 //
-//   node bench/run.mjs [--sizes 10,100,1000,5000] [--engines axonpdf,react-pdf,pdfkit] [--label text]
+//   node bench/run.mjs [--sizes 10,100,1000,5000] [--engines axonpdf,axonpdf-rows,react-pdf,pdfkit] [--label text]
 //
 // --label is added to the batch heading in RESULTS.md, for example "baseline, not for publishing".
 //
@@ -22,7 +22,7 @@ const LIMIT_KB = 8 * 2 ** 20;
 const SKIP_AFTER_MS = 5 * 60e3;
 
 const { values: o } = parseArgs({
-  options: { label: { type: 'string' }, sizes: { type: 'string', default: '10,100,1000,5000' }, engines: { type: 'string', default: 'axonpdf,react-pdf,pdfkit' } },
+  options: { label: { type: 'string' }, sizes: { type: 'string', default: '10,100,1000,5000' }, engines: { type: 'string', default: 'axonpdf,axonpdf-rows,react-pdf,pdfkit' } },
 });
 const sizes = o.sizes.split(',').map(Number);
 const engines = o.engines.split(',');
@@ -31,11 +31,12 @@ const sh = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8' }).trim();
 const version = (path) => JSON.parse(readFileSync(path, 'utf8')).version;
 const VERSIONS = {
   axonpdf: `${version(resolve(ROOT, 'packages/react/package.json'))} (dev build)`,
+  'axonpdf-rows': `${version(resolve(ROOT, 'packages/react/package.json'))} (dev build, <Rows>)`,
   'react-pdf': version(resolve(HERE, 'node_modules/@react-pdf/renderer/package.json')),
   pdfkit: version(resolve(HERE, 'node_modules/pdfkit/package.json')),
 };
 
-const wasmStale = engines.includes('axonpdf') && freshBuild();
+const wasmStale = engines.some((e) => e.startsWith('axonpdf')) && freshBuild();
 const dirty = sh('git', ['-C', ROOT, 'status', '--porcelain', '--', 'crates', 'packages']) ? ' with uncommitted changes in crates/ or packages/' : '';
 const wasm = resolve(ROOT, 'packages/core/wasm/axonpdf.wasm');
 const header = [
@@ -45,8 +46,8 @@ const header = [
   `- WASM: ${existsSync(wasm) ? `${statSync(wasm).size} bytes` : 'missing'}${wasmStale ? ', **older than crates/ (stale)**' : ''}`,
   `- Machine: ${sh('sysctl', ['-n', 'machdep.cpu.brand_string'])}, ${cpus().length} cores, ${Math.round(totalmem() / 2 ** 30)} GB RAM, macOS ${sh('sw_vers', ['-productVersion'])}, Node ${process.version}`,
   `- Engines: axonpdf ${VERSIONS.axonpdf}, react-pdf ${VERSIONS['react-pdf']}, pdfkit ${VERSIONS.pdfkit}`,
-  '- Time is the render call alone (Node start-up and bundling excluded); peak RSS is the whole process.',
-  '- Document: bench/report.jsx (pdfkit: bench/report-pdfkit.mjs), A4, a header with a logo, three paragraphs, a 5-column bordered table, "Page n of N" footer',
+  '- React in production mode (`NODE_ENV=production`). Time is the render call alone (Node start-up and bundling excluded); peak RSS is the whole process.',
+  '- Document: bench/report.jsx (axonpdf-rows: bench/report-rows.jsx, pdfkit: bench/report-pdfkit.mjs), A4, a header with a logo, three paragraphs, a 5-column bordered table, "Page n of N" footer',
   '',
   '| Engine | Target pages | Pages | Time | Peak RSS | Output | qpdf | Rerun |',
   '| --- | --- | --- | --- | --- | --- | --- | --- |',
@@ -55,7 +56,10 @@ appendFileSync(RESULTS, header + '\n');
 
 function runOne(engine, size) {
   const out = resolve(ROOT, 'local/bench', `report-${size}-${engine}.pdf`);
-  const child = spawn(process.execPath, [resolve(HERE, 'render-one.mjs'), engine, String(size), out], { stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, [resolve(HERE, 'render-one.mjs'), engine, String(size), out], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, NODE_ENV: 'production' }, // React's production build for both React engines
+  });
   let stdout = '';
   let stderr = '';
   child.stdout.on('data', (d) => (stdout += d));
