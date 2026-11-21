@@ -1,7 +1,7 @@
 //! PDF/A: the XMP metadata naming the part and level, and an sRGB output intent. Text in the
 //! Standard 14 fonts is never embedded, so a conforming file uses registered fonts only.
 
-use pdf_writer::{Finish, Name, Ref, Str};
+use pdf_writer::{Name, Ref, Str};
 
 use super::Writer;
 use super::emit::Out;
