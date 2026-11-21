@@ -45,6 +45,10 @@
 //!   the children in this same shape.
 //! - Functions other than `render` (`hyphenationCallback`, `onRender`, ...) are not sent.
 
+pub mod node;
+
+pub use node::{Kind, Node};
+
 use serde::Deserialize;
 use serde_json::{Map, Value};
 

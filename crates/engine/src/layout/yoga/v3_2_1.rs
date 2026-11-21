@@ -30,6 +30,9 @@ unsafe extern "C" {
     pub fn YGNodeLayoutGetTop(node: YgNode) -> f32;
     pub fn YGNodeLayoutGetWidth(node: YgNode) -> f32;
     pub fn YGNodeLayoutGetHeight(node: YgNode) -> f32;
+    pub fn YGNodeLayoutGetMargin(node: YgNode, edge: i32) -> f32;
+    pub fn YGNodeLayoutGetPadding(node: YgNode, edge: i32) -> f32;
+    pub fn YGNodeLayoutGetBorder(node: YgNode, edge: i32) -> f32;
 
     pub fn YGNodeStyleSetFlexDirection(node: YgNode, v: i32);
     pub fn YGNodeStyleSetJustifyContent(node: YgNode, v: i32);
