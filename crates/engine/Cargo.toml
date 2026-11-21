@@ -6,8 +6,11 @@ license = "MIT"
 description = "The axonpdf PDF engine"
 publish = false
 
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+# preserve_order: style keys apply in the order they were written, as in a JS object.
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
+
 [build-dependencies]
 cc = "1"
 
-[dev-dependencies]
-serde_json = { version = "1", features = ["float_roundtrip"] }  # exact parsing; the default can be one ulp off
