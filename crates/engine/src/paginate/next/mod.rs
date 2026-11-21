@@ -10,7 +10,7 @@
 //!
 //! ponytail: one `<Page>`'s whole content is laid out and held while it is cut (about 0.7 MB a
 //! page of dense table), since its first boxes decide every break. A layout window like the
-//! default engine's would keep it flat. `isLast` is never given to `render` functions here.
+//! default engine's would keep it flat.
 
 mod build;
 mod cut;
