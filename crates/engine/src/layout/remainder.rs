@@ -44,6 +44,8 @@ struct Ctx {
     width_set: bool,
     /// No absolutely placed node (but fixed ones) on the way down.
     no_absolute: bool,
+    /// Only telling Yoga again what it holds: windows stay as they are, no rows are fetched.
+    again: bool,
 }
 
 impl Remainder {
@@ -116,6 +118,7 @@ impl Remainder {
         let ctx = Ctx {
             width_set: true,
             no_absolute: true,
+            again: false,
         };
         let mut slack = 2.0 * cut.max(200.0);
         loop {
@@ -130,12 +133,12 @@ impl Remainder {
             let root = page.yoga.unwrap();
             self.tree.height(root, YDim::Auto);
             self.tree.calculate(root, None, None);
-            if sized {
-                // Again at the height it came to, fresh as the components lay it out: Yoga keeps
-                // flex bases and boxes measured without the height, and some differ with it.
-                let height = self.tree.layout(root).height;
-                touch(page);
-                sync(&mut self.tree, page, true, cut, slack, ctx, a)?;
+            // Again at the height it came to, as the components lay it out, where that can change
+            // a box.
+            let height = self.tree.layout(root).height;
+            if sized && touch(page, false) {
+                let again = Ctx { again: true, ..ctx };
+                sync(&mut self.tree, page, true, cut, slack, again, a)?;
                 self.tree.height(root, YDim::Pt(height));
                 self.tree.calculate(root, None, None);
             }
@@ -152,13 +155,30 @@ impl Remainder {
     }
 }
 
-/// Marks every node Yoga holds as changed, so the next sync gives them all their style and
-/// children again, which drops what Yoga kept of them.
-fn touch(n: &mut Node) {
-    if n.yoga.is_some() {
-        n.dirty = true;
-        n.children.iter_mut().for_each(touch);
+/// Marks the nodes Yoga holds whose boxes may change once the page has a height, and the way
+/// down to them, as changed; returns whether there are any. Those are a set flex basis down a
+/// column (Yoga keeps the basis it first worked out, and works it out differently with a
+/// height) and percent heights. The next sync gives them their style and children again.
+/// ponytail: by style, not proof; add a case here when a page with dynamic content still differs.
+fn touch(n: &mut Node, in_column: bool) -> bool {
+    if n.yoga.is_none() {
+        return false;
     }
+    let s = &n.style;
+    let pct = |d: Option<Dim>| matches!(d, Some(Dim::Pct(_)));
+    let mut changed = (in_column && matches!(s.flex_basis, Some(Dim::Pt(_) | Dim::Pct(_))))
+        || pct(s.height)
+        || pct(s.min_height)
+        || pct(s.max_height);
+    let column = matches!(
+        s.flex_direction,
+        None | Some(FlexDirection::Column | FlexDirection::ColumnReverse)
+    );
+    for c in &mut n.children {
+        changed |= touch(c, column);
+    }
+    n.dirty |= changed;
+    changed
 }
 
 /// Whether `n` may keep only a window of its children. A page's own height is not given to
@@ -200,6 +220,7 @@ fn child_ctx(n: &Node, c: &Node, ctx: Ctx) -> Ctx {
                 && c.style.width.is_none()
                 && c.style.aspect_ratio.is_none()),
         no_absolute: ctx.no_absolute,
+        again: ctx.again,
     }
 }
 
@@ -210,7 +231,8 @@ fn window(n: &Node, reach: f64) -> usize {
     let mut bottom = 0.0;
     for (i, c) in n.children.iter().enumerate() {
         if bottom > reach {
-            return i;
+            // One at least: none would mean no window.
+            return i.max(1);
         }
         let l = &c.layout;
         bottom += if c.yoga.is_some() {
@@ -285,7 +307,7 @@ fn sync_node(
         };
         // Rows that arrive in batches are fetched until the window is full, or all of them
         // when there is no window.
-        if has_more(n) {
+        if has_more(n) && !ctx.again {
             let windowed = can_window(n, is_page, ctx);
             while !windowed || window(n, cut + slack) >= n.children.len() {
                 if !(a.more_rows)(n)? {
@@ -295,7 +317,9 @@ fn sync_node(
         }
         // Rows come in batches, so they window however few have come yet.
         let long = n.children.len() > WINDOW_MIN || has_more(n);
-        n.window = if long && can_window(n, is_page, ctx) {
+        n.window = if ctx.again {
+            n.window
+        } else if long && can_window(n, is_page, ctx) {
             window(n, cut + slack)
         } else {
             0
