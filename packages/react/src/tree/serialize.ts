@@ -17,7 +17,15 @@ const EMOJI = /\p{RGI_Emoji}/gv;
 /** The tree JSON for a committed `Document` (shape in `types/tree.type.ts`). */
 export function serializeDocument(document: Instance, session: Session): TreeDocument {
   const hyphenationCallback = Font.getHyphenationCallback() ?? undefined;
-  const props = { creationDate: new Date(), hyphenationCallback, ...document.props };
+  const props: Record<string, unknown> = {
+    creationDate: new Date(),
+    hyphenationCallback,
+    ...document.props,
+  };
+  if (props.userPassword || props.ownerPassword) {
+    // The engine has no random source: these seed the encryption keys, salts and IVs.
+    props.encryptionSeed = Array.from(crypto.getRandomValues(new Uint8Array(32)));
+  }
   return { v: 1, ...(serialize({ ...document, props }, session) as TreeNode) } as TreeDocument;
 }
 
