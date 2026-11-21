@@ -149,6 +149,11 @@ export interface CanvasProps extends NodeProps {
 
 // axonpdf's own components
 
+/**
+ * In a document with `Rows`, pages can't be counted ahead, so `totalPages` in `render` functions
+ * and page bands is a placeholder the engine fills in when the file is finished. Show it in
+ * text; don't compute with it. `PageCount` and `isLast` work as usual.
+ */
 export interface RowsProps<T> {
   /** An array, or an async iterable that yields rows as they arrive. */
   rows: Iterable<T> | AsyncIterable<T>;

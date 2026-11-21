@@ -40,6 +40,27 @@ describe("Rows", () => {
     expect(texts(next())).toEqual({ done: true, rows: ["2:c"] });
   });
 
+  it("gives page bands a placeholder total and isLast in a Rows document", async () => {
+    const seen: { page: number; total: unknown; last: boolean }[] = [];
+    const rows = Array.from({ length: 120 }, (_, i) => `row ${i}`);
+    await renderToBuffer(
+      <Document>
+        <Page
+          footer={({ pageNumber, totalPages, isLast }) => {
+            seen.push({ page: pageNumber, total: totalPages, last: isLast });
+            return <Text>{`${pageNumber} / ${totalPages}`}</Text>;
+          }}
+        >
+          <Rows rows={rows}>{(row) => <Text>{row}</Text>}</Rows>
+        </Page>
+      </Document>,
+    );
+    const last = seen.filter((s) => s.last);
+    expect(last).toHaveLength(1);
+    expect(last[0].page).toBe(Math.max(...seen.map((s) => s.page)));
+    expect(typeof last[0].total).toBe("string");
+  });
+
   it("renders a PDF with rows pulled by the engine", async () => {
     const buffer = await renderToBuffer(doc(Array.from({ length: 250 }, (_, i) => `row ${i}`)));
     expect(buffer.subarray(0, 5).toString()).toBe("%PDF-");

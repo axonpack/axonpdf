@@ -53,6 +53,7 @@ describe("serializeDocument", () => {
           totalPages: 5,
           subPageNumber: 1,
           subPageTotalPages: 1,
+          isLast: false,
         }),
       );
     expect(call(withTotal.render)).toEqual({

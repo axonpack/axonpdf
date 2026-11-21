@@ -92,7 +92,7 @@ const bandArgs = (args: RenderArgs, mark: Mark) => ({
   },
   get isLast() {
     mark();
-    return args.pageNumber === args.totalPages;
+    return args.isLast ?? args.pageNumber === args.totalPages;
   },
 });
 
