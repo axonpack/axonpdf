@@ -28,14 +28,9 @@ pub fn draw(ops: &mut Vec<Op>, svg: &Node, x: f64, y: f64, radii: [f32; 4], draw
     if l.width <= 0.0 || l.height <= 0.0 {
         return;
     }
+    // Definitions anywhere in the tree, as SVG files often keep gradients outside `defs`.
     let mut defs = HashMap::new();
-    for d in svg.children.iter().filter(|c| is(c, "DEFS")) {
-        for def in &d.children {
-            if let Some(id) = def.props.get("id").and_then(Value::as_str) {
-                defs.insert(id, def);
-            }
-        }
-    }
+    collect_defs(svg, &mut defs);
     let cx = Ctx { defs, draw };
     let view = svg
         .props
@@ -83,7 +78,7 @@ fn draw_children(
     cx: &Ctx,
 ) {
     for child in &parent.children {
-        if is(child, "DEFS") || child.kind == Kind::TextInstance {
+        if DEFINITIONS.iter().any(|k| is(child, k)) || child.kind == Kind::TextInstance {
             continue;
         }
         let p = Props::of(child, inherited, container);
@@ -177,6 +172,26 @@ fn draw_node(ops: &mut Vec<Op>, node: &Node, p: &Props, cx: &Ctx) {
         ops.push(Op::Restore);
     } else if fill.is_some() || stroke.is_some() {
         ops.push(Op::Path { path, fill, stroke });
+    }
+}
+
+/// Nodes that only define things other nodes refer to; they draw nothing themselves.
+const DEFINITIONS: [&str; 5] = [
+    "DEFS",
+    "LINEAR_GRADIENT",
+    "RADIAL_GRADIENT",
+    "CLIP_PATH",
+    "MARKER",
+];
+
+fn collect_defs<'a>(n: &'a Node, defs: &mut HashMap<&'a str, &'a Node>) {
+    for c in &n.children {
+        if DEFINITIONS[1..].iter().any(|k| is(c, k))
+            && let Some(id) = c.props.get("id").and_then(Value::as_str)
+        {
+            defs.insert(id, c);
+        }
+        collect_defs(c, defs);
     }
 }
 
