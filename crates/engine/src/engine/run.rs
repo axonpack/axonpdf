@@ -8,7 +8,7 @@ use super::{RenderArgs, RenderCallback, Visit};
 use crate::fonts::FontStore;
 use crate::hooks::Hooks;
 use crate::layout::Assets;
-use crate::layout::remainder::{ROWS, ROWS_DONE};
+use crate::layout::remainder::{LAZY_CHILDREN, ROWS, ROWS_DONE, batch_id};
 use crate::paginate::{self, Finished, Pager, next, page};
 use crate::profile::{self, Phase};
 use crate::style::Container;
@@ -40,10 +40,10 @@ pub(super) fn with_assets<R>(
         if !n.pending.is_empty() {
             return Ok(n.build_pending(&PAGE.with(Cell::get), LAZY) > 0);
         }
-        if !n.has(ROWS) || n.is(ROWS_DONE) {
+        let Some(id) = batch_id(n).filter(|_| !n.is(ROWS_DONE)) else {
             return Ok(false);
-        }
-        let (children, done) = hooks.rows(n.number(ROWS).unwrap_or(0.0) as u32)?;
+        };
+        let (children, done) = hooks.rows(id)?;
         if done {
             n.props.insert(ROWS_DONE.into(), true.into());
         }
@@ -77,7 +77,7 @@ pub(super) fn layout_pages(
 ) -> Result<(), String> {
     hooks.reset();
     with_assets(fonts, sizes, hooks, &doc.props, |assets| {
-        let counts = count(assets, callback, &doc)?;
+        let counts = count(hooks, assets, callback, &doc)?;
         run(assets, callback, &doc, counts.as_deref(), Some(visit))?;
         Ok(())
     })
@@ -85,15 +85,19 @@ pub(super) fn layout_pages(
 
 /// The page counts per `<Page>`, from a first run, when something reads the total.
 pub(super) fn count(
+    hooks: &Hooks,
     assets: &Assets,
     callback: &mut Option<RenderCallback>,
     doc: &Doc,
 ) -> Result<Option<Vec<u32>>, String> {
-    if reads_total(callback, doc)? {
-        Ok(Some(run(assets, callback, doc, None, None)?))
-    } else {
-        Ok(None)
+    if !reads_total(callback, doc)? {
+        return Ok(None);
     }
+    // Lazy children fetched while counting are replayed for the pass that draws the pages.
+    hooks.record(true);
+    let counts = run(assets, callback, doc, None, None);
+    hooks.record(false);
+    Ok(Some(counts?))
 }
 
 /// Whether any `render` function in the tree reads the totals. Each is called once to see.
@@ -103,16 +107,18 @@ fn reads_total(callback: &mut Option<RenderCallback>, doc: &Doc) -> Result<bool,
     // Read from each page's JSON without building it: `render` ids (bands' included), page
     // counts, and rows, which are fetched once and cannot be counted ahead.
     // ponytail: Rows documents get no totals; a deferred total drawn at the end would fix it.
-    let (mut found, mut count) = (Vec::new(), false);
+    let (mut found, mut count, mut lazy) = (Vec::new(), false, false);
     for json in doc.page_json() {
         if tree::has_type(json, "ROWS") && !tree::numbers_at(json, ROWS).is_empty() {
             return Ok(false);
         }
+        // Lazy children can hide what reads the total, so a page with them is always counted.
+        lazy |= !tree::numbers_at(json, LAZY_CHILDREN).is_empty();
         count |= tree::has_type(json, "PAGE_COUNT");
         found.extend(tree::numbers_at(json, "render"));
         found.extend(next::Head::read(json).layout);
     }
-    if count {
+    if count || lazy {
         return Ok(true);
     }
     let args = RenderArgs {

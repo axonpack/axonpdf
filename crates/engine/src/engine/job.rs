@@ -73,7 +73,7 @@ impl Engine {
             .collect();
         let sizes = self.image_sizes();
         let counts = with_assets(&self.fonts, &sizes, &self.hooks, &doc.props, |a| {
-            count(a, &mut self.callback, &doc)
+            count(&self.hooks, a, &mut self.callback, &doc)
         })?;
         let pending_total = counts.is_none()
             && doc

@@ -27,10 +27,20 @@ use crate::tree::Node;
 /// A `Rows` node's id for its batches, and the mark that it has sent them all.
 pub const ROWS: &str = "rows";
 pub const ROWS_DONE: &str = "__rows_done";
+/// Any container's id for children the adapter builds only when they are reached. They come
+/// in batches like rows, but can be built again, so the pages can still be counted first.
+pub const LAZY_CHILDREN: &str = "lazy";
 
-/// Whether more children are still to come: waiting as JSON, or from a `Rows` source.
+/// The id a node's batches are asked for by: its `Rows` id, or its lazy children's.
+pub fn batch_id(n: &Node) -> Option<u32> {
+    n.number(ROWS)
+        .or_else(|| n.number(LAZY_CHILDREN))
+        .map(|id| id as u32)
+}
+
+/// Whether more children are still to come: waiting as JSON, or in batches.
 pub fn has_more(n: &Node) -> bool {
-    !n.pending.is_empty() || (n.has(ROWS) && !n.is(ROWS_DONE))
+    !n.pending.is_empty() || (batch_id(n).is_some() && !n.is(ROWS_DONE))
 }
 
 pub struct Remainder {
