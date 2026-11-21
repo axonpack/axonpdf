@@ -77,8 +77,8 @@ pub fn paint(def: &Node, bbox: [f64; 4]) -> Option<Paint> {
     })))
 }
 
-/// `gradientTransform`. Rotation angles are read as radians and bounding-box translations
-/// scale with the box, matching how documents have always rendered.
+/// `gradientTransform`, read like any SVG transform (angles in degrees, or `rad`).
+/// Translations in bounding-box units scale with the box.
 fn matrix(p: &Props, (w, h): (f64, f64), object: bool) -> [f32; 6] {
     let ops = p
         .get("gradientTransform")
@@ -86,35 +86,12 @@ fn matrix(p: &Props, (w, h): (f64, f64), object: bool) -> [f32; 6] {
         .unwrap_or_default();
     let mut m = [1.0f32, 0.0, 0.0, 1.0, 0.0, 0.0];
     for t in ops {
-        let v = |i: usize| t.values.get(i).copied().unwrap_or(0.0);
-        let scale_xy = |x: f64, y: f64| if object { (w * x, h * y) } else { (x, y) };
-        let step: [f64; 6] = match t.op.as_str() {
-            "scale" => [v(0), 0.0, 0.0, v(1), 0.0, 0.0],
-            "translate" => {
-                let (x, y) = scale_xy(v(0), v(1));
-                [1.0, 0.0, 0.0, 1.0, x, y]
-            }
-            "rotate" => {
-                // The parser gives degrees; reading them as radians keeps old output.
-                let (s, c) = v(0).sin_cos();
-                let (cx, cy) = (v(1), v(2));
-                [
-                    c,
-                    s,
-                    -s,
-                    c,
-                    cx * (1.0 - c) + cy * s,
-                    cy * (1.0 - c) - cx * s,
-                ]
-            }
-            "skew" => [1.0, v(0).tan(), v(1).tan(), 1.0, 0.0, 0.0],
-            "matrix" => {
-                let (x, y) = scale_xy(v(4), v(5));
-                [v(0), v(1), v(2), v(3), x, y]
-            }
-            _ => [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-        };
-        m = multiply(m, step.map(|x| x as f32));
+        let mut step = super::matrix(&t);
+        if object && matches!(t.op.as_str(), "translate" | "matrix") {
+            step[4] *= w as f32;
+            step[5] *= h as f32;
+        }
+        m = multiply(m, step);
     }
     m
 }
@@ -147,5 +124,24 @@ mod tests {
             panic!()
         };
         assert_eq!((fx, fy, fr, cx, cy, r), (30.0, 20.0, 0.0, 50.0, 50.0, 50.0));
+    }
+
+    #[test]
+    fn transform_angles_are_degrees() {
+        let g = def(serde_json::json!({"type": "LINEAR_GRADIENT",
+            "props": {"gradientTransform": "rotate(90) skewX(45)"}}));
+        let Some(Paint::Gradient(g)) = paint(&g, [0.0, 0.0, 10.0, 10.0]) else {
+            panic!()
+        };
+        let m = g.transform.map(|v| (v * 1000.0).round() / 1000.0);
+        // rotate(90) then skewX(45): [0 1 -1 0] x [1 0 1 1].
+        assert_eq!(m, [0.0, 1.0, -1.0, 1.0, 0.0, 0.0]);
+        let rad = def(
+            serde_json::json!({"type": "LINEAR_GRADIENT", "props": {"gradientTransform": "rotate(1.5707964rad)"}}),
+        );
+        let Some(Paint::Gradient(rad)) = paint(&rad, [0.0, 0.0, 10.0, 10.0]) else {
+            panic!()
+        };
+        assert!((rad.transform[1] - 1.0).abs() < 1e-5);
     }
 }
