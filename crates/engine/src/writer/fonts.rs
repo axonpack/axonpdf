@@ -118,6 +118,11 @@ impl Writer {
                 .descendant_font(cid)
                 .to_unicode(cmap);
         });
+        // Strings in an encrypted file are encrypted too.
+        let (registry, ordering) = (
+            self.seal(cid, b"Adobe".to_vec()),
+            self.seal(cid, b"Identity".to_vec()),
+        );
         self.emit.write(out, |c| {
             let mut f = c.cid_font(cid);
             f.subtype(if cff {
@@ -127,8 +132,8 @@ impl Writer {
             });
             f.base_font(Name(base.as_bytes()));
             f.system_info(SystemInfo {
-                registry: Str(b"Adobe"),
-                ordering: Str(b"Identity"),
+                registry: Str(&registry),
+                ordering: Str(&ordering),
                 supplement: 0,
             });
             f.font_descriptor(descriptor);

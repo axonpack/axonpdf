@@ -4,6 +4,7 @@
 
 mod border;
 mod content;
+mod crypt;
 mod emit;
 mod fonts;
 mod forms;
@@ -11,6 +12,7 @@ mod gradient;
 mod images;
 mod info;
 mod nav;
+mod security;
 mod state;
 mod strings;
 mod text;
@@ -22,6 +24,7 @@ use pdf_writer::{Chunk, Filter, Finish, Name, Rect as PdfRect, Ref};
 use crate::display::{ImageId, PageOut};
 use crate::fonts::FontStore;
 use crate::images::ImageStore;
+pub use crypt::{Encryption, Permissions, Printing};
 use emit::Emitter;
 pub use emit::Out;
 pub use info::{DocInfo, PageLayout, PageMode, PdfVersion};
@@ -40,6 +43,9 @@ pub struct Writer {
     gradients: gradient::Written,
     nav: nav::Nav,
     form: forms::Form,
+    /// The file identifier, and the encryption keyed to it.
+    id: [u8; 16],
+    crypt: Option<crypt::Crypt>,
 }
 
 impl Writer {
@@ -47,6 +53,11 @@ impl Writer {
         let mut emit = Emitter::default();
         let catalog = emit.alloc();
         let pages = emit.alloc();
+        let id = security::file_id(&info);
+        let crypt = info
+            .encryption
+            .as_ref()
+            .map(|e| crypt::Crypt::new(e, info.pdf_version, &id));
         Writer {
             info,
             emit,
@@ -59,6 +70,8 @@ impl Writer {
             gradients: Default::default(),
             nav: Default::default(),
             form: Default::default(),
+            id,
+            crypt,
         }
     }
 
@@ -118,18 +131,17 @@ impl Writer {
         nav.form = form;
         let info = self.write_info(out);
         self.write_catalog(nav, out);
-        let trailer = format!(
-            "<<\n  /Size {}\n  /Root {} 0 R\n  /Info {} 0 R\n>>",
-            self.emit.size(),
-            self.catalog.get(),
-            info.get()
-        );
+        let encrypt = self.write_encrypt(out);
+        let trailer = self.trailer(info, encrypt);
         self.emit.end(out, trailer.as_bytes());
     }
 
     /// Encrypts a string or stream of object `id` when the document is encrypted.
-    fn seal(&self, _id: Ref, data: Vec<u8>) -> Vec<u8> {
-        data
+    fn seal(&self, id: Ref, data: Vec<u8>) -> Vec<u8> {
+        match &self.crypt {
+            Some(c) => c.seal(id.get(), &data),
+            None => data,
+        }
     }
 
     /// The shared graphics state that sets these alphas.
