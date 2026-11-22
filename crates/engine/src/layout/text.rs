@@ -166,6 +166,7 @@ pub fn fragments(
         attachment: None,
         deferred: false,
         rtl: s.direction.as_deref() == Some("rtl"),
+        features: s.font_feature_settings.clone().unwrap_or_default(),
     });
     for child in &node.children {
         match child.kind {

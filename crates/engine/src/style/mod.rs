@@ -76,6 +76,8 @@ pub struct Style {
     pub font_size: Option<f64>,
     pub font_style: Option<String>,
     pub font_weight: Option<u16>,
+    /// OpenType features turned on or off, by tag.
+    pub font_feature_settings: Option<Vec<([u8; 4], bool)>>,
     pub letter_spacing: Option<f64>,
     pub line_height: Option<f64>,
     pub text_align: Option<String>,

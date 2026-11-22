@@ -147,7 +147,7 @@ fn shape(fonts: &FontStore, attrs: Rc<Attrs>, font: FontId, start: usize, text: 
         let char_at: Vec<usize> = text.char_indices().map(|(b, _)| b).collect();
         let chars: Vec<char> = text.chars().collect();
         let mut glyphs: Vec<Glyph> = fonts
-            .shape(font, text, em, 0.0, &[])
+            .shape(font, text, em, 0.0, &attrs.features)
             .into_iter()
             .map(|g| {
                 let i = char_at.partition_point(|&b| b < g.cluster as usize);

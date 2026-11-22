@@ -133,3 +133,17 @@ fn inheritance() {
     inherit(&parent, true, &mut nested);
     assert!(nested.background_color.is_some());
 }
+
+#[test]
+fn font_feature_settings_take_a_list_or_an_object_and_are_inherited() {
+    let list = r(json!({"fontFeatureSettings": ["tnum", "zero", "toolong"]}));
+    assert_eq!(list.font_feature_settings, Some(vec![(*b"tnum", true), (*b"zero", true)]));
+    let object = r(json!({"fontFeatureSettings": {"liga": 0, "ss01": 1, "kern": false}}));
+    assert_eq!(
+        object.font_feature_settings,
+        Some(vec![(*b"liga", false), (*b"ss01", true), (*b"kern", false)])
+    );
+    let mut child = r(json!({}));
+    inherit(&list, false, &mut child);
+    assert_eq!(child.font_feature_settings, list.font_feature_settings);
+}

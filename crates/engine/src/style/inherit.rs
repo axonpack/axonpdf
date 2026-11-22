@@ -2,10 +2,10 @@
 
 use super::Style;
 
-/// Fills `child` with what `parent` passes down. Every node passes color, font, letter
-/// spacing, opacity, text decoration (joined with the child's own), transform, line height,
-/// alignment, visibility and word spacing; a text node also passes its background color to the
-/// text nested in it.
+/// Fills `child` with what `parent` passes down. Every node passes color, font and its OpenType
+/// features, letter spacing, opacity, text decoration (joined with the child's own), transform,
+/// line height, alignment, visibility and word spacing; a text node also passes its background
+/// color to the text nested in it.
 pub fn inherit(parent: &Style, parent_is_text: bool, child: &mut Style) {
     macro_rules! pass {
         ($($f:ident),*) => { $( if child.$f.is_none() { child.$f = parent.$f.clone(); } )* };
@@ -16,6 +16,7 @@ pub fn inherit(parent: &Style, parent_is_text: bool, child: &mut Style) {
         font_size,
         font_style,
         font_weight,
+        font_feature_settings,
         letter_spacing,
         opacity,
         text_transform,

@@ -20,6 +20,7 @@ fn attrs(size: f64, align: &str) -> Rc<Attrs> {
         attachment: None,
         deferred: false,
         rtl: false,
+        features: Vec::new(),
     })
 }
 
@@ -93,4 +94,24 @@ fn runs_split_where_the_script_changes() {
     // The leading bracket has no script of its own; spaces and the comma stay with the script
     // before them.
     assert_eq!(runs, ["(", "abc ", "Ωμέγα, ", "def"]);
+}
+
+#[test]
+fn font_feature_settings_change_the_glyphs() {
+    let mut fonts = FontStore::new();
+    let lato = std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/../../fixtures/assets/Lato-Regular.ttf"));
+    let lato = fonts.add_font("Lato", 400, false, lato.unwrap()).unwrap();
+    let ids = |text: &str, features: Vec<([u8; 4], bool)>| -> Vec<u16> {
+        let a = Rc::new(Attrs { features, ..(*attrs(12.0, "left")).clone() });
+        let frags = [Fragment { text: text.into(), attrs: a, fonts: vec![lato] }];
+        let p = &prepare(&fonts, &frags, &mut |w: &str| vec![w.to_string()])[0];
+        p.runs.iter().flat_map(|r| r.glyphs.iter().map(|g| g.id)).collect()
+    };
+    // `fi` is one ligature glyph by default; `liga` off keeps two.
+    assert_eq!(ids("fi", vec![]).len(), 1);
+    assert_eq!(ids("fi", vec![(*b"liga", false)]).len(), 2);
+    // Old-style figures swap every digit for another glyph.
+    let lining = ids("2026", vec![]);
+    let old_style = ids("2026", vec![(*b"onum", true)]);
+    assert!(lining.iter().zip(&old_style).all(|(a, b)| a != b));
 }

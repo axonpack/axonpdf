@@ -114,6 +114,7 @@ pub fn apply(s: &mut Style, c: &Container, key: &str, v: &Value, flat: &Map<Stri
         "fontSize" => s.font_size = num(),
         "fontStyle" => s.font_style = text(),
         "fontWeight" => s.font_weight = Some(font_weight(v)),
+        "fontFeatureSettings" => s.font_feature_settings = font_features(v),
         "letterSpacing" => s.letter_spacing = num(),
         "lineHeight" => s.line_height = line_height(c, v, flat),
         "textAlign" => s.text_align = text(),
@@ -182,6 +183,21 @@ fn font_weight(v: &Value) -> u16 {
                 .map_or_else(|| parse_float(v).map_or(400, |n| n as u16), |w| w.1)
         }
         _ => 400,
+    }
+}
+
+/// `["tnum", "zero"]` turns each tag on; `{ liga: 0, ss01: 1 }` sets each by its truthiness.
+/// Anything that is not a four-letter tag is skipped.
+fn font_features(v: &Value) -> Option<Vec<([u8; 4], bool)>> {
+    let tag = |t: &str| <[u8; 4]>::try_from(t.as_bytes()).ok();
+    match v {
+        Value::Array(a) => Some(a.iter().filter_map(|t| Some((tag(t.as_str()?)?, true))).collect()),
+        Value::Object(o) => Some(
+            o.iter()
+                .filter_map(|(t, on)| Some((tag(t)?, crate::tree::truthy(on))))
+                .collect(),
+        ),
+        _ => None,
     }
 }
 
