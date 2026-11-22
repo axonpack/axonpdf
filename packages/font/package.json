@@ -1,6 +1,7 @@
 {
   "name": "@axonpdf/font",
   "version": "0.0.0",
+  "private": true,
   "description": "Font and emoji registration for axonpdf documents",
   "bugs": {
     "url": "https://github.com/axonpack/axonpdf/issues"
@@ -25,9 +26,6 @@
       "default": "./build/index.js"
     },
     "./package.json": "./package.json"
-  },
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
     "build": "rm -rf build && tsc",

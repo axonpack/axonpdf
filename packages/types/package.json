@@ -1,6 +1,7 @@
 {
   "name": "@axonpdf/types",
   "version": "0.0.0",
+  "private": true,
   "description": "TypeScript types for axonpdf documents: styles, page sizes, sources, fonts",
   "bugs": {
     "url": "https://github.com/axonpack/axonpdf/issues"
@@ -25,9 +26,6 @@
       "default": "./build/index.js"
     },
     "./package.json": "./package.json"
-  },
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
     "build": "rm -rf build && tsc",
