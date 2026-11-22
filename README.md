@@ -1,6 +1,135 @@
 # axonpdf
 
-A PDF engine written in Rust. Work in progress: nothing here is ready to use yet.
+A PDF engine written in Rust, with React components on top. `@axonpdf/react` follows the usual
+React PDF renderer API, so an existing project can switch by changing its imports. Pages are laid
+out with flexbox and written as soon as each one is finished, which keeps memory low on documents
+of thousands of pages.
+
+Work in progress: the packages aren't on npm yet. To try them, build them from this repo (see
+Development setup and Build and test).
+
+## Packages
+
+| Package | What it is |
+| --- | --- |
+| [`@axonpdf/react`](packages/react) | The React components and render functions, for Node and the browser. |
+| [`@axonpdf/core`](packages/core) | The engine as WebAssembly, for Node, browsers and Workers. Bindings for other frameworks build on it. |
+| [`@axonpdf/font`](packages/font) | The font store: registered fonts, the emoji source and the hyphenation callback. |
+| [`@axonpdf/stylesheet`](packages/stylesheet) | Resolves a style in JavaScript: media queries, shorthands, units and colors. |
+| [`@axonpdf/types`](packages/types) | The TypeScript types for styles, page sizes, image sources and the rest. |
+
+Each package has a README and a REFERENCE.md that lists everything it exports.
+
+## Getting started
+
+```sh
+npm install @axonpdf/react react
+```
+
+### Node
+
+```tsx
+import { Document, Page, Text, renderToFile } from "@axonpdf/react";
+
+const doc = (
+  <Document title="Hello">
+    <Page size="A4" style={{ padding: 40 }}>
+      <Text>Hello from axonpdf.</Text>
+      <Text fixed render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
+    </Page>
+  </Document>
+);
+
+await renderToFile(doc, "hello.pdf");
+```
+
+`renderToStream` gives a stream that starts before the last page is laid out, and
+`renderToBuffer` gives the whole file as a `Buffer`.
+
+### Browser
+
+```tsx
+import { PDFDownloadLink, PDFViewer } from "@axonpdf/react";
+
+<PDFViewer style={{ width: "100%", height: 600 }}>{doc}</PDFViewer>
+<PDFDownloadLink document={doc} fileName="hello.pdf">
+  {({ loading }) => (loading ? "Preparing..." : "Download")}
+</PDFDownloadLink>
+```
+
+`usePDF` and `pdf(doc).toBlob()` give you the Blob yourself, and `@axonpdf/react/worker` renders
+in a Web Worker. Bundlers pick the browser build through the package's `browser` field and
+`exports` conditions. `packages/react/example` is a small app with a web page and a Node script.
+
+## Switching an existing project
+
+Replace the renderer's package name with `@axonpdf/react` in your imports. Nothing else in the
+document code has to change.
+
+To leave the imports alone, alias the packages in `package.json` instead. Use the names your
+project imports today:
+
+```json
+{
+  "dependencies": {
+    "<the renderer package>": "npm:@axonpdf/react",
+    "<its font package>": "npm:@axonpdf/font",
+    "<its stylesheet package>": "npm:@axonpdf/stylesheet",
+    "<its types package>": "npm:@axonpdf/types"
+  }
+}
+```
+
+Alias only the packages your code imports. `@axonpdf/react` already depends on the font and
+types packages.
+
+What behaves differently:
+
+- React 18 and 19 are supported, not earlier versions.
+- A Document without `creator` or `producer` writes `axonpdf` in both.
+- `renderToStream`, `renderToFile` and `toBuffer` send pages as they are finished instead of
+  laying the whole document out first. `toBuffer` waits for the last page only when the Document
+  has `onRender`.
+- These drawing bugs are fixed: a bookmark's `left` is measured from the page's left edge; a
+  radial gradient runs from its focal point to its outer circle; `gradientTransform` angles are
+  degrees and `skewX` and `skewY` act on the right axes; an unchecked checkbox is blank; floats sit
+  inside their parent's padding and push later content down when their text wraps.
+
+## Long documents
+
+A document written the usual way already renders in little memory: long lists of children, and
+each `<Page>` of a document with several, are built only when the engine reaches them, and each
+page is written and dropped as soon as it is finished. Two things help more on very large
+documents:
+
+- Pass long lists as a generator instead of an array. An array of 190,000 row elements stays alive
+  for the whole render; a generator never holds them all. In the 5000-page benchmark this lowered
+  the peak from 471 MB to 215 MB.
+
+  ```tsx
+  function* rows(data) {
+    for (const item of data) yield <Row key={item.id} item={item} />;
+  }
+
+  <View>{rows(data)}</View>
+  ```
+
+- Use `<Rows>` for rows from an array or an async iterable such as a database cursor. It renders
+  and writes them in batches; with an async source, pages go out between batches.
+
+  ```tsx
+  import { Rows } from "@axonpdf/react";
+
+  <Rows rows={cursor} batchSize={200}>
+    {(row) => <Row item={row} />}
+  </Rows>
+  ```
+
+  In a document with `Rows` the page total isn't known ahead, so `totalPages` in `render`
+  functions is a placeholder the engine fills in at the end: show it, but don't compute with it.
+  `<PageCount />` works as usual. `Rows` is axonpdf's own component.
+
+`profile(element)` reports where a slow render spends its time, and `formatProfile` prints it.
 
 ## Benchmarks
 
@@ -85,6 +214,22 @@ node --version
 ```
 
 ## Build and test
+
+The JavaScript packages, from the repo root:
+
+```sh
+source .tools/emsdk/emsdk_env.sh
+bun install
+bun run build:wasm    # the engine, into packages/core/wasm
+bun run build         # every package's build/ folder
+bun run test
+bun run check-types && bun run lint && bun run format:check
+```
+
+`node parity/compare.mjs` renders each document in `fixtures/` and compares its pages with stored
+reference renders (they live in the ignored `local/oracle/`; it needs poppler and qpdf).
+
+The engine:
 
 ```sh
 cargo test                                      # native
