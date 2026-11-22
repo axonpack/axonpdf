@@ -14,11 +14,11 @@ Development setup and Build and test).
 | --- | --- |
 | [`@axonpdf/react`](packages/react) | The React components and render functions, for Node and the browser. |
 | [`@axonpdf/core`](packages/core) | The engine as WebAssembly, for Node, browsers and Workers. Bindings for other frameworks build on it. |
-| [`@axonpdf/font`](packages/font) | The font store: registered fonts, the emoji source and the hyphenation callback. |
-| [`@axonpdf/stylesheet`](packages/stylesheet) | Resolves a style in JavaScript: media queries, shorthands, units and colors. |
-| [`@axonpdf/types`](packages/types) | The TypeScript types for styles, page sizes, image sources and the rest. |
-
 Each package has a README and a REFERENCE.md that lists everything it exports.
+
+`packages/font`, `packages/stylesheet` and `packages/types` are internal: the font store, a style
+resolver and the shared types. They aren't published. `@axonpdf/react` builds in the parts it
+uses and exports `Font`, `Style` and the other types itself.
 
 ## Getting started
 
@@ -72,22 +72,19 @@ in a Web Worker. Bundlers pick the browser build through the package's `browser`
 Replace the renderer's package name with `@axonpdf/react` in your imports. Nothing else in the
 document code has to change.
 
-To leave the imports alone, alias the packages in `package.json` instead. Use the names your
-project imports today:
+To leave the imports alone, alias the renderer's package name in `package.json` instead:
 
 ```json
 {
   "dependencies": {
-    "<the renderer package>": "npm:@axonpdf/react",
-    "<its font package>": "npm:@axonpdf/font",
-    "<its stylesheet package>": "npm:@axonpdf/stylesheet",
-    "<its types package>": "npm:@axonpdf/types"
+    "<the renderer package>": "npm:@axonpdf/react"
   }
 }
 ```
 
-Alias only the packages your code imports. `@axonpdf/react` already depends on the font and
-types packages.
+If your code also imports the renderer's separate font, stylesheet or types packages, import
+from `@axonpdf/react` there instead: it exports `Font`, `StyleSheet`, `Style` and the other
+types. Those packages have no axonpdf counterpart to alias.
 
 What behaves differently:
 

@@ -121,8 +121,8 @@ Gives `children({ blob, url, loading, error })` the rendered file without showin
 
 ## Font
 
-The shared font store from `@axonpdf/font`. In Node, font `src` paths and `file:` URLs are read
-from disk.
+The font store. An app has one, even when it bundles two copies of the package. In Node, font
+`src` paths and `file:` URLs are read from disk.
 
 | Method | What it does |
 | --- | --- |
@@ -138,8 +138,13 @@ from disk.
 
 Courier, Helvetica and Times-Roman are built in, with bold, italic and bold italic faces, and are
 never embedded. TrueType, OpenType, WOFF and WOFF2 files are embedded as subsets. A font collection
-(TTC) throws `Font collection is not supported`. The `@axonpdf/font` reference has the weight
-names and how a missing weight is picked.
+(TTC) throws `Font collection is not supported`.
+
+`fontWeight` is a number or a name: `thin` and `hairline` are 100, `ultralight` and `extralight`
+200, `light` 300, `normal` 400, `medium` 500, `semibold` and `demibold` 600, `bold` 700,
+`ultrabold` and `extrabold` 800, `heavy` and `black` 900. When text asks for a weight that isn't
+registered, the engine picks a face the way browsers do: for 600 it tries heavier faces first,
+for 300 lighter ones.
 
 ## createRenderer
 
@@ -565,7 +570,7 @@ SVG: `SVGProps`, `GProps`, `PathProps`, `RectProps`, `CircleProps`, `EllipseProp
 `LinearGradientProps`, `RadialGradientProps`, `StopProps`, `MarkerProps`,
 `SVGPresentationAttributes`.
 
-Styles and values, from `@axonpdf/types`: `Style`, `StyleProp`, `Styles`, `BaseStyle`,
+Styles and values: `Style`, `StyleProp`, `Styles`, `BaseStyle`,
 `MediaQueryStyle`, `BorderStyleValue`, `Transform`, `ShapeOutside`, `FontStyle`, `FontWeight`,
 `PageSize`, `Orientation`, `PDFVersion`, `PDFConformance`, `PageLayout`, `PageMode`,
 `Permissions`, `Bookmark`, `HitSlop`, `SourceObject`, `SrcSet`, `Sizes`, `EmojiSource`,
