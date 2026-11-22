@@ -51,10 +51,16 @@ await renderToFile(doc, "hello.pdf");
 ```tsx
 import { PDFDownloadLink, PDFViewer } from "@axonpdf/react";
 
-<PDFViewer style={{ width: "100%", height: 600 }}>{doc}</PDFViewer>
-<PDFDownloadLink document={doc} fileName="hello.pdf">
-  {({ loading }) => (loading ? "Preparing..." : "Download")}
-</PDFDownloadLink>
+function Preview() {
+  return (
+    <>
+      <PDFViewer style={{ width: "100%", height: 600 }}>{doc}</PDFViewer>
+      <PDFDownloadLink document={doc} fileName="hello.pdf">
+        {({ loading }) => (loading ? "Preparing..." : "Download")}
+      </PDFDownloadLink>
+    </>
+  );
+}
 ```
 
 `usePDF` and `pdf(doc).toBlob()` give you the Blob yourself, and `@axonpdf/react/worker` renders
