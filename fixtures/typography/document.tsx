@@ -1,8 +1,9 @@
-// Two pages of text: a registered TTF family with three faces beside the built-in Helvetica, Times
+// Three pages of text: a registered TTF family with three faces beside the built-in Helvetica, Times
 // and Courier; size, weight, style, line height, alignment including justify, letter and word
-// spacing, transforms, decorations, indent, ellipsis, sub and superscript, nested runs with links,
-// hyphenation (default, soft hyphens, a custom callback), an emoji drawn from an image source, and
-// right-to-left Arabic and Hebrew with bidi reordering and mirrored brackets.
+// spacing, OpenType features, transforms, decorations, indent, ellipsis, sub and superscript,
+// nested runs with links, hyphenation (default, soft hyphens, a custom callback), an emoji drawn
+// from an image source, and right-to-left Arabic and Hebrew with bidi reordering and mirrored
+// brackets.
 import { Document, Font, Link, Page, StyleSheet, Text, View } from '@axonpdf/react';
 
 // Paths are relative to fixtures/, the working directory while a fixture renders.
@@ -84,6 +85,11 @@ export default function Typography() {
           <Text style={{ textDecoration: 'underline' }}>underline</Text>{' '}
           <Text style={{ textDecoration: 'line-through', textDecorationColor: 'red' }}>struck in red</Text>{' '}
           <Text style={{ textDecoration: 'underline line-through', textDecorationStyle: 'dashed' }}>both, dashed</Text>
+        </Text>
+
+        <Text style={s.label}>fontFeatureSettings: a list on the text, an object on a nested run</Text>
+        <Text style={{ fontFeatureSettings: ['onum'] }}>
+          Old-style figures 1234567890, with the ffi ligature off in <Text style={{ fontFeatureSettings: { liga: 0 } }}>office affinity</Text> and on in office affinity.
         </Text>
 
         <Text style={s.label}>nested runs with inherited styles, links, sub and super, colour and background</Text>
