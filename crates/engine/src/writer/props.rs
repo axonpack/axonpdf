@@ -7,12 +7,12 @@ use super::info::{DocInfo, PageLayout, PageMode, PdfVersion};
 use super::pdfa::Conformance;
 use super::strings::Date;
 
-/// Reads `title`, `author`, `subject`, `keywords`, `creator`, `producer`, `language`,
-/// `creationDate` and `modificationDate` (ISO 8601 strings, as `JSON.stringify` writes a
-/// `Date`), `pdfVersion` (`"1.3"` to `"1.7ext3"`), `pageMode`, `pageLayout`, `conformance`
-/// (`"PDF/A-2b"`...), `userPassword`, `ownerPassword`, `permissions` (the components' object)
-/// `encryptionSeed` (32 random bytes as an array of numbers, added by the adapter) and
-/// `compress` (`false` writes the streams undeflated).
+/// Reads `title`, `author`, `subject`, `keywords`, `creator` and `producer` (both `axonpdf` when
+/// left out), `language`, `creationDate` and `modificationDate` (ISO 8601 strings, as
+/// `JSON.stringify` writes a `Date`), `pdfVersion` (`"1.3"` to `"1.7ext3"`), `pageMode`,
+/// `pageLayout`, `conformance` (`"PDF/A-2b"`...), `userPassword`, `ownerPassword`,
+/// `permissions` (the components' object), `encryptionSeed` (32 random bytes as an array of
+/// numbers, added by the adapter) and `compress` (`false` writes the streams undeflated).
 pub fn doc_info(props: &Map<String, Value>) -> DocInfo {
     let text = |k: &str| {
         props
@@ -37,8 +37,8 @@ pub fn doc_info(props: &Map<String, Value>) -> DocInfo {
         author: text("author"),
         subject: text("subject"),
         keywords: text("keywords"),
-        creator: text("creator"),
-        producer: text("producer"),
+        creator: text("creator").or_else(|| Some("axonpdf".into())),
+        producer: text("producer").or_else(|| Some("axonpdf".into())),
         creation_date: date("creationDate"),
         modification_date: date("modificationDate"),
         language: text("language"),
@@ -147,6 +147,20 @@ mod tests {
         });
         let info = doc_info(props.as_object().unwrap());
         assert!(info.uncompressed);
+        // Left out, the creator and producer are axonpdf.
+        assert_eq!(
+            (info.creator.as_deref(), info.producer.as_deref()),
+            (Some("axonpdf"), Some("axonpdf"))
+        );
+        let named = doc_info(
+            serde_json::json!({"creator": "c", "producer": "p"})
+                .as_object()
+                .unwrap(),
+        );
+        assert_eq!(
+            (named.creator.as_deref(), named.producer.as_deref()),
+            (Some("c"), Some("p"))
+        );
         assert_eq!(info.creation_date.unwrap().pdf(), "D:20261121063005Z");
         assert_eq!(
             info.modification_date.unwrap().pdf(),
