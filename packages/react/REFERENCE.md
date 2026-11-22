@@ -399,7 +399,9 @@ it is loaded before the engine starts.
 ### PageNumber and PageCount (axonpdf only)
 
 `<PageNumber />` is the current page's number and `<PageCount />` the document's page count, drawn
-as text. They take `style` and can sit inside a `Text`. Neither needs a second layout pass.
+as text. They take `style` and can sit inside a `Text`. `PageCount` makes the engine count the
+pages before drawing them, as a `render` function that reads `totalPages` does; in a document with
+`Rows` the number is written in when the file is finished.
 
 ### Table, TableHeader, TableRow, TableCell (axonpdf only)
 
