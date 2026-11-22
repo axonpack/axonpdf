@@ -43,16 +43,16 @@
     "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
-    "build": "rm -rf build && tsc && node scripts/vendor-reconcilers.mjs",
+    "build": "rm -rf build && tsc && node scripts/vendor.mjs",
     "test": "vitest run",
     "check-types": "tsc --noEmit -p tsconfig.check.json"
   },
   "dependencies": {
-    "@axonpdf/core": "*",
-    "@axonpdf/font": "*",
-    "@axonpdf/types": "*"
+    "@axonpdf/core": "*"
   },
   "devDependencies": {
+    "@axonpdf/font": "*",
+    "@axonpdf/types": "*",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "react": "19.2.3",

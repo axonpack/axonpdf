@@ -33,10 +33,10 @@
       "version": "0.0.0",
       "dependencies": {
         "@axonpdf/core": "*",
-        "@axonpdf/font": "*",
-        "@axonpdf/types": "*",
       },
       "devDependencies": {
+        "@axonpdf/font": "*",
+        "@axonpdf/types": "*",
         "@types/node": "^24.0.0",
         "@types/react": "^19.2.0",
         "react": "19.2.3",
