@@ -42,6 +42,10 @@ export interface AxonpdfModule {
   ): number;
   _axonpdf_last_error(handle: number): number;
   _axonpdf_total_pages_marker(): number;
+  _axonpdf_profile(on: boolean): void;
+  _axonpdf_profile_report(): number;
+  _axonpdf_page_width(props: number, len: number): number;
+  _axonpdf_pages(handle: number): number;
 }
 
 export default function createModule(options?: object): Promise<AxonpdfModule>;

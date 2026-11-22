@@ -1,7 +1,7 @@
 // A three-page report in Helvetica: reusable components fed by props, a bordered table that breaks
 // across pages under a repeating header row, fixed header and footer, page numbers with the total,
 // nested bookmarks, internal and external links, metadata, and the pagination props
-// (break, wrap={false}, minPresenceAhead, orphans, widows).
+// (break, wrap={false}, minPresenceAhead, orphans, widows). fixtures/report-next reuses its parts.
 import { Document, Link, Page, StyleSheet, Text, View } from '@axonpdf/react';
 
 type Line = { sku: string; name: string; qty: number; price: number };
@@ -13,14 +13,14 @@ const LINES: Line[] = Array.from({ length: 48 }, (_, i) => ({
   price: ((i * 37) % 900) / 10 + 0.5,
 }));
 
-const PARAGRAPH =
+export const PARAGRAPH =
   'Stock is counted at the end of every shift and the counts are checked against the order list. ' +
   'Where a count differs from the list by more than two units, the shift lead writes the reason in ' +
   'the log and the pharmacy is told before the next delivery window. Items close to their expiry ' +
   'date are moved to the front of the shelf and marked, and anything past its date is recorded and ' +
   'returned. The table above lists the lines ordered this month with their unit price.';
 
-const s = StyleSheet.create({
+export const s = StyleSheet.create({
   page: { paddingTop: 70, paddingBottom: 60, paddingHorizontal: 40, fontSize: 10 },
   header: { position: 'absolute', top: 24, left: 40, right: 40, flexDirection: 'row', justifyContent: 'space-between', borderBottom: '1pt solid #999', paddingBottom: 6 },
   footer: { position: 'absolute', bottom: 24, left: 40, right: 40, fontSize: 8, color: '#666', textAlign: 'center' },
@@ -65,67 +65,79 @@ function Row({ line, index }: { line: Line; index: number }) {
   );
 }
 
-export default function Report() {
+export const META = {
+  title: 'Monthly stock report',
+  author: 'Fixture author',
+  subject: 'Parity fixture',
+  keywords: 'stock, report, fixture',
+  creator: 'fixtures/report',
+  producer: 'fixtures/report',
+  language: 'en-GB',
+  creationDate: new Date('2026-11-21T09:00:00Z'),
+  modificationDate: new Date('2026-11-21T09:00:00Z'),
+  pageMode: 'useOutlines',
+} as const;
+
+// The report's page. `next` puts it on the newer pagination engine, with the fixed footer written
+// first.
+export function StockPage({ next = false }: { next?: boolean }) {
   const total = LINES.reduce((sum, l) => sum + l.qty * l.price, 0);
+  const footer = <Text style={s.footer} fixed render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />;
   return (
-    <Document
-      title="Monthly stock report"
-      author="Fixture author"
-      subject="Parity fixture"
-      keywords="stock, report, fixture"
-      creator="fixtures/report"
-      producer="fixtures/report"
-      language="en-GB"
-      creationDate={new Date('2026-11-21T09:00:00Z')}
-      modificationDate={new Date('2026-11-21T09:00:00Z')}
-      pageMode="useOutlines"
-    >
-      <Page size="A4" style={s.page} bookmark="Stock report">
-        <View style={s.header} fixed>
-          <Text style={{ fontFamily: 'Helvetica-Bold' }}>Willow House</Text>
-          <Text render={({ pageNumber }) => (pageNumber > 1 ? 'Monthly stock report (continued)' : 'Monthly stock report')} />
-        </View>
+    <Page size="A4" style={s.page} bookmark="Stock report" experimentalPagination={next || undefined}>
+      {next && footer}
+      <View style={s.header} fixed>
+        <Text style={{ fontFamily: 'Helvetica-Bold' }}>Willow House</Text>
+        <Text render={({ pageNumber }) => (pageNumber > 1 ? 'Monthly stock report (continued)' : 'Monthly stock report')} />
+      </View>
 
-        <Text style={s.h1} bookmark={{ title: 'Summary', fit: true }}>Summary</Text>
-        <Link src="https://example.com/homes/willow" hitSlop={{ top: 3, left: 6, bottom: 1 }}>
-          <Field label="Home" value="Willow House" />
-        </Link>
-        <Field label="Period" value="1 to 30 November 2026" />
-        <Field label="Lines" value={String(LINES.length)} />
-        <Field label="Order total" value={money(total)} />
-        <Text style={{ marginTop: 8 }}>
-          Jump to the <Link src="#totals">totals</Link> or the <Link src="#notes">notes</Link>, or read the{' '}
-          <Link src="https://example.com/policy">stock policy</Link>.
-        </Text>
+      <Text style={s.h1} bookmark={{ title: 'Summary', fit: true }}>Summary</Text>
+      <Link src="https://example.com/homes/willow" hitSlop={{ top: 3, left: 6, bottom: 1 }}>
+        <Field label="Home" value="Willow House" />
+      </Link>
+      <Field label="Period" value="1 to 30 November 2026" />
+      <Field label="Lines" value={String(LINES.length)} />
+      <Field label="Order total" value={money(total)} />
+      <Text style={{ marginTop: 8 }}>
+        Jump to the <Link src="#totals">totals</Link> or the <Link src="#notes">notes</Link>, or read the{' '}
+        <Link src="https://example.com/policy">stock policy</Link>.
+      </Text>
 
-        <Text style={s.h2} minPresenceAhead={60} bookmark="Order lines">Order lines</Text>
-        <View style={s.table}>
-          <View style={[s.row, s.head]} fixed>
-            {COLS.map((c) => (
-              <Text key={c.key} style={[s.cell, { width: c.width, textAlign: c.align ?? 'left' }]}>{c.title}</Text>
-            ))}
-          </View>
-          {LINES.map((line, i) => (
-            <Row key={line.sku} line={line} index={i} />
+      <Text style={s.h2} minPresenceAhead={60} bookmark="Order lines">Order lines</Text>
+      <View style={s.table}>
+        <View style={[s.row, s.head]} fixed>
+          {COLS.map((c) => (
+            <Text key={c.key} style={[s.cell, { width: c.width, textAlign: c.align ?? 'left' }]}>{c.title}</Text>
           ))}
         </View>
-        <View id="totals" wrap={false} style={{ alignSelf: 'flex-end', width: 200, marginTop: 10, padding: 8, border: '1pt solid #1f3a5f' }} bookmark="Totals">
-          <Field label="Net" value={money(total)} />
-          <Field label="VAT 20%" value={money(total * 0.2)} />
-          <Field label="Due" value={money(total * 1.2)} />
-        </View>
+        {LINES.map((line, i) => (
+          <Row key={line.sku} line={line} index={i} />
+        ))}
+      </View>
+      <View id="totals" wrap={false} style={{ alignSelf: 'flex-end', width: 200, marginTop: 10, padding: 8, border: '1pt solid #1f3a5f' }} bookmark="Totals">
+        <Field label="Net" value={money(total)} />
+        <Field label="VAT 20%" value={money(total * 0.2)} />
+        <Field label="Due" value={money(total * 1.2)} />
+      </View>
 
-        <View break id="notes" bookmark="Notes">
-          <Text style={s.h2}>Notes</Text>
-          {Array.from({ length: 9 }, (_, i) => (
-            <Text key={i} style={s.para} orphans={3} widows={3}>
-              {i + 1}. {PARAGRAPH}
-            </Text>
-          ))}
-        </View>
+      <View break id="notes" bookmark="Notes">
+        <Text style={s.h2}>Notes</Text>
+        {Array.from({ length: 9 }, (_, i) => (
+          <Text key={i} style={s.para} orphans={3} widows={3}>
+            {i + 1}. {PARAGRAPH}
+          </Text>
+        ))}
+      </View>
 
-        <Text style={s.footer} fixed render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
-      </Page>
+      {!next && footer}
+    </Page>
+  );
+}
+
+export default function Report() {
+  return (
+    <Document {...META}>
+      <StockPage />
     </Document>
   );
 }

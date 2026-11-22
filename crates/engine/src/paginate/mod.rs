@@ -121,7 +121,8 @@ impl<'a, 'b> Pager<'a, 'b> {
             if let Some(gone) = &mut cut.relayout {
                 let (height, _, pad_bottom) = page::heights(&page);
                 let at = height.unwrap_or(f64::NAN) - pad_bottom;
-                cut.remainder.relayout(&mut page, gone, at, self.assets)?;
+                cut.remainder
+                    .relayout(&mut page, gone, at, false, self.assets)?;
             }
             cut.relayout = None;
             self.split_page(&mut cut.remainder, &mut page, number)
@@ -176,13 +177,20 @@ impl<'a, 'b> Pager<'a, 'b> {
                 ..Default::default()
             };
             self.resolve_dynamic(page, &args)?;
-            remainder.relayout(page, &mut Vec::new(), height - pad_bottom, self.assets)?;
+            remainder.relayout(
+                page,
+                &mut Vec::new(),
+                height - pad_bottom,
+                true,
+                self.assets,
+            )?;
         }
         if let Some(base) = self.band_base
             && bands::fit(page, base)
         {
             let (_, _, pad_bottom) = page::heights(page);
-            remainder.relayout(page, &mut Vec::new(), height - pad_bottom, self.assets)?;
+            let cut = height - pad_bottom;
+            remainder.relayout(page, &mut Vec::new(), cut, page.dynamic, self.assets)?;
         }
         let (_, pad_top, pad_bottom) = page::heights(page);
         let children = std::mem::take(&mut page.children);

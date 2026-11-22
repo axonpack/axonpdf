@@ -1,39 +1,13 @@
 import type { ReactNode } from "react";
 
-import type { HyphenationCallback } from "./document.type.js";
+import type { HyphenationCallback, SVGPresentationAttributes } from "@axonpdf/types";
+
 import type { NodeProps } from "./props.type.js";
 import type { Style } from "./style.type.js";
 
-type Length = string | number;
+export type { SVGPresentationAttributes };
 
-export interface SVGPresentationAttributes {
-  fill?: string;
-  color?: string;
-  stroke?: string;
-  transform?: string;
-  strokeDasharray?: string;
-  opacity?: Length;
-  strokeWidth?: Length;
-  fillOpacity?: Length;
-  fillRule?: "nonzero" | "evenodd";
-  strokeOpacity?: Length;
-  textAnchor?: "start" | "middle" | "end";
-  strokeLinecap?: "butt" | "round" | "square";
-  strokeLinejoin?: "butt" | "round" | "square" | "miter" | "bevel";
-  visibility?: "visible" | "hidden" | "collapse";
-  clipPath?: string;
-  markerStart?: string;
-  markerMid?: string;
-  markerEnd?: string;
-  dominantBaseline?:
-    | "auto"
-    | "middle"
-    | "central"
-    | "hanging"
-    | "mathematical"
-    | "text-after-edge"
-    | "text-before-edge";
-}
+type Length = string | number;
 
 interface Shape extends SVGPresentationAttributes {
   style?: SVGPresentationAttributes;

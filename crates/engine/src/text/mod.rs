@@ -41,6 +41,8 @@ pub struct Attrs {
     pub deferred: bool,
     /// `direction: 'rtl'`: the paragraphs this run starts are right to left.
     pub rtl: bool,
+    /// `fontFeatureSettings`: OpenType features on or off, by tag.
+    pub features: Vec<([u8; 4], bool)>,
 }
 
 /// An image on a text line. `y_offset` moves it down.

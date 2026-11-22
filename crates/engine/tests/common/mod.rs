@@ -370,10 +370,15 @@ pub fn stroke(c: Color, width: f32, dash: Vec<f32>) -> Stroke {
 
 /// Writes `pages` sample pages and returns the file.
 pub fn render(pages: usize) -> Vec<u8> {
+    render_with(info(), pages)
+}
+
+/// [`render`] with these document settings.
+pub fn render_with(info: DocInfo, pages: usize) -> Vec<u8> {
     let mut a = assets();
     let mut bytes = Vec::new();
     let mut out = |chunk: &[u8]| bytes.extend_from_slice(chunk);
-    let mut w = Writer::new(info());
+    let mut w = Writer::new(info);
     w.begin(&mut out);
     for n in 1..=pages {
         w.write_page(&sample_page(&a, n), &a.fonts, &mut a.images, &mut out);

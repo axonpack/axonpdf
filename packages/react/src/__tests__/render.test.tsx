@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import pkg from "../../package.json" with { type: "json" };
 import {
@@ -11,6 +11,7 @@ import {
   Text,
   renderToBuffer,
   renderToFile,
+  renderToString,
   usePDF,
   version,
 } from "../index.node.js";
@@ -44,6 +45,24 @@ describe("Node render functions", () => {
   it("returns a Buffer", async () => {
     const buffer = await renderToBuffer(doc);
     expect(buffer.subarray(0, 5).toString()).toBe("%PDF-");
+  });
+
+  it("renderToString warns in development that it is deprecated, once, and returns the text", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubEnv("NODE_ENV", "development");
+    try {
+      const file = await renderToString(doc);
+      expect(file.startsWith("%PDF-")).toBe(true);
+      expect(file).not.toContain("/FlateDecode");
+      expect(warn.mock.calls).toEqual([
+        [
+          "`renderToString` is deprecated and will be removed in next major release, use `renderToBuffer` instead",
+        ],
+      ]);
+    } finally {
+      vi.unstubAllEnvs();
+      warn.mockRestore();
+    }
   });
 
   it("throws the web-only error for browser APIs", () => {

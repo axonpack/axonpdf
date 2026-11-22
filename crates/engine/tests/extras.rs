@@ -42,6 +42,12 @@ fn pages(engine: &mut Engine, json: &str) -> Vec<String> {
 
 #[test]
 fn bands_numbers_and_counts() {
+    bands_numbers_and_counts_with(false);
+    bands_numbers_and_counts_with(true);
+}
+
+/// `next`: with the newer pagination engine.
+fn bands_numbers_and_counts_with(next: bool) {
     let footer = json!({"type": "VIEW", "props": {}, "style": {"padding": 10}, "children": [
         {"type": "TEXT", "props": {}, "children": [
             {"type": "TEXT_INSTANCE", "value": "Page "}, {"type": "PAGE_NUMBER", "props": {}, "children": []},
@@ -50,7 +56,7 @@ fn bands_numbers_and_counts() {
         json!({"type": "VIEW", "props": {}, "style": {"height": 40}, "children": [text("Header")]});
     let rows: Vec<Value> = (0..60).map(|i| text(&format!("Row {i}"))).collect();
     let json = doc(
-        json!({"type": "PAGE", "props": {"size": "A6", "header": header, "footer": footer},
+        json!({"type": "PAGE", "props": {"size": "A6", "header": header, "footer": footer, "experimentalPagination": next},
         "style": {"padding": 20}, "children": rows}),
     );
     let ps = pages(&mut Engine::new(), &json);
@@ -141,6 +147,11 @@ fn rows_arrive_in_batches() {
 /// told it is the last.
 #[test]
 fn rows_documents_defer_the_total() {
+    rows_documents_defer_the_total_with(false);
+    rows_documents_defer_the_total_with(true);
+}
+
+fn rows_documents_defer_the_total_with(next: bool) {
     let fetched = Rc::new(RefCell::new(0));
     let last = Rc::new(RefCell::new(Vec::new()));
     let mut engine = Engine::new();
@@ -153,7 +164,8 @@ fn rows_documents_defer_the_total() {
     }));
     let seen = last.clone();
     engine.set_render_callback(Box::new(move |_, a| {
-        if a.sub_page_number.is_some() {
+        // The call made when each page is finished.
+        if a.is_last.is_some() {
             seen.borrow_mut().push((a.is_last, a.total_pending));
         }
         json!({"children": [{"type": "TEXT_INSTANCE", "value": "x"}], "readsTotal": true})
@@ -162,7 +174,7 @@ fn rows_documents_defer_the_total() {
     let footer = json!({"type": "TEXT", "props": {}, "children": [
         {"type": "TEXT_INSTANCE", "value": "of "}, {"type": "PAGE_COUNT", "props": {}, "children": []}]});
     let json = doc(
-        json!({"type": "PAGE", "props": {"footer": footer}, "children": [
+        json!({"type": "PAGE", "props": {"footer": footer, "experimentalPagination": next}, "children": [
         {"type": "TEXT", "props": {"fixed": true}, "render": 1, "children": []},
         {"type": "ROWS", "props": {"rows": 1}, "children": []}]}),
     );
@@ -216,6 +228,7 @@ fn pushed_rows_resume_the_render() {
     engine
         .render(&json, &mut |b| pulled.extend_from_slice(b))
         .unwrap();
+    let pulled_pages = engine.pages().to_vec();
 
     let mut pushed = Vec::new();
     let mut engine = Engine::new();
@@ -234,6 +247,9 @@ fn pushed_rows_resume_the_render() {
     assert_eq!(from, 1000);
     assert!(waits >= 20);
     assert_eq!(pushed, pulled);
+    // Both ways list the same pages.
+    assert!(pulled_pages.len() > 1);
+    assert_eq!(engine.pages(), pulled_pages);
 }
 
 #[test]
@@ -267,4 +283,46 @@ fn table_borders_collapse() {
         assert_eq!(cells[1], [1.0, 1.0, 1.0, 0.0]);
         assert_eq!(cells[2], [1.0, 1.0, 1.0, 0.0]);
     }
+}
+
+/// A float that first comes in a later batch of rows still pushes what clears it, and the cut
+/// sees that: the cleared text never runs past the bottom of its page.
+#[test]
+fn floats_in_a_later_batch_of_rows_move_the_cut() {
+    let mut engine = Engine::new();
+    let fetched = Rc::new(RefCell::new(0));
+    let count = fetched.clone();
+    engine.set_rows_callback(Box::new(move |_| {
+        let mut n = count.borrow_mut();
+        let batch: Vec<Value> = (*n..*n + 20)
+            .map(|i| {
+                if i != 55 {
+                    return text(&format!("Row {i}"));
+                }
+                json!({"type": "VIEW", "props": {}, "children": [
+                    {"type": "VIEW", "props": {}, "style": {"float": "left", "width": 50, "height": 300}, "children": []},
+                    {"type": "TEXT", "props": {}, "style": {"clear": "left"}, "children": [{"type": "TEXT_INSTANCE", "value": "Cleared"}]}
+                ]})
+            })
+            .collect();
+        *n += 20;
+        json!({"children": batch, "done": *n == 100}).to_string()
+    }));
+    let json = doc(json!({"type": "PAGE", "props": {"size": "A6"}, "children": [
+        {"type": "ROWS", "props": {"rows": 1, "batchSize": 20}, "children": []}]}));
+    let mut bottoms = Vec::new();
+    engine
+        .layout(&json, &mut |p, _, _| {
+            fn walk(n: &Node, y: f64, out: &mut Vec<f64>) {
+                let y = y + n.layout.top;
+                if n.style.clear.is_some() {
+                    out.push(y + n.layout.height);
+                }
+                n.children.iter().for_each(|c| walk(c, y, out));
+            }
+            walk(p, 0.0, &mut bottoms);
+        })
+        .unwrap();
+    assert!(!bottoms.is_empty());
+    assert!(bottoms.iter().all(|b| *b <= 419.53), "{bottoms:?}");
 }

@@ -3,21 +3,40 @@ import type { ReactElement } from "react";
 import { startStream, type Run } from "./live-stream.js";
 import { platform } from "./platform.js";
 import { createRenderer, type Renderer } from "./reconciler/renderer.js";
-import { renderDocument } from "./render/render-document.js";
+import { renderDocument, serializeRoot } from "./render/render-document.js";
+import { Fallback, rootScope } from "./tree/dispatcher.js";
+import type { Session } from "./tree/session.js";
+import { walk } from "./tree/walk.js";
 import type { Container } from "./types/instance.type.js";
+import type { Recorder } from "./types/profile.type.js";
 import type { DocumentProps } from "./types/props.type.js";
+import type { TreeDocument } from "./types/tree.type.js";
 
 // React wants one renderer per process; each `pdf()` gets its own root in it.
 let renderer: Renderer | undefined;
 const listeners = new WeakMap<Container, (() => void)[]>();
 
-const latin1 = (chunks: Uint8Array[]) =>
+/**
+ * What `onRender` gets after a render besides the blob: the pages written, each with its box,
+ * under the name tools that count a document's pages already read.
+ */
+export const layoutData = (pages: { width: number; height: number }[]) => ({
+  _INTERNAL__LAYOUT__DATA_: {
+    type: "DOCUMENT",
+    children: pages.map(({ width, height }) => ({
+      type: "PAGE",
+      box: { left: 0, top: 0, width, height },
+    })),
+  },
+});
+
+/** The bytes as a string, one character per byte. */
+export const latin1 = (chunks: Uint8Array[]) =>
   chunks.map((chunk) => Array.from(chunk, (byte) => String.fromCharCode(byte)).join("")).join("");
 
-/** A root in the shared renderer, with a render that streams chunks. */
-export function mount(initialValue?: ReactElement) {
+/** A reconciler root holding `element`, for the cases the one-shot walk leaves to it. */
+function reconcile(element: ReactElement | null, changeListeners: (() => void)[]) {
   const container: Container = { document: null };
-  const changeListeners: (() => void)[] = [];
   listeners.set(container, changeListeners);
   let error: unknown;
   renderer ??= createRenderer({
@@ -30,50 +49,134 @@ export function mount(initialValue?: ReactElement) {
   const root = renderer.createContainer(container, (e) => {
     error = e;
   });
-  const updateContainer = (document: ReactElement | null, callback?: () => void) =>
-    renderer!.updateContainer(root, document, callback);
-  if (initialValue) updateContainer(initialValue);
-
-  const render = async (onChunk: (chunk: Uint8Array) => void, wait?: () => Promise<void>) => {
-    if (error !== undefined) {
-      const e = error;
-      error = undefined;
-      throw e;
-    }
-    await renderDocument(container.document, onChunk, wait);
+  const update = (document: ReactElement | null, callback?: () => void) =>
+    renderer!.updateContainer(document, root, null, callback);
+  if (element) update(element);
+  const takeError = () => {
+    const e = error;
+    error = undefined;
+    if (e !== undefined) throw e;
   };
-  return { container, changeListeners, updateContainer, render };
+  return { container, update, takeError };
+}
+
+/**
+ * A document to render, with the reconciler's API. Rendering walks the elements once (see
+ * `tree/walk.ts`); a reconciler root is made only when the walk can't render something, or when
+ * the caller reads `container`.
+ */
+export function mount(initialValue?: ReactElement) {
+  let element = initialValue ?? null;
+  const changeListeners: (() => void)[] = [];
+  let reconciled: ReturnType<typeof reconcile> | undefined;
+  /** The `Document`'s props from the last render, for `onRender`. */
+  let documentProps: Record<string, any> | undefined;
+  const reconciler = () => (reconciled ??= reconcile(element, changeListeners));
+
+  const updateContainer = (document: ReactElement | null, callback?: () => void) => {
+    element = document;
+    if (reconciled) return reconciled.update(document, callback);
+    // What the reconciler's commit does: tell the listeners, then call back.
+    changeListeners.slice().forEach((listener) => listener());
+    callback?.();
+  };
+
+  /**
+   * `release`: unmount once the tree is read, for a render that is the root's last. `compress`
+   * false writes the streams undeflated.
+   */
+  const render = async (
+    onChunk: (chunk: Uint8Array) => void,
+    wait?: () => Promise<void>,
+    release?: boolean,
+    recorder?: Recorder,
+    compress = true,
+  ) => {
+    const settings = (tree: TreeDocument) => {
+      if (!compress) tree.props.compress = false;
+      return tree;
+    };
+    if (!reconciled) {
+      try {
+        const build = (session: Session) => {
+          const [root] = walk(element, rootScope());
+          documentProps = root?.type === "DOCUMENT" ? root.props : undefined;
+          return settings(serializeRoot(root, session));
+        };
+        return await renderDocument(build, onChunk, wait, undefined, recorder);
+      } catch (error) {
+        if (!(error instanceof Fallback)) throw error;
+      }
+    }
+    recorder?.mark("react");
+    const { container, update, takeError } = reconciler();
+    takeError();
+    const build = (session: Session) => {
+      documentProps = container.document?.props;
+      return settings(serializeRoot(container.document, session));
+    };
+    const unmount = release ? () => update(null) : undefined;
+    return renderDocument(build, onChunk, wait, unmount, recorder);
+  };
+  return {
+    get container() {
+      return reconciler().container;
+    },
+    documentProps: () => documentProps,
+    changeListeners,
+    updateContainer,
+    render,
+  };
 }
 
 export function pdf(initialValue?: ReactElement<DocumentProps>) {
-  const { container, changeListeners, updateContainer, render: renderTo } = mount(initialValue);
-  const render = async () => {
+  const root = mount(initialValue);
+  const { changeListeners, updateContainer, render: renderTo } = root;
+  const render = async (compress?: boolean) => {
     const chunks: Uint8Array[] = [];
-    await renderTo((chunk) => chunks.push(chunk));
-    return chunks;
+    const pages = await renderTo(
+      (chunk) => chunks.push(chunk),
+      undefined,
+      undefined,
+      undefined,
+      compress,
+    );
+    return { chunks, pages };
   };
-  const callOnRender = (params: { blob?: Blob } = {}) =>
-    container.document?.props.onRender?.(params);
+  const callOnRender = (params: object = {}) => root.documentProps()?.onRender?.(params);
 
   return {
-    container,
+    get container() {
+      return root.container;
+    },
     updateContainer: updateContainer as (document: ReactElement, callback?: () => void) => void,
     async toBlob(): Promise<Blob> {
-      const blob = new Blob((await render()) as BlobPart[], { type: "application/pdf" });
-      callOnRender({ blob });
+      const { chunks, pages } = await render();
+      const blob = new Blob(chunks as BlobPart[], { type: "application/pdf" });
+      callOnRender({ blob, ...layoutData(pages) });
       return blob;
     },
-    /** A live stream of the PDF (a Node `Readable` in Node), as the name has always meant. */
+    /**
+     * A live stream of the PDF (a Node `Readable` in Node), as the name has always meant. With an
+     * `onRender`, it is called with the pages before the stream is handed out, so the bytes wait
+     * for the last page.
+     */
     toBuffer(): Promise<NodeJS.ReadableStream> {
-      const run: Run = (write, wait) => renderTo(write, wait).then(() => callOnRender());
+      const run: Run = async (write, wait) => {
+        const held: Uint8Array[] = [];
+        const hold = (chunk: Uint8Array) =>
+          root.documentProps()?.onRender ? held.push(chunk) : write(chunk);
+        callOnRender(layoutData(await renderTo(hold, wait)));
+        held.forEach(write);
+      };
       return startStream(platform.sink(), run) as Promise<NodeJS.ReadableStream>;
     },
-    /** @deprecated use `toBuffer` or `toBlob`. */
+    /** @deprecated use `toBuffer` or `toBlob`. Its streams are left undeflated. */
     async toString(): Promise<string> {
       if (globalThis.process?.env?.NODE_ENV === "development") {
         console.warn("`toString` is deprecated and will be removed in next major release");
       }
-      const chunks = await render();
+      const { chunks } = await render(false);
       callOnRender();
       return latin1(chunks);
     },

@@ -1,0 +1,38 @@
+{
+  "name": "@axonpdf/font",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Font and emoji registration for axonpdf documents",
+  "bugs": {
+    "url": "https://github.com/axonpack/axonpdf/issues"
+  },
+  "license": "MIT",
+  "author": "Md Asadujjaman <abappi2019@gmail.com> (https://github.com/abappi19)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/axonpack/axonpdf.git",
+    "directory": "packages/font"
+  },
+  "files": [
+    "build"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "default": "./build/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "rm -rf build && tsc",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit -p tsconfig.check.json"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0"
+  }
+}

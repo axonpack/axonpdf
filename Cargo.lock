@@ -46,6 +46,7 @@ dependencies = [
  "subsetter",
  "unicode-bidi",
  "unicode-bidi-mirroring",
+ "unicode-script",
  "wuff",
 ]
 

@@ -96,6 +96,50 @@ pub extern "C" fn axonpdf_total_pages_marker() -> *const c_char {
     MARKER.as_ptr()
 }
 
+/// The width in points of a page with these props (`size`, `orientation`, `dpi`) as a JSON
+/// object, as the engine lays the page out; NaN for a size it rejects.
+///
+/// # Safety
+/// `props` is `len` bytes of UTF-8.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn axonpdf_page_width(props: *const u8, len: usize) -> f64 {
+    let props = unsafe { text(props, len) }.ok();
+    props
+        .and_then(|p| serde_json::from_str(p).ok())
+        .and_then(|p| axonpdf::paginate::page::size(&p).ok())
+        .map_or(f64::NAN, |(width, ..)| width)
+}
+
+/// Turns phase timing on, from nothing measured, or off, for every engine on this thread.
+#[unsafe(no_mangle)]
+pub extern "C" fn axonpdf_profile(on: bool) {
+    axonpdf::profile::set(on);
+}
+
+/// What phase timing measured since it was turned on, as JSON (`axonpdf::profile::report`),
+/// NUL-terminated, from `axonpdf_alloc`; free it with `axonpdf_dealloc(ptr, strlen + 1)`.
+#[unsafe(no_mangle)]
+pub extern "C" fn axonpdf_profile_report() -> *mut c_char {
+    let json = axonpdf::profile::report();
+    let out = axonpdf_alloc(json.len() + 1);
+    unsafe { ptr::copy_nonoverlapping(json.as_ptr(), out, json.len()) };
+    out.cast()
+}
+
+/// The width and height of each page the current or last render wrote, as JSON
+/// (`[[width, height], ...]`), NUL-terminated, from `axonpdf_alloc`; free it with
+/// `axonpdf_dealloc(ptr, strlen + 1)`.
+///
+/// # Safety
+/// `handle` comes from `axonpdf_new`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn axonpdf_pages(handle: *const Handle) -> *mut c_char {
+    let json = serde_json::to_string(unsafe { &*handle }.engine.pages()).unwrap_or_default();
+    let out = axonpdf_alloc(json.len() + 1);
+    unsafe { ptr::copy_nonoverlapping(json.as_ptr(), out, json.len()) };
+    out.cast()
+}
+
 /// The message of the last failed call, or null. Valid until the next call on this handle.
 ///
 /// # Safety
@@ -139,6 +183,11 @@ pub(crate) fn take_string(ptr: *mut c_char) -> Option<String> {
 
 unsafe fn take(ptr: *mut u8, len: usize) -> Vec<u8> {
     unsafe { Box::from_raw(ptr::slice_from_raw_parts_mut(ptr, len)) }.into_vec()
+}
+
+/// Takes a buffer from `axonpdf_alloc(len)` as a string, without copying it.
+pub(crate) unsafe fn owned_text(ptr: *mut u8, len: usize) -> Result<String, String> {
+    String::from_utf8(unsafe { take(ptr, len) }).map_err(|e| e.to_string())
 }
 
 pub(crate) unsafe fn text<'a>(ptr: *const u8, len: usize) -> Result<&'a str, String> {

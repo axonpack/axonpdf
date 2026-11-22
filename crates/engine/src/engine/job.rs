@@ -6,14 +6,14 @@ use std::ops::Range;
 
 use serde_json::{Map, Value};
 
-use super::run::{PAGE, call, count, with_assets};
-use super::{Engine, RenderArgs};
+use super::run::{PAGE, call, count, deferred_total, fill_page, with_assets};
+use super::{Engine, RenderArgs, paint_page, parse};
 use crate::draw;
 use crate::hooks::waiting_for;
-use crate::layout::remainder::ROWS;
 use crate::paginate::{self, Cut, Pager, next, page};
-use crate::style::Container;
-use crate::tree::{self, RawNode};
+use crate::profile::{self, Phase};
+use crate::style::{self, Container};
+use crate::tree::{Json, RawNode};
 use crate::writer::{Out, Writer, doc_info};
 
 /// What a resumable render needs next.
@@ -29,7 +29,8 @@ pub enum Step {
 type PageCut = (Cut, Container, Option<(f64, f64)>);
 
 pub(super) struct Job {
-    json: String,
+    /// The document; its pages and their waiting children point into it.
+    json: Json,
     /// Where each `PAGE` sits in `json`.
     pages: Vec<Range<usize>>,
     props: Map<String, Value>,
@@ -50,10 +51,14 @@ impl Engine {
     /// Starts a render that stops when it needs rows nobody pushed yet: see
     /// [`Engine::push_rows`]. The bytes made so far go to `out`.
     pub fn render_begin(&mut self, tree_json: String, out: Out) -> Result<Step, String> {
+        let _time = profile::enter(Phase::Layout);
         self.hooks.reset();
         self.hooks.pushed.borrow_mut().clear();
-        let doc = tree::parse(&tree_json)?;
-        let base = tree_json.as_ptr() as usize;
+        style::take_error().ok();
+        self.pages.clear();
+        let json = Json::new(tree_json);
+        let doc = parse(&json)?;
+        let base = json.get().as_ptr() as usize;
         #[derive(serde::Deserialize)]
         struct Kind {
             #[serde(rename = "type")]
@@ -69,18 +74,15 @@ impl Engine {
             .collect();
         let sizes = self.image_sizes();
         let counts = with_assets(&self.fonts, &sizes, &self.hooks, &doc.props, |a| {
-            count(a, &mut self.callback, &doc)
+            count(&self.hooks, a, &mut self.callback, &doc)
         })?;
-        let pending_total = counts.is_none()
-            && doc
-                .page_json()
-                .any(|j| !tree::numbers_at(j, ROWS).is_empty());
+        let pending_total = counts.is_none() && doc.page_json().any(deferred_total);
         let newer = doc.page_json().any(|j| next::Head::read(j).wants_next());
         let props = doc.props.clone();
         let mut writer = Writer::new(doc_info(&props));
         writer.begin(&mut *out);
         self.job = Some(Job {
-            json: tree_json,
+            json: json.clone(),
             pages,
             props,
             writer,
@@ -97,6 +99,7 @@ impl Engine {
 
     /// Hands `Rows` `id` its next batch, `{"children": [...], "done": bool}`, and carries on.
     pub fn push_rows(&mut self, id: u32, batch_json: &str, out: Out) -> Result<Step, String> {
+        let _time = profile::enter(Phase::Layout);
         self.hooks.push_rows(id, batch_json)?;
         self.render_step(out)
     }
@@ -106,6 +109,7 @@ impl Engine {
         let mut job = self.job.take().ok_or("no render has begun")?;
         let (fonts, images, ids, hooks) =
             (&self.fonts, &mut self.images, &self.assets, &self.hooks);
+        let pages = &mut self.pages;
         let callback = &mut self.callback;
         let result = with_assets(fonts, &sizes, hooks, &job.props, |assets| {
             let lookup = |id: u32| Some((*ids.get(&id)?, *sizes.get(&id)?));
@@ -115,10 +119,13 @@ impl Engine {
             loop {
                 if job.cut.is_none() {
                     let Some(range) = job.pages.get(job.next).cloned() else {
+                        style::take_error()?;
                         return Ok(Step::Done);
                     };
-                    let json = &job.json[range];
-                    let raw: RawNode = serde_json::from_str(json).map_err(|e| e.to_string())?;
+                    let page = job.json.part(&job.json.get()[range]);
+                    let mut raw = RawNode::read(&page)?;
+                    fill_page(&mut raw, assets)?;
+                    let json = page.get();
                     let sub_total = job.counts.as_ref().and_then(|c| c.get(job.next).copied());
                     let totals = (sub_total, job.pending_total);
                     let (cut, container, band_base) =
@@ -162,13 +169,20 @@ impl Engine {
                     forms: Default::default(),
                     outline: &job.outline,
                 };
-                let display = draw::page(&f.page, container.width, height, &cx);
+                style::take_error()?;
+                let display = paint_page(&f.page, container.width, height, &cx);
                 drop(f);
+                let _time = profile::enter(Phase::Write);
                 job.writer.write_page(&display, fonts, images, &mut *out);
+                pages.push([container.width, height]);
+                profile::page();
             }
         });
         match &result {
-            Ok(Step::Done) => job.writer.finish(fonts, out),
+            Ok(Step::Done) => {
+                let _time = profile::enter(Phase::Write);
+                job.writer.finish(fonts, out)
+            }
             Ok(_) => self.job = Some(job),
             Err(_) => {}
         }

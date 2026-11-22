@@ -3,6 +3,8 @@
 
 use std::rc::Rc;
 
+use unicode_script::{Script, UnicodeScript};
+
 use super::{Attrs, Glyph, Paragraph, Run, bidi};
 use crate::display::FontId;
 use crate::fonts::{Font, FontStore};
@@ -57,10 +59,18 @@ fn paragraph(
     let mut last_font: Option<FontId> = None;
     let text: Vec<char> = chars.iter().map(|x| x.0).collect();
     let levels = bidi::levels(&text, fragments[chars[0].1].attrs.rtl);
-    // Runs: same fragment, same font, same bidi level.
-    let mut pieces: Vec<(usize, FontId, u8, String)> = Vec::new();
+    // Runs: same fragment, font, bidi level and script. Spaces, punctuation and marks take the
+    // script before them; those at the start have none of their own.
+    let mut script = None;
+    let mut pieces: Vec<(usize, FontId, u8, Option<Script>, String)> = Vec::new();
     for (&(c, frag), &level) in chars.iter().zip(&levels) {
         let c = if level % 2 == 1 { bidi::mirror(c) } else { c };
+        if !matches!(
+            c.script(),
+            Script::Common | Script::Inherited | Script::Unknown
+        ) {
+            script = Some(c.script());
+        }
         let stack = &fragments[frag].fonts;
         let font = match last_font {
             Some(f) if c == SOFT_HYPHEN => f,
@@ -73,13 +83,17 @@ fn paragraph(
         };
         last_font = Some(font);
         match pieces.last_mut() {
-            Some((f, id, l, text)) if *f == frag && *id == font && *l == level => text.push(c),
-            _ => pieces.push((frag, font, level, c.to_string())),
+            Some((f, id, l, s, text))
+                if *f == frag && *id == font && *l == level && *s == script =>
+            {
+                text.push(c)
+            }
+            _ => pieces.push((frag, font, level, script, c.to_string())),
         }
     }
 
     let mut p = Paragraph::default();
-    for (frag, font, level, text) in pieces {
+    for (frag, font, level, _, text) in pieces {
         let start = p.chars.len();
         // Words split at runs of spaces, then into syllables; soft hyphens are dropped after.
         for word in split_spaces(&text) {
@@ -133,7 +147,7 @@ fn shape(fonts: &FontStore, attrs: Rc<Attrs>, font: FontId, start: usize, text: 
         let char_at: Vec<usize> = text.char_indices().map(|(b, _)| b).collect();
         let chars: Vec<char> = text.chars().collect();
         let mut glyphs: Vec<Glyph> = fonts
-            .shape(font, text, em, 0.0, &[])
+            .shape(font, text, em, 0.0, &attrs.features)
             .into_iter()
             .map(|g| {
                 let i = char_at.partition_point(|&b| b < g.cluster as usize);

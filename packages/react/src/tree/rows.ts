@@ -1,12 +1,15 @@
 import type { TreeNode, TreeText } from "../types/tree.type.js";
-import { elementToInstances } from "./element-to-instances.js";
+import { Fallback, type Scope } from "./dispatcher.js";
 import { serialize } from "./serialize.js";
 import type { Session } from "./session.js";
+import { walk } from "./walk.js";
 
 /** One `Rows`: hands out its next batch as `{"children":[...],"done":bool}` JSON. */
 export interface RowsSource {
   /** An async source makes the render resumable: the engine stops and waits for each batch. */
   async: boolean;
+  /** Lazy children of a container (`tree/lazy.ts`), not a `<Rows>`. */
+  lazy?: boolean;
   next(): string | Promise<string>;
 }
 
@@ -14,7 +17,8 @@ export interface RowsSource {
  * A `ROWS` node: the engine asks for its rows in batches by id as its page cut reaches them.
  * Only the batch being handed over is held here: rows are read and rendered on demand.
  */
-export function rows(props: Record<string, any>, session: Session): TreeNode {
+export function rows(props: Record<string, any>, session: Session, scope: Scope): TreeNode {
+  if (session.inBatch) throw new Fallback("<Rows> inside lazy children");
   if (session.inCallback) throw new Error("Rows can't be used inside a render function.");
   const id = session.nextId++;
   const batchSize = Math.max(1, props.batchSize as number);
@@ -22,7 +26,7 @@ export function rows(props: Record<string, any>, session: Session): TreeNode {
   const batch = (items: unknown[], done: boolean) => {
     const children: (TreeNode | TreeText)[] = [];
     for (const item of items) {
-      for (const c of elementToInstances(props.renderRow(item, index++))) {
+      for (const c of walk(props.renderRow(item, index++), scope)) {
         children.push(serialize(c, session));
       }
     }

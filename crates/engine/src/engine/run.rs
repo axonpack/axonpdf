@@ -8,11 +8,12 @@ use super::{RenderArgs, RenderCallback, Visit};
 use crate::fonts::FontStore;
 use crate::hooks::Hooks;
 use crate::layout::Assets;
-use crate::layout::remainder::{ROWS, ROWS_DONE};
+use crate::layout::remainder::{LAZY_CHILDREN, ROWS, ROWS_DONE, batch_id};
 use crate::paginate::{self, Finished, Pager, next, page};
-use crate::style::Container;
+use crate::profile::{self, Phase};
+use crate::style::{self, Container};
 use crate::tree::node::LAZY;
-use crate::tree::{self, Doc, Node, RawNode, RenderResult};
+use crate::tree::{self, Doc, Json, Node, RawNode, RenderResult};
 use serde_json::{Map, Value};
 
 /// Builds what layout needs from the engine's stores and the document's props, for `f`.
@@ -33,16 +34,20 @@ pub(super) fn with_assets<R>(
         .flatten()
         .filter_map(|(k, v)| Some((k.clone(), v.get("asset")?.as_u64()? as u32)))
         .collect();
+    let batch = |id: u32| {
+        let (children, done) = hooks.rows(id)?;
+        Ok((children.into_iter().map(Json::from).collect(), done))
+    };
     // Children waiting as JSON come first, then a batch from the rows' source; both are styled
     // under the page being cut.
     let more_rows = |n: &mut Node| -> Result<bool, String> {
         if !n.pending.is_empty() {
             return Ok(n.build_pending(&PAGE.with(Cell::get), LAZY) > 0);
         }
-        if !n.has(ROWS) || n.is(ROWS_DONE) {
+        let Some(id) = batch_id(n).filter(|_| !n.is(ROWS_DONE)) else {
             return Ok(false);
-        }
-        let (children, done) = hooks.rows(n.number(ROWS).unwrap_or(0.0) as u32)?;
+        };
+        let (children, done) = hooks.rows(id)?;
         if done {
             n.props.insert(ROWS_DONE.into(), true.into());
         }
@@ -61,6 +66,7 @@ pub(super) fn with_assets<R>(
             .map(|v| v as u32),
         emoji: &emoji,
         more_rows: &more_rows,
+        batch: &batch,
         total_digits: &Cell::new(2),
     };
     f(&assets)
@@ -76,7 +82,7 @@ pub(super) fn layout_pages(
 ) -> Result<(), String> {
     hooks.reset();
     with_assets(fonts, sizes, hooks, &doc.props, |assets| {
-        let counts = count(assets, callback, &doc)?;
+        let counts = count(hooks, assets, callback, &doc)?;
         run(assets, callback, &doc, counts.as_deref(), Some(visit))?;
         Ok(())
     })
@@ -84,15 +90,19 @@ pub(super) fn layout_pages(
 
 /// The page counts per `<Page>`, from a first run, when something reads the total.
 pub(super) fn count(
+    hooks: &Hooks,
     assets: &Assets,
     callback: &mut Option<RenderCallback>,
     doc: &Doc,
 ) -> Result<Option<Vec<u32>>, String> {
-    if reads_total(callback, doc)? {
-        Ok(Some(run(assets, callback, doc, None, None)?))
-    } else {
-        Ok(None)
+    if !reads_total(callback, doc)? {
+        return Ok(None);
     }
+    // Lazy children fetched while counting are replayed for the pass that draws the pages.
+    hooks.record(true);
+    let counts = run(assets, callback, doc, None, None);
+    hooks.record(false);
+    Ok(Some(counts?))
 }
 
 /// Whether any `render` function in the tree reads the totals. Each is called once to see.
@@ -102,6 +112,10 @@ fn reads_total(callback: &mut Option<RenderCallback>, doc: &Doc) -> Result<bool,
     // Read from each page's JSON without building it: `render` ids (bands' included), page
     // counts, and rows, which are fetched once and cannot be counted ahead.
     // ponytail: Rows documents get no totals; a deferred total drawn at the end would fix it.
+    // The adapter asks for a count when lazy content it has seen reads the total.
+    if doc.props.get("countPages").is_some_and(tree::truthy) {
+        return Ok(true);
+    }
     let (mut found, mut count) = (Vec::new(), false);
     for json in doc.page_json() {
         if tree::has_type(json, "ROWS") && !tree::numbers_at(json, ROWS).is_empty() {
@@ -138,26 +152,26 @@ fn run(
     let total = counts.map(|c| c.iter().sum::<u32>());
     let mut call = |id: u32, args: &RenderArgs| call(callback, id, args);
     let mut made = Vec::new();
+    // Left from a render that failed on something else.
+    style::take_error().ok();
     let mut number = 1;
-    // Rows documents cannot be counted ahead; their total is filled in at the end.
-    let pending_total = total.is_none()
-        && doc
-            .page_json()
-            .any(|j| !tree::numbers_at(j, ROWS).is_empty());
+    // Rows documents cannot be counted ahead; their total is filled in at the end. So is that of
+    // an uncounted document with lazy content, which may hold something that reads it.
+    let pending_total = total.is_none() && doc.page_json().any(deferred_total);
     let pages = doc.pages().count();
     let newer = doc.page_json().any(|j| next::Head::read(j).wants_next());
-    let page_list = doc
-        .page_json()
-        .filter_map(|j| match serde_json::from_str::<RawNode>(j) {
-            Ok(n) if n.kind != "PAGE" => None,
-            r => Some((r.map_err(|e| e.to_string()), j)),
-        });
+    let page_list = doc.page_json().filter_map(|j| match doc.read(j) {
+        Ok(n) if n.kind != "PAGE" => None,
+        r => Some((r, j)),
+    });
     for (i, (raw, json)) in page_list.enumerate() {
         let last_page = i + 1 == pages;
         let sub_total = counts.and_then(|c| c.get(made.len()).copied());
         let totals = (sub_total, pending_total);
+        let mut raw = raw?;
+        fill_page(&mut raw, assets)?;
         let (cut, container, band_base) =
-            paginate::open(raw?, json, newer, number, totals, &mut call)?;
+            paginate::open(raw, json, newer, number, totals, &mut call)?;
         PAGE.with(|p| p.set(container));
         let mut pager = Pager {
             assets,
@@ -167,6 +181,7 @@ fn run(
             band_base,
         };
         let mut done = |pager: &mut Pager, mut f: Finished| -> Result<(), String> {
+            style::take_error()?;
             let Some(visit) = visit.as_mut() else {
                 return Ok(());
             };
@@ -187,6 +202,7 @@ fn run(
         number += count;
         made.push(count);
     }
+    style::take_error()?;
     Ok(made)
 }
 
@@ -195,6 +211,7 @@ pub(super) fn call(
     id: u32,
     args: &RenderArgs,
 ) -> Result<RenderResult, String> {
+    let _time = profile::enter(Phase::Callbacks);
     let cb = callback
         .as_mut()
         .ok_or("a render function was used but no render callback is set")?;
@@ -204,4 +221,29 @@ pub(super) fn call(
 thread_local! {
     /// The container of the page being cut, for styling rows as they arrive.
     pub(super) static PAGE: Cell<Container> = Cell::new(Container::default());
+}
+
+/// A page sent without its children (`"lazy": id`, no `children`) gets them all from the adapter
+/// when it is opened, so it is cut exactly as if they had been inline.
+pub(super) fn fill_page(raw: &mut RawNode, a: &Assets) -> Result<(), String> {
+    let lazy = raw.props.get(LAZY_CHILDREN).and_then(|v| v.as_u64());
+    let Some(id) = lazy.filter(|_| raw.kind == "PAGE" && raw.children.is_empty()) else {
+        return Ok(());
+    };
+    raw.props.shift_remove(LAZY_CHILDREN);
+    loop {
+        let (children, done) = (a.batch)(id as u32)?;
+        raw.children.extend(children);
+        if done {
+            return Ok(());
+        }
+    }
+}
+
+/// Whether a page's total, when it was not counted, is left for the writer: the page has rows,
+/// or lazy content that may read it.
+pub(super) fn deferred_total(page_json: &str) -> bool {
+    [ROWS, LAZY_CHILDREN]
+        .iter()
+        .any(|key| !tree::numbers_at(page_json, key).is_empty())
 }

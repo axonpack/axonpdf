@@ -20,6 +20,14 @@
   "sideEffects": false,
   "main": "build/index.js",
   "types": "build/index.d.ts",
+  "imports": {
+    "#loader": {
+      "types": "./wasm/axonpdf.d.mts",
+      "browser": "./wasm/axonpdf.web.mjs",
+      "worker": "./wasm/axonpdf.web.mjs",
+      "default": "./wasm/axonpdf.mjs"
+    }
+  },
   "exports": {
     ".": {
       "types": "./build/index.d.ts",

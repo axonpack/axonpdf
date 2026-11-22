@@ -14,3 +14,8 @@ axonpdf includes third-party code:
   In fixtures/assets/ with the license in fixtures/assets/OFL.txt.
 - sRGB-v2-micro.icc from Compact ICC Profiles (https://github.com/saucecontrol/Compact-ICC-Profiles),
   CC0 1.0 Universal (public domain dedication). In vendor/icc/ with its license.
+- react-reconciler 0.29.2, 0.31.0 and 0.33.0 and the scheduler each uses (0.23.2, 0.25.0, 0.27.0)
+  (https://github.com/facebook/react), MIT License, copyright Meta Platforms, Inc. and affiliates.
+  Copied unchanged, apart from where the reconciler requires its scheduler, into the built
+  @axonpdf/react package (packages/react/build/vendor/, by packages/react/scripts/vendor.mjs),
+  each with its license.

@@ -1,0 +1,42 @@
+{
+  "name": "@axonpdf/types",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TypeScript types for axonpdf documents: styles, page sizes, sources, fonts",
+  "bugs": {
+    "url": "https://github.com/axonpack/axonpdf/issues"
+  },
+  "license": "MIT",
+  "author": "Md Asadujjaman <abappi2019@gmail.com> (https://github.com/abappi19)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/axonpack/axonpdf.git",
+    "directory": "packages/types"
+  },
+  "files": [
+    "build"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "default": "./build/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "rm -rf build && tsc",
+    "test": "vitest run",
+    "check-types": "tsc --noEmit -p tsconfig.check.json"
+  },
+  "dependencies": {
+    "@axonpdf/font": "*"
+  },
+  "devDependencies": {
+    "@axonpdf/react": "*",
+    "@types/node": "^24.0.0"
+  }
+}

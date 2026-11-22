@@ -24,6 +24,7 @@ sha2 = "0.10"
 subsetter = { version = "0.2", default-features = false }  # no variable fonts: keeps skrifa and write-fonts out
 unicode-bidi = "0.3"
 unicode-bidi-mirroring = "0.4"
+unicode-script = "0.5"
 wuff = "0.2"
 
 [build-dependencies]

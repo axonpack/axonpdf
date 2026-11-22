@@ -6,8 +6,8 @@ use serde_json::json;
 use super::{Cut, build, fetch_all, fill, flow, items, template};
 use crate::RenderArgs;
 use crate::layout::layout_page;
-use crate::paginate::{Finished, Pager, page};
-use crate::tree::{Node, RawNode, truthy};
+use crate::paginate::{Finished, Pager, bands, page};
+use crate::tree::{Node, RawNode, extras, truthy};
 
 impl Cut {
     /// The template for page `n`, rendered, and the way down to its `SLOT`.
@@ -30,7 +30,6 @@ impl Cut {
         for n in &mut nodes {
             fetch_all(n, pager)?;
             pager.resolve_dynamic(n, args)?;
-            settle(n);
         }
         let mut first = None;
         template::check(template::find(&nodes, &mut Vec::new(), &mut first))?;
@@ -49,14 +48,14 @@ impl Cut {
         let (height, ..) = page::heights(&self.shell);
         let wrap = self.shell.props.get("wrap").is_none_or(truthy);
 
-        let mut fake = self.shell.clone();
-        fake.children = chrome.clone();
-        template::put(
-            &mut fake.children,
-            &path,
-            vec![template::probe(&pager.container, &self.shell)],
-        );
-        layout_page(&mut fake, height, pager.assets)?;
+        let mut bands = self.bands.clone();
+        for b in &mut bands {
+            pager.resolve_dynamic(b, &args)?;
+        }
+        let mut children = chrome.clone();
+        let probe = template::probe(&pager.container, &self.shell);
+        template::put(&mut children, &path, vec![probe]);
+        let fake = self.lay(children, &bands, pager)?;
         let (.., width, room) = template::region(&fake, &path);
         let width_then = *self.width.get_or_insert(width);
         if (width - width_then).abs() > 0.001 {
@@ -87,13 +86,15 @@ impl Cut {
         let result = fill::fill(&mut self.frags, room, n, true, false, &mut mx)?;
         self.frags = result.remaining;
 
-        let mut page = self.shell.clone();
+        let mut children = chrome;
+        template::put(&mut children, &path, build::nodes(&result.placed));
+        let mut page = self.lay(children, &bands, pager)?;
         if n > 1 {
             page.props.shift_remove("bookmark");
         }
-        page.children = chrome;
-        template::put(&mut page.children, &path, build::nodes(&result.placed));
-        layout_page(&mut page, height, pager.assets)?;
+        // The page's `render` functions run once more when it is finished, as with the default
+        // engine, to learn whether it is the last.
+        unsettle(&mut page);
         self.count = n;
         Ok(Some(Finished {
             page,
@@ -101,6 +102,34 @@ impl Cut {
             last: self.frags.is_empty(),
         }))
     }
+}
+
+impl Cut {
+    /// The page with `children` and its bands, laid out, its padding grown by the bands.
+    fn lay(&self, children: Vec<Node>, bands: &[Node], pager: &Pager) -> Result<Node, String> {
+        let (height, ..) = page::heights(&self.shell);
+        let mut p = self.shell.clone();
+        p.children = children;
+        p.children.extend_from_slice(bands);
+        layout_page(&mut p, height, pager.assets)?;
+        if let Some(base) = self.base
+            && bands::fit(&mut p, base)
+        {
+            let (height, ..) = page::heights(&p);
+            layout_page(&mut p, height, pager.assets)?;
+        }
+        Ok(p)
+    }
+}
+
+/// Marks the nodes with `render` functions again, and the way down to them.
+fn unsettle(n: &mut Node) -> bool {
+    let mut d = n.render.is_some() || n.has(extras::COUNTER);
+    for c in &mut n.children {
+        d |= unsettle(c);
+    }
+    n.dynamic = d;
+    d
 }
 
 /// No more `render` functions to call in a node: they have been called for its page.

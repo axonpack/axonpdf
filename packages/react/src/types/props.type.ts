@@ -84,7 +84,16 @@ export type PageBand = ReactElement | ((info: PageBandInfo) => ReactNode);
 
 export interface PageProps extends NodeProps {
   wrap?: boolean;
+  /**
+   * A template rendered around every page this Page produces. Where it renders `children` is
+   * where page content flows; everything else repeats as page chrome with its space reserved.
+   * Like render props, layout components may not use hooks. Implies `experimentalPagination`.
+   */
   layout?: (props: PageLayoutProps) => ReactNode;
+  /**
+   * Opt the document into the newer pagination engine. Any page opting in switches the whole
+   * document. Implied by `layout`.
+   */
   experimentalPagination?: boolean;
   debug?: boolean;
   size?: PageSize;
@@ -125,18 +134,37 @@ export interface LinkProps extends NodeProps {
   hitSlop?: HitSlop;
 }
 
-interface BaseImageProps extends NodeProps {
+export interface BaseImageProps extends NodeProps {
   debug?: boolean;
   cache?: boolean;
   srcSet?: SrcSet;
   sizes?: Sizes;
 }
 
-export type ImageProps = BaseImageProps & ({ src: SourceObject } | { source: SourceObject });
+export interface ImageWithSrcProp extends BaseImageProps {
+  src: SourceObject;
+}
 
-export type ImageBackgroundProps = BaseImageProps & {
+export interface ImageWithSourceProp extends BaseImageProps {
+  source: SourceObject;
+}
+
+export type ImageProps = ImageWithSrcProp | ImageWithSourceProp;
+
+export interface BaseImageBackgroundProps extends BaseImageProps {
+  /** The style of the image behind the children. */
   imageStyle?: Style;
-} & ({ src: SourceObject } | { source: SourceObject });
+}
+
+export interface ImageBackgroundWithSrcProp extends BaseImageBackgroundProps {
+  src: SourceObject;
+}
+
+export interface ImageBackgroundWithSourceProp extends BaseImageBackgroundProps {
+  source: SourceObject;
+}
+
+export type ImageBackgroundProps = ImageBackgroundWithSrcProp | ImageBackgroundWithSourceProp;
 
 export interface NoteProps extends NodeProps {
   children: string;

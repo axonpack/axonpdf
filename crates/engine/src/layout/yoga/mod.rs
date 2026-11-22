@@ -53,6 +53,8 @@ pub struct Tree {
     // outer box the pointer would move whenever the Vec grows.
     #[allow(clippy::vec_box)]
     measures: Vec<Option<Box<Box<Measure>>>>,
+    /// Ids of freed nodes, given out again so a long page's tree doesn't grow with its length.
+    free: Vec<NodeId>,
 }
 
 impl Tree {
@@ -64,21 +66,28 @@ impl Tree {
             config,
             nodes: Vec::new(),
             measures: Vec::new(),
+            free: Vec::new(),
         }
     }
 
     pub fn node(&mut self) -> NodeId {
-        self.nodes.push(unsafe { YGNodeNewWithConfig(self.config) });
+        let n = unsafe { YGNodeNewWithConfig(self.config) };
+        if let Some(id) = self.free.pop() {
+            self.nodes[id] = n;
+            return id;
+        }
+        self.nodes.push(n);
         self.measures.push(None);
         self.nodes.len() - 1
     }
 
     /// Frees one node (not its children, which may live on elsewhere) and its measure. Its id
-    /// must not be used again.
+    /// may be given to a new node, so whatever held it must not use it again.
     pub fn free(&mut self, id: NodeId) {
         let n = std::mem::replace(&mut self.nodes[id], std::ptr::null_mut());
         if !n.is_null() {
             unsafe { YGNodeFree(n) };
+            self.free.push(id);
         }
         self.measures[id] = None;
     }

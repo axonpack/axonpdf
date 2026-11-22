@@ -7,6 +7,7 @@ examples/
 build/
 dist/
 packages/core/wasm/axonpdf.mjs
+packages/core/wasm/axonpdf.web.mjs
 packages/core/wasm/axonpdf.wasm
 # Local runs: reference renders, diffs and private test documents, never committed
 local/

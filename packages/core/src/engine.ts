@@ -1,6 +1,37 @@
 import type { Engine } from "./engine.type.js";
 import { encoder, load, type Active } from "./module.js";
 
+/** The UTF-8 size of `text`, as `TextEncoder` writes it (a lone surrogate becomes U+FFFD). */
+function utf8Length(text: string) {
+  let len = text.length;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    if (c < 0x80) continue;
+    if (c < 0x800) len += 1;
+    else if (c >= 0xd800 && c <= 0xdbff && (text.charCodeAt(i + 1) & 0xfc00) === 0xdc00) {
+      len += 2;
+      i++;
+    } else len += 2;
+  }
+  return len;
+}
+
+/**
+ * Loads the WebAssembly module (once per process) and gives a function that measures a page:
+ * its width in points from its props (`size`, `orientation`, `dpi`), NaN for a bad size.
+ */
+export async function loadPageWidth(): Promise<(props: object) => number> {
+  const { module } = await load();
+  return (props) => {
+    const bytes = encoder.encode(JSON.stringify(props));
+    const ptr = module._axonpdf_alloc(bytes.length);
+    module.HEAPU8.set(bytes, ptr);
+    const width = module._axonpdf_page_width(ptr, bytes.length);
+    module._axonpdf_dealloc(ptr, bytes.length);
+    return width;
+  };
+}
+
 /** Loads the WebAssembly module (once per process) and creates an engine. */
 export async function createEngine(): Promise<Engine> {
   const { module, active, pointers } = await load();
@@ -18,6 +49,23 @@ export async function createEngine(): Promise<Engine> {
     const ptr = module._axonpdf_alloc(bytes.length);
     module.HEAPU8.set(bytes, ptr);
     return ptr;
+  };
+  /**
+   * Writes the text as UTF-8 straight into engine memory, with no JS copy of the bytes. Given a
+   * function, the string it makes is garbage once this returns, before the engine runs.
+   */
+  const copyText = (source: string | (() => string)) => {
+    const text = typeof source === "function" ? source() : source;
+    const len = utf8Length(text);
+    const ptr = module._axonpdf_alloc(len);
+    encoder.encodeInto(text, module.HEAPU8.subarray(ptr, ptr + len));
+    return { ptr, len };
+  };
+  /** Reads a NUL-terminated string the engine allocated, and frees it. */
+  const takeString = (ptr: number) => {
+    const text = module.UTF8ToString(ptr);
+    module._axonpdf_dealloc(ptr, encoder.encode(text).length + 1);
+    return text;
   };
   const check = (status: number) => {
     const error = current.error;
@@ -56,8 +104,7 @@ export async function createEngine(): Promise<Engine> {
       check(module._axonpdf_add_image(handle, id, copy(bytes), bytes.length));
     },
     render(treeJson, onChunk, callbacks = {}) {
-      const json = encoder.encode(treeJson);
-      const ptr = copy(json);
+      const json = copyText(treeJson);
       current.onChunk = onChunk;
       current.callbacks = callbacks;
       if (callbacks.rows && !rowsCallbackSet) {
@@ -65,9 +112,9 @@ export async function createEngine(): Promise<Engine> {
         rowsCallbackSet = true;
       }
       try {
-        check(module._axonpdf_render(handle, ptr, json.length, pointers.output, handle));
+        // The engine takes the JSON and reads it in place.
+        check(module._axonpdf_render(handle, json.ptr, json.len, pointers.output, handle));
       } finally {
-        module._axonpdf_dealloc(ptr, json.length);
         current.onChunk = undefined;
         current.callbacks = {};
       }
@@ -75,25 +122,28 @@ export async function createEngine(): Promise<Engine> {
     begin(treeJson, onChunk, callbacks = {}) {
       current.onChunk = onChunk;
       current.callbacks = callbacks;
-      const json = encoder.encode(treeJson);
-      const ptr = copy(json);
-      try {
-        return step(
-          module._axonpdf_render_begin(handle, ptr, json.length, pointers.output, handle, rowsId),
-        );
-      } finally {
-        module._axonpdf_dealloc(ptr, json.length);
-      }
+      const json = copyText(treeJson);
+      // The engine takes the JSON, as `render` does.
+      return step(
+        module._axonpdf_render_begin(handle, json.ptr, json.len, pointers.output, handle, rowsId),
+      );
     },
     pushRows(id, batchJson) {
-      const json = encoder.encode(batchJson);
-      const ptr = copy(json);
+      const json = copyText(batchJson);
       try {
         return step(
-          module._axonpdf_push_rows(handle, id, ptr, json.length, pointers.output, handle, rowsId),
+          module._axonpdf_push_rows(
+            handle,
+            id,
+            json.ptr,
+            json.len,
+            pointers.output,
+            handle,
+            rowsId,
+          ),
         );
       } finally {
-        module._axonpdf_dealloc(ptr, json.length);
+        module._axonpdf_dealloc(json.ptr, json.len);
       }
     },
     hyphenateBuiltin(word) {
@@ -101,9 +151,20 @@ export async function createEngine(): Promise<Engine> {
       const wordPtr = copy(bytes);
       const out = module._axonpdf_hyphenate_builtin(wordPtr, bytes.length);
       module._axonpdf_dealloc(wordPtr, bytes.length);
-      const json = module.UTF8ToString(out);
-      module._axonpdf_dealloc(out, encoder.encode(json).length + 1);
-      return JSON.parse(json);
+      return JSON.parse(takeString(out));
+    },
+    profile(on) {
+      module._axonpdf_profile(on);
+    },
+    profileReport() {
+      return JSON.parse(takeString(module._axonpdf_profile_report()));
+    },
+    pages() {
+      const sizes: [number, number][] = JSON.parse(takeString(module._axonpdf_pages(handle)));
+      return sizes.map(([width, height]) => ({ width, height }));
+    },
+    memoryBytes() {
+      return module.HEAPU8.buffer.byteLength;
     },
     free() {
       active.delete(handle);

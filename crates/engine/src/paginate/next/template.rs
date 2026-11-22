@@ -2,14 +2,13 @@
 //! page's content goes. The rest is chrome, drawn on every page with its space kept.
 
 use serde_json::json;
-use serde_json::value::RawValue;
 
 use crate::style::Container;
-use crate::tree::{Kind, Node, RawNode};
+use crate::tree::{Json, Kind, Node, RawNode};
 
 pub const SLOT: &str = "SLOT";
 
-fn kind_of(json: &RawValue) -> Option<String> {
+fn kind_of(json: &Json) -> Option<String> {
     #[derive(serde::Deserialize)]
     struct K {
         #[serde(rename = "type")]
@@ -21,11 +20,11 @@ fn kind_of(json: &RawValue) -> Option<String> {
 /// Puts `payload` where the first `SLOT` is in `list`, counting the slots in `found` and
 /// writing the way down to the payload's first node in `path`.
 pub fn splice(
-    list: Vec<Box<RawValue>>,
-    payload: &mut Option<Vec<Box<RawValue>>>,
+    list: Vec<Json>,
+    payload: &mut Option<Vec<Json>>,
     found: &mut usize,
     path: &mut Vec<usize>,
-) -> Vec<Box<RawValue>> {
+) -> Vec<Json> {
     let mut out = Vec::new();
     for json in list {
         if kind_of(&json).as_deref() == Some(SLOT) {

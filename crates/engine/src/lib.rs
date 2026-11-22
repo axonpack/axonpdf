@@ -10,6 +10,7 @@ pub mod images;
 pub mod layout;
 pub mod paginate;
 pub mod path;
+pub mod profile;
 pub mod style;
 pub mod text;
 pub mod tree;

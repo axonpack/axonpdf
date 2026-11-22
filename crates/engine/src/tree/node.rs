@@ -4,10 +4,9 @@ use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
 
-use serde_json::value::RawValue;
 use serde_json::{Map, Value, json};
 
-use super::{RawNode, extras, truthy};
+use super::{Json, RawNode, extras, truthy};
 use crate::style::{self, Container, Style};
 use crate::text::Line;
 use crate::text::exclusion::Exclusion;
@@ -41,6 +40,23 @@ impl Kind {
             "SVG" => Kind::Svg,
             "TEXT_INSTANCE" => Kind::TextInstance,
             other => Kind::Other(other.to_string()),
+        }
+    }
+
+    /// The type as the tree names it (`VIEW`), as warnings print it.
+    pub fn name(&self) -> &str {
+        match self {
+            Kind::Page => "PAGE",
+            Kind::View => "VIEW",
+            Kind::Text => "TEXT",
+            Kind::Link => "LINK",
+            Kind::Image => "IMAGE",
+            Kind::ImageBackground => "IMAGE_BACKGROUND",
+            Kind::Note => "NOTE",
+            Kind::Canvas => "CANVAS",
+            Kind::Svg => "SVG",
+            Kind::TextInstance => "TEXT_INSTANCE",
+            Kind::Other(other) => other,
         }
     }
 }
@@ -102,7 +118,7 @@ pub struct Node {
     /// How many children the kept layout holds; the rest wait below it (0: all).
     pub window: usize,
     /// Children not built yet, after `children`: a long list is built as the cut nears it.
-    pub pending: VecDeque<Box<RawValue>>,
+    pub pending: VecDeque<Json>,
     /// The child built last asked for a break after it.
     pub break_next: bool,
     /// Added to the top margin so `clear` puts the node below the floats before it.
@@ -158,7 +174,7 @@ impl Node {
 
     /// Replaces the children with `raw` ones, styled under this node. Past the first
     /// [`LAZY`] children of a container, plain ones wait as JSON until [`Node::build_pending`].
-    pub fn set_children(&mut self, raw: Vec<Box<RawValue>>, c: &Container) {
+    pub fn set_children(&mut self, raw: Vec<Json>, c: &Container) {
         self.children.clear();
         self.pending = raw.into();
         let container = !matches!(self.kind, Kind::Text | Kind::Svg | Kind::Note);
@@ -198,8 +214,12 @@ impl Node {
     }
 
     /// Adds `raw` children after the ones there, built now.
-    pub fn append_children(&mut self, raw: Vec<Box<RawValue>>, c: &Container) {
-        self.pending.extend(raw);
+    pub fn append_children(
+        &mut self,
+        raw: impl IntoIterator<Item = impl Into<Json>>,
+        c: &Container,
+    ) {
+        self.pending.extend(raw.into_iter().map(Into::into));
         self.build_pending(c, usize::MAX);
     }
 
@@ -310,6 +330,28 @@ pub fn clear_styles() {
     STYLES.with(|s| s.borrow_mut().clear());
 }
 
+/// Drops the entries whose parent style nothing outside the cache holds: no node can ask for
+/// them again. Repeated, since a dropped entry can leave its own style held by the cache alone.
+fn forget_dead(m: &mut HashMap<StyleKey, Shared>) {
+    loop {
+        let mut held: HashMap<*const Style, usize> = HashMap::new();
+        for (p, s) in m.values() {
+            *held.entry(Rc::as_ptr(s)).or_default() += 1;
+            if let Some(p) = p {
+                *held.entry(Rc::as_ptr(p)).or_default() += 1;
+            }
+        }
+        let before = m.len();
+        m.retain(|_, (p, _)| {
+            p.as_ref()
+                .is_none_or(|p| Rc::strong_count(p) > held[&Rc::as_ptr(p)])
+        });
+        if m.len() == before {
+            return;
+        }
+    }
+}
+
 fn shared_style(c: &Container, raw: Value, parent: Option<(&Rc<Style>, bool)>) -> Rc<Style> {
     let key = (
         raw.to_string(),
@@ -325,8 +367,14 @@ fn shared_style(c: &Container, raw: Value, parent: Option<(&Rc<Style>, bool)>) -
     }
     let style = Rc::new(style);
     STYLES.with(|m| {
-        m.borrow_mut()
-            .insert(key, (parent.map(|(p, _)| p.clone()), style.clone()))
+        let mut m = m.borrow_mut();
+        // A page cut gives the rest of a split box a style of its own, so rows built under it
+        // add entries on every page. Each time the cache doubles, drop those whose parent only
+        // the cache still holds, so it stays the size of what is alive.
+        if m.len() >= 64 && m.len().is_power_of_two() {
+            forget_dead(&mut m);
+        }
+        m.insert(key, (parent.map(|(p, _)| p.clone()), style.clone()))
     });
     style
 }

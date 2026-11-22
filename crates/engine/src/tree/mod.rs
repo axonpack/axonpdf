@@ -64,8 +64,10 @@
 //! - Functions other than `render` (`hyphenationCallback`, `onRender`, ...) are not sent.
 
 pub mod extras;
+pub mod json;
 pub mod node;
 
+pub use json::Json;
 pub use node::{Kind, Node};
 
 use serde::{Deserialize, Serialize};
@@ -73,8 +75,11 @@ use serde_json::value::RawValue;
 use serde_json::{Map, Value};
 
 /// A node as it arrives in the JSON. Its children stay JSON until each is built.
+pub type RawNode = RawNodeOf<Json>;
+
+/// A node with its children as `C`: [`Json`], or borrowed while reading.
 #[derive(Debug, Deserialize, Serialize)]
-pub struct RawNode {
+pub struct RawNodeOf<C> {
     #[serde(rename = "type")]
     pub kind: String,
     #[serde(default)]
@@ -86,25 +91,41 @@ pub struct RawNode {
     /// A `CANVAS`'s `paint` function, by id.
     #[serde(default)]
     pub paint: Option<u32>,
-    #[serde(default)]
-    pub children: Vec<Box<RawValue>>,
+    #[serde(default = "Vec::new")]
+    pub children: Vec<C>,
     /// The text of a `TEXT_INSTANCE`.
     #[serde(default)]
     pub value: Option<String>,
 }
 
 impl RawNode {
-    /// Reads one node. A node the engine cannot read is reported and left empty.
-    pub fn parse(json: &RawValue) -> RawNode {
-        serde_json::from_str(json.get()).unwrap_or_else(|e| {
+    /// Reads one node; its children point into `json`'s text, uncopied. A node the engine
+    /// cannot read is reported and left empty.
+    pub fn parse(json: &Json) -> RawNode {
+        RawNode::read(json).unwrap_or_else(|e| {
             eprintln!("skipping a node the engine cannot read: {e}");
             serde_json::from_str(r#"{"type":"VIEW"}"#).unwrap()
         })
     }
 
+    /// Reads one node as [`RawNode::parse`] does, failing on bad JSON.
+    pub fn read(json: &Json) -> Result<RawNode, String> {
+        let r: RawNodeOf<&RawValue> =
+            serde_json::from_str(json.get()).map_err(|e| e.to_string())?;
+        Ok(RawNode {
+            kind: r.kind,
+            props: r.props,
+            style: r.style,
+            render: r.render,
+            paint: r.paint,
+            children: r.children.iter().map(|c| json.part(c.get())).collect(),
+            value: r.value,
+        })
+    }
+
     /// Back to JSON, to sit among other nodes' children.
-    pub fn boxed(&self) -> Box<RawValue> {
-        serde_json::value::to_raw_value(self).expect("a node is always JSON")
+    pub fn boxed(&self) -> Json {
+        Json::new(serde_json::to_string(self).expect("a node is always JSON"))
     }
 
     /// A `TEXT_INSTANCE`.
@@ -126,7 +147,7 @@ impl RawNode {
 #[serde(rename_all = "camelCase")]
 pub struct RenderResult {
     #[serde(default)]
-    pub children: Vec<Box<RawValue>>,
+    pub children: Vec<Json>,
     #[serde(default)]
     pub reads_total: bool,
 }
@@ -142,6 +163,9 @@ pub struct Doc<'a> {
     pub props: Map<String, Value>,
     #[serde(borrow, default)]
     children: Vec<&'a RawValue>,
+    /// The whole JSON, which the pages' waiting children point into.
+    #[serde(skip)]
+    text: Json,
 }
 
 impl Doc<'_> {
@@ -149,8 +173,13 @@ impl Doc<'_> {
     pub fn pages(&self) -> impl Iterator<Item = Result<RawNode, String>> + '_ {
         self.children
             .iter()
-            .map(|c| serde_json::from_str::<RawNode>(c.get()).map_err(|e| e.to_string()))
+            .map(|c| self.read(c.get()))
             .filter(|r| r.as_ref().map_or(true, |n| n.kind == "PAGE"))
+    }
+
+    /// Reads one page from its JSON (one of [`Doc::page_json`]), its children left uncopied.
+    pub fn read(&self, page_json: &str) -> Result<RawNode, String> {
+        RawNode::read(&self.text.part(page_json))
     }
 
     /// The pages' JSON, unread.
@@ -191,8 +220,9 @@ pub fn has_type(json: &str, kind: &str) -> bool {
 }
 
 /// Parses a document. The root must be a `DOCUMENT` of version 1.
-pub fn parse(json: &str) -> Result<Doc<'_>, String> {
-    let doc: Doc = serde_json::from_str(json).map_err(|e| e.to_string())?;
+pub fn parse(json: &Json) -> Result<Doc<'_>, String> {
+    let mut doc: Doc = serde_json::from_str(json.get()).map_err(|e| e.to_string())?;
+    doc.text = json.clone();
     if doc.v != 1 {
         return Err(format!("unsupported document version {}", doc.v));
     }
@@ -219,18 +249,22 @@ mod tests {
 
     #[test]
     fn parses_a_document() {
-        let doc = parse(
+        let json = Json::new(
             r#"{"v":1,"type":"DOCUMENT","props":{"title":"T"},"children":[
                 {"type":"PAGE","props":{"size":"A4"},"style":[{"padding":10},null,false],
                  "children":[{"type":"TEXT","render":3,"children":[
-                    {"type":"TEXT_INSTANCE","value":"hi"}]}]}]}"#,
-        )
-        .unwrap();
+                    {"type":"TEXT_INSTANCE","value":"hi"}]}]}]}"#
+                .into(),
+        );
+        let doc = parse(&json).unwrap();
         assert_eq!(doc.props["title"], "T");
         let page = doc.pages().next().unwrap().unwrap();
         assert!(page.style.is_array());
         let text = RawNode::parse(&page.children[0]);
         assert_eq!(text.render, Some(3));
+        // Children point into the document's JSON rather than holding a copy.
+        let inner = text.children[0].get();
+        assert!(json.get().contains(inner) && json.get().as_ptr() < inner.as_ptr());
         assert_eq!(
             RawNode::parse(&text.children[0]).value.as_deref(),
             Some("hi")
@@ -242,7 +276,7 @@ mod tests {
 
     #[test]
     fn rejects_other_versions() {
-        assert!(parse(r#"{"v":2,"type":"DOCUMENT"}"#).is_err());
-        assert!(parse(r#"{"v":1,"type":"PAGE"}"#).is_err());
+        assert!(parse(&Json::new(r#"{"v":2,"type":"DOCUMENT"}"#.into())).is_err());
+        assert!(parse(&Json::new(r#"{"v":1,"type":"PAGE"}"#.into())).is_err());
     }
 }

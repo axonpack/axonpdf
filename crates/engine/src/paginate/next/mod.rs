@@ -6,11 +6,15 @@
 //!
 //! Where it differs from the components on purpose: `break` counts at any depth, not only on the
 //! page's own children; a page with no height grows instead of failing for lack of room; and a
-//! `render` node is measured under its own parents' styles, not the page's.
+//! `render` node is measured under its own parents' styles, not the page's. A `fixed` absolutely
+//! placed node is on every page even when it comes after the content (it is moved first, so it
+//! paints under what follows). A positioned `render` node is laid out at its real width when its
+//! page is finished, not at the width its insets left it while it was measured.
 //!
 //! ponytail: one `<Page>`'s whole content is laid out and held while it is cut (about 0.7 MB a
 //! page of dense table), since its first boxes decide every break. A layout window like the
-//! default engine's would keep it flat. `isLast` is never given to `render` functions here.
+//! default engine's would keep it flat. A `fixed` node in the flow (not absolutely placed) still
+//! repeats only from the page the flow reaches it on; moving it first would move it on the page.
 
 mod build;
 mod cut;
@@ -65,6 +69,9 @@ pub struct Cut {
     /// Where the content sits in the first layout, and how many nodes it is.
     content: (Vec<usize>, usize),
     frags: Vec<Fragment>,
+    /// The page's header and footer bands, and its own top and bottom padding they add to.
+    bands: Vec<Node>,
+    base: Option<(f64, f64)>,
     width: Option<f64>,
     numbers: Numbers,
     pub count: u32,
@@ -116,17 +123,22 @@ pub fn open(
         template::check(found)?;
         content = (path, count);
     }
-    let (node, c) = page::build(raw)?;
-    let mut shell = node.clone();
-    shell.children.clear();
-    shell.pending.clear();
-    shell.dynamic = false;
+    let (mut node, c) = page::build(raw)?;
+    let base = page::band_base(&node);
+    let (bands, children) = std::mem::take(&mut node.children)
+        .into_iter()
+        .partition(|n| n.has(super::bands::BAND));
+    let pending = std::mem::take(&mut node.pending);
+    let shell = node.clone();
+    (node.children, node.pending) = (children, pending);
     let cut = Cut {
         built: Some(node),
         shell,
         layout: head.layout,
         content,
         frags: Vec::new(),
+        bands,
+        base,
         width: None,
         numbers: Numbers {
             first,

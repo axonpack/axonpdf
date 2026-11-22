@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { pdf } from "../pdf.js";
-import { Canvas, Document, Image, Page, Text, View } from "../primitives.js";
+import { Canvas, Document, Image, Link, Page, Text, View } from "../primitives.js";
+import { renderToBuffer } from "../index.node.js";
 import { serializeDocument } from "../tree/serialize.js";
 import { createSession, settle } from "../tree/session.js";
+import { reconciled, texts, walked } from "./walk.fixture.js";
 
 const name = "world";
 const png = new Uint8Array([137, 80, 78, 71]);
@@ -117,5 +119,53 @@ describe("Canvas", () => {
       ["rect", 0, 0, 5, 5],
       ["fill"],
     ]);
+  });
+});
+
+describe("strings outside Text", () => {
+  const warned = (run: () => unknown) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    return Promise.resolve(run())
+      .then(() => warn.mock.calls.map(([message]) => message))
+      .finally(() => warn.mockRestore());
+  };
+  const doc = (
+    <Document>
+      <Page>
+        loose
+        <View>
+          {0}
+          <Text>
+            kept <Link src="https://example.com">linked</Link>
+          </Text>
+        </View>
+      </Page>
+    </Document>
+  );
+  const expected = [
+    "Invalid 'loose' string child outside <Text> component",
+    "Invalid '0' string child outside <Text> component",
+  ];
+
+  it("are warned about and dropped by both tree builders", async () => {
+    for (const build of [walked, reconciled]) {
+      let tree = "";
+      // The reconciler appends children before their parents, so its order differs.
+      expect((await warned(() => (tree = build(doc)))).sort()).toEqual(expected.sort());
+      expect(texts(tree)).toEqual(["kept ", "linked"]);
+    }
+  });
+
+  it("are not warned about in what a render function returns", async () => {
+    const messages = await warned(() =>
+      renderToBuffer(
+        <Document>
+          <Page>
+            <View render={() => "from render"} />
+          </Page>
+        </Document>,
+      ),
+    );
+    expect(messages).toEqual([]);
   });
 });

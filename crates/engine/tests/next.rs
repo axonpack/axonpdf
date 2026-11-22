@@ -132,3 +132,16 @@ fn a_layout_renders_its_children_once() {
         "[layout] A page layout must render its children exactly once (found 2)."
     );
 }
+
+/// A `fixed` footer written after the content is on every page, not only the last.
+#[test]
+fn a_fixed_node_after_the_content_repeats() {
+    let footer = json!({"type": "VIEW", "props": {"fixed": true},
+        "style": {"position": "absolute", "bottom": 0, "height": 10}});
+    let block = json!({"type": "VIEW", "props": {"wrap": false}, "style": {"height": 60}});
+    let pages = json!([{"type": "PAGE", "props": {"size": [100, 100], "experimentalPagination": true},
+        "children": [block.clone(), block.clone(), block, footer]}]);
+    let pages = layout(pages, answer);
+    assert_eq!(pages.len(), 3);
+    assert!(pages.iter().all(|p| p[0] == "VIEW 90 10"), "{pages:?}");
+}

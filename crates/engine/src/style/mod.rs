@@ -17,6 +17,8 @@ pub use inherit::inherit;
 pub use transform::Transform;
 pub use units::{Container, Dim};
 
+use std::cell::RefCell;
+
 use crate::display::{BorderStyle, Color};
 use crate::layout::yoga::{Align, FlexDirection, Justify, Overflow, PositionType, Wrap};
 use serde_json::Value;
@@ -74,6 +76,8 @@ pub struct Style {
     pub font_size: Option<f64>,
     pub font_style: Option<String>,
     pub font_weight: Option<u16>,
+    /// OpenType features turned on or off, by tag.
+    pub font_feature_settings: Option<Vec<([u8; 4], bool)>>,
     pub letter_spacing: Option<f64>,
     pub line_height: Option<f64>,
     pub text_align: Option<String>,
@@ -102,6 +106,24 @@ pub fn resolve(c: &Container, raw: &Value) -> Style {
         style.position = Some(PositionType::Absolute);
     }
     style
+}
+
+thread_local! {
+    /// The first style that can't be used, such as `borderRadius: '50%'`. Resolving a style
+    /// can't fail, so the render checks this before it writes a page.
+    static ERROR: RefCell<Option<String>> = const { RefCell::new(None) };
+}
+
+/// Records a style error; the first one wins.
+pub(crate) fn fail(message: String) {
+    ERROR.with(|e| {
+        e.borrow_mut().get_or_insert(message);
+    });
+}
+
+/// Fails with the first style error since the last call, and forgets it.
+pub fn take_error() -> Result<(), String> {
+    ERROR.with(|e| e.borrow_mut().take()).map_or(Ok(()), Err)
 }
 
 pub const TOP: usize = 0;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createEngine } from "../index.js";
+import { createEngine, loadPageWidth } from "../index.js";
 
 const tree = {
   v: 1,
@@ -16,7 +16,7 @@ const tree = {
 };
 
 describe("createEngine", () => {
-  it("streams a PDF and calls render functions by id", async () => {
+  it("streams a PDF, calls render functions by id, and lists the pages it wrote", async () => {
     const engine = await createEngine();
     const chunks: Uint8Array[] = [];
     const calls: unknown[] = [];
@@ -29,12 +29,32 @@ describe("createEngine", () => {
         });
       },
     });
+    expect(engine.pages()).toEqual([{ width: 595.28, height: 841.89 }]);
     engine.free();
 
     const pdf = Buffer.concat(chunks).toString("latin1");
     expect(pdf.startsWith("%PDF-")).toBe(true);
     expect(pdf.trimEnd().endsWith("%%EOF")).toBe(true);
     expect(calls[0]).toMatchObject({ id: 3, pageNumber: 1 });
+  });
+
+  it("takes the JSON from a function, sized exactly for any UTF-8", async () => {
+    const engine = await createEngine();
+    const text = { type: "TEXT_INSTANCE", value: "£ • é 😀 \ud800 x" };
+    const json = JSON.stringify({
+      ...tree,
+      children: [
+        { type: "PAGE", props: {}, children: [{ type: "TEXT", props: {}, children: [text] }] },
+      ],
+    });
+    const chunks: Uint8Array[] = [];
+    // One byte short would cut the closing braces and fail to parse.
+    engine.render(
+      () => json,
+      (chunk) => chunks.push(chunk),
+    );
+    engine.free();
+    expect(Buffer.concat(chunks).toString("latin1").trimEnd().endsWith("%%EOF")).toBe(true);
   });
 
   it("rethrows an error from a render function after the engine returns", async () => {
@@ -88,5 +108,16 @@ describe("createEngine", () => {
     expect(engine.pushRows(9, JSON.stringify({ children: [row(2)], done: true }))).toBeUndefined();
     engine.free();
     expect(Buffer.concat(chunks).toString("latin1").trimEnd().endsWith("%%EOF")).toBe(true);
+  });
+});
+
+describe("loadPageWidth", () => {
+  it("measures a page from its size, orientation and dpi", async () => {
+    const width = await loadPageWidth();
+    expect(width({})).toBe(595.28);
+    expect(width({ size: "LETTER", orientation: "landscape" })).toBe(792);
+    expect(width({ size: ["4in", 300] })).toBe(288);
+    expect(width({ size: { width: 192 }, dpi: 144 })).toBe(192);
+    expect(width({ size: "B12" })).toBeNaN();
   });
 });

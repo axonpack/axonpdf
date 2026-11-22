@@ -4,7 +4,7 @@ use std::ffi::c_void;
 
 use axonpdf::{Engine, Step};
 
-use crate::{Handle, run, text};
+use crate::{Handle, owned_text, run, text};
 
 /// Receives each chunk of the PDF in order. The bytes are only valid during the call.
 pub type OutputCallback = extern "C" fn(user: *mut c_void, bytes: *const u8, len: usize);
@@ -12,19 +12,22 @@ pub type OutputCallback = extern "C" fn(user: *mut c_void, bytes: *const u8, len
 /// Renders the tree and hands each chunk to `output` as it is written.
 ///
 /// # Safety
-/// `json` is `json_len` bytes of UTF-8.
+/// `json` comes from `axonpdf_alloc(json_len)`, holds UTF-8, and is taken: the engine reads the
+/// tree in place and frees it.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn axonpdf_render(
     handle: *mut Handle,
-    json: *const u8,
+    json: *mut u8,
     json_len: usize,
     output: OutputCallback,
     user: *mut c_void,
 ) -> i32 {
-    let json = unsafe { text(json, json_len) };
+    let json = unsafe { owned_text(json, json_len) };
     run(handle, |engine| {
         let mut out = |chunk: &[u8]| output(user, chunk.as_ptr(), chunk.len());
-        engine.render(json?, &mut out).map_err(|e| e.to_string())
+        engine
+            .render_owned(json?, &mut out)
+            .map_err(|e| e.to_string())
     })
 }
 
@@ -34,17 +37,17 @@ pub unsafe extern "C" fn axonpdf_render(
 /// on failure. Used when no rows callback is set.
 ///
 /// # Safety
-/// `json` is `json_len` bytes of UTF-8; `rows_id` points to a writable u32.
+/// `json` is taken as for `axonpdf_render`; `rows_id` points to a writable u32.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn axonpdf_render_begin(
     handle: *mut Handle,
-    json: *const u8,
+    json: *mut u8,
     json_len: usize,
     output: OutputCallback,
     user: *mut c_void,
     rows_id: *mut u32,
 ) -> i32 {
-    let json = unsafe { text(json, json_len) }.map(str::to_owned);
+    let json = unsafe { owned_text(json, json_len) };
     unsafe {
         step(handle, rows_id, |engine| {
             let mut out = |chunk: &[u8]| output(user, chunk.as_ptr(), chunk.len());

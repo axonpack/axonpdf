@@ -14,7 +14,8 @@ use crate::draw;
 use crate::fonts::FontStore;
 use crate::hooks::{Hooks, HyphenationCallback, PaintCallback, RowsCallback};
 use crate::images::ImageStore;
-use crate::tree::{self, Node};
+use crate::profile::{self, Phase};
+use crate::tree::{self, Doc, Json, Node};
 use crate::writer::{Writer, doc_info};
 
 /// What a `render` function is called with. `None` is `undefined` on the adapter's side: while
@@ -50,6 +51,8 @@ pub struct Engine {
     hooks: Hooks,
     /// A resumable render waiting for rows.
     job: Option<job::Job>,
+    /// The width and height of each page the current or last render wrote.
+    pages: Vec<[f64; 2]>,
 }
 
 impl Default for Engine {
@@ -67,6 +70,7 @@ impl Engine {
             callback: None,
             hooks: Hooks::default(),
             job: None,
+            pages: Vec::new(),
         }
     }
 
@@ -87,6 +91,11 @@ impl Engine {
         let image = self.images.add(&bytes).map_err(|e| format!("{e:?}"))?;
         self.assets.insert(id, image);
         Ok(())
+    }
+
+    /// The width and height of each page the current or last render wrote, in order.
+    pub fn pages(&self) -> &[[f64; 2]] {
+        &self.pages
     }
 
     pub fn set_render_callback(&mut self, cb: RenderCallback) {
@@ -114,11 +123,25 @@ impl Engine {
     /// pages finish. When a `render` function reads the page total, pages are cut once to count
     /// them, then again to draw them.
     pub fn render(&mut self, tree_json: &str, out: &mut dyn FnMut(&[u8])) -> Result<(), String> {
-        let doc = tree::parse(tree_json)?;
+        self.render_owned(tree_json.to_owned(), out)
+    }
+
+    /// [`Engine::render`], reading the JSON in place: the pages' waiting children point into it
+    /// instead of holding copies.
+    pub fn render_owned(
+        &mut self,
+        tree_json: String,
+        out: &mut dyn FnMut(&[u8]),
+    ) -> Result<(), String> {
+        let _time = profile::enter(Phase::Layout);
+        let text = Json::new(tree_json);
+        let doc = parse(&text)?;
         let mut writer = Writer::new(doc_info(&doc.props));
         writer.begin(out);
         let sizes = self.image_sizes();
         let (fonts, images, assets) = (&self.fonts, &mut self.images, &self.assets);
+        let pages = &mut self.pages;
+        pages.clear();
         let lookup = |id: u32| Some((*assets.get(&id)?, *sizes.get(&id)?));
         let hooks = &self.hooks;
         let paint = |id: u32, w: f64, h: f64| hooks.paint(id, w, h);
@@ -130,10 +153,14 @@ impl Engine {
             outline: &Default::default(),
         };
         let mut sink = |page: &Node, width: f64, height: f64| {
-            let display = draw::page(page, width, height, &cx);
+            let display = paint_page(page, width, height, &cx);
+            let _time = profile::enter(Phase::Write);
             writer.write_page(&display, fonts, images, out);
+            pages.push([width, height]);
+            profile::page();
         };
         layout_pages(fonts, &sizes, hooks, &mut self.callback, doc, &mut sink)?;
+        let _time = profile::enter(Phase::Write);
         writer.finish(&self.fonts, out);
         Ok(())
     }
@@ -141,7 +168,8 @@ impl Engine {
     /// Lays out every page of a document tree, handing each to `visit` with its width and
     /// height as soon as it is final, then dropping it. For checking layout without a PDF.
     pub fn layout(&mut self, tree_json: &str, visit: &mut Visit) -> Result<(), String> {
-        let doc = tree::parse(tree_json)?;
+        let text = Json::new(tree_json.into());
+        let doc = tree::parse(&text)?;
         let sizes = self.image_sizes();
         layout_pages(
             &self.fonts,
@@ -163,4 +191,21 @@ impl Engine {
             })
             .collect()
     }
+}
+
+/// Reads the tree JSON, timed as its own phase.
+pub(super) fn parse(tree_json: &Json) -> Result<Doc<'_>, String> {
+    let _time = profile::enter(Phase::Parse);
+    tree::parse(tree_json)
+}
+
+/// A finished page's drawing operations, timed as painting.
+pub(super) fn paint_page(
+    page: &Node,
+    width: f64,
+    height: f64,
+    cx: &draw::Ctx,
+) -> crate::display::PageOut {
+    let _time = profile::enter(Phase::Paint);
+    draw::page(page, width, height, cx)
 }

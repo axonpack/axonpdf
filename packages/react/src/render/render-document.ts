@@ -1,11 +1,15 @@
-import { createEngine, type RenderArgs } from "@axonpdf/core";
+import { createEngine, loadPageWidth, type RenderArgs } from "@axonpdf/core";
 
 import { addEmoji } from "../assets/emoji.js";
 import { Font } from "../font/font-store.js";
 import { addFonts } from "../font/load-fonts.js";
+import { hiddenReadsTotal, readsTotal } from "./plan.js";
 import { serializeDocument } from "../tree/serialize.js";
-import { createSession, settle, type Session } from "../tree/session.js";
-import type { Instance } from "../types/instance.type.js";
+import { Fallback, timing } from "../tree/dispatcher.js";
+import { Restart, createSession, settle, type Carried, type Session } from "../tree/session.js";
+import type { Item } from "../types/instance.type.js";
+import type { Recorder } from "../types/profile.type.js";
+import type { TreeDocument } from "../types/tree.type.js";
 
 /** Runs `fn` as the engine's callback: nothing async (images) may start inside it. */
 function inCallback<T>(session: Session, fn: () => T): T {
@@ -18,23 +22,124 @@ function inCallback<T>(session: Session, fn: () => T): T {
   }
 }
 
-/**
- * Renders a committed `Document`; `onChunk` gets each piece of the PDF in order. With an async
- * `Rows`, pages leave between batches; otherwise the engine runs in one go.
- */
-export async function renderDocument(
-  document: Instance | null,
-  onChunk: (chunk: Uint8Array) => void,
-  /** Awaited before each async batch: a stream's reader can hold the render back. */
-  wait?: () => Promise<void>,
-) {
+/** The root host item as the engine's tree; the root must be a `Document`. */
+export function serializeRoot(document: Item | null | undefined, session: Session) {
   if (!document || document.type !== "DOCUMENT") {
     throw new Error("The root element must be a <Document>.");
   }
-  const session = createSession();
-  const tree = serializeDocument(document, session);
+  return serializeDocument(document as Exclude<Item, { type: "TEXT_INSTANCE" }>, session);
+}
+
+/**
+ * Renders the committed `Document`; `onChunk` gets each piece of the PDF in order. With an async
+ * `Rows`, pages leave between batches; otherwise the engine runs in one go. Resolves with the
+ * size of each page written.
+ *
+ * Lazy children are built while the engine counts the pages, before any page is written, so a
+ * try that meets an image not loaded yet can still be dropped: the images load and it starts
+ * again once. Until a page arrives the first chunk (the file header) is held back for that.
+ */
+export async function renderDocument(
+  build: (session: Session) => TreeDocument,
+  onChunk: (chunk: Uint8Array) => void,
+  wait?: () => Promise<void>,
+  release?: () => void,
+  recorder?: Recorder,
+) {
+  timing.recorder = recorder;
+  try {
+    return await tries(build, onChunk, wait, release, recorder);
+  } finally {
+    timing.recorder = undefined;
+  }
+}
+
+async function tries(
+  build: (session: Session) => TreeDocument,
+  onChunk: (chunk: Uint8Array) => void,
+  wait?: () => Promise<void>,
+  release?: () => void,
+  recorder?: Recorder,
+) {
+  const carried: Carried = { images: [], emoji: new Map() };
+  let held: Uint8Array[] | undefined = [];
+  let session: Session;
+  const out = (chunk: Uint8Array) => {
+    // The pages of a try that will be made again are dropped.
+    if (session.restart) return;
+    if (!held) return onChunk(chunk);
+    held.push(chunk);
+    if (held.length > 1) {
+      held.forEach(onChunk);
+      held = undefined;
+    }
+  };
+  for (let tries = 0; ; tries++) {
+    session = createSession(carried);
+    try {
+      const pages = await renderOnce(build, session, out, wait, release, recorder);
+      if (session.restart) throw new Restart();
+      held?.forEach(onChunk);
+      return pages;
+    } catch (error) {
+      if (!(error instanceof Restart || error instanceof Fallback)) throw error;
+      if (!held)
+        throw new Error(`The render could not go on after its first page: ${error.message}`);
+      held = [];
+      // Up to three more tries: after deciding on a count, and twice for images.
+      if (error instanceof Fallback || tries > 2) {
+        throw error instanceof Fallback ? error : new Fallback("images in lazy children");
+      }
+      await settle(session);
+      await addEmoji({ props: {} } as TreeDocument, session);
+    }
+  }
+}
+
+async function renderOnce(
+  /** Builds the tree: from the reconciler's container, or walking the elements. */
+  build: (session: Session) => TreeDocument,
+  session: Session,
+  onChunk: (chunk: Uint8Array) => void,
+  /** Awaited before each async batch: a stream's reader can hold the render back. */
+  wait?: () => Promise<void>,
+  /** Called once the tree is read, so a caller done with React can unmount it before the engine runs. */
+  release?: () => void,
+  /** Set only by `profile`. */
+  recorder?: Recorder,
+) {
+  session.measurePage = await loadPageWidth();
+  recorder?.mark("tree");
+  let tree: TreeDocument | undefined = build(session);
+  release?.();
+  const sources = [...session.rows.values()];
+  if (sources.some((s) => s.lazy) && sources.some((s) => !s.lazy)) {
+    // A <Rows> document is not counted ahead, so lazy children would be built while pages
+    // are written: the reconciler keeps it whole instead.
+    throw new Fallback("lazy children next to <Rows>");
+  }
+  const carried = session.carried;
+  if (sources.some((s) => s.lazy) && carried.count === undefined) {
+    // Counted as the engine counts the visible part; if that reads nothing, the lazy content is
+    // built once to look, then the render starts again with what it learned.
+    carried.count = readsTotal(session);
+    if (!carried.count) {
+      carried.count = hiddenReadsTotal(session);
+      throw new Restart();
+    }
+  }
+  if (carried.count) tree.props.countPages = true;
+  recorder?.mark("assets");
   await settle(session);
   await addEmoji(tree, session);
+  // Made inside the engine call: the tree and the string are garbage while the engine runs.
+  const json = () => {
+    recorder?.mark("tree");
+    const text = JSON.stringify(tree);
+    tree = undefined;
+    recorder?.mark("engine");
+    return text;
+  };
   const engine = await createEngine();
   try {
     // ponytail: rows render after fonts are loaded, so with Rows every registered family loads.
@@ -50,6 +155,7 @@ export async function renderDocument(
       }
     };
     addImages();
+    recorder?.engine(engine, false);
     const builtin = (word: string) => engine.hyphenateBuiltin(word);
     const callbacks = {
       render: (id: number, args: RenderArgs) => session.callbacks.get(id)!(args),
@@ -57,25 +163,39 @@ export async function renderDocument(
       hyphenate: (id: number, word: string) =>
         JSON.stringify(session.hyphenators.get(id)!(word, builtin)),
     };
-    const json = JSON.stringify(tree);
     if (![...session.rows.values()].some((source) => source.async)) {
       // Every Rows is an array or other sync iterable: the engine pulls batches as it goes.
       const rows = (id: number) =>
-        inCallback(session, () => session.rows.get(id)!.next() as string);
+        inCallback(session, () => {
+          const source = session.rows.get(id)!;
+          if (source.async) throw new Fallback("an async <Rows> inside lazy children");
+          // Lazy children are the tree (their components count as React), rows are rows.
+          const leave = recorder?.enter(source.lazy ? "tree" : "rows");
+          try {
+            return source.next() as string;
+          } finally {
+            leave?.();
+          }
+        });
       engine.render(json, onChunk, { ...callbacks, rows });
-      return;
+      return engine.pages();
     }
     // An async Rows: the engine stops whenever it needs a batch, and carries on once it's pushed.
     // Batches are made between engine calls, so images in rows can load then.
     let id = engine.begin(json, onChunk, callbacks);
     while (id !== undefined) {
+      const source = session.rows.get(id)!;
+      recorder?.mark(source.lazy ? "tree" : "rows");
       await wait?.();
-      const batch = await session.rows.get(id)!.next();
+      const batch = await source.next();
       await settle(session);
       addImages();
+      recorder?.mark("engine");
       id = engine.pushRows(id, batch);
     }
+    return engine.pages();
   } finally {
+    recorder?.engine(engine, true);
     engine.free();
   }
 }
