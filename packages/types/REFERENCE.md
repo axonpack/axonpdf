@@ -16,6 +16,7 @@ Everything here is a type, except `Primitive`.
 | `ShapeOutside` | A resolved `shapeOutside`: a circle, ellipse, polygon or inset. |
 | `FontStyle` | `"normal" \| "italic" \| "oblique"` |
 | `FontWeight` | A number or a weight name (`thin` to `black`). |
+| (`fontFeatureSettings`) | A list of OpenType tags to turn on, or `{ [tag]: number \| boolean }` to set each. |
 | `SVGPresentationAttributes` | What SVG shapes paint with: `fill`, `color`, `stroke`, `transform`, `strokeDasharray`, `opacity`, `strokeWidth`, `fillOpacity`, `fillRule`, `strokeOpacity`, `textAnchor`, `strokeLinecap`, `strokeLinejoin`, `visibility`, `clipPath`, `markerStart`, `markerMid`, `markerEnd`, `dominantBaseline`. |
 
 ## Pages and the document

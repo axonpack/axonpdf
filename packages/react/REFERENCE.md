@@ -479,6 +479,7 @@ pages.
 | `fontSize` | default 18 |
 | `fontStyle` | `normal`, `italic`, `oblique` |
 | `fontWeight` | a number or a name (`thin` to `black`) |
+| `fontFeatureSettings` | OpenType features: a list of tags to turn on (`["tnum", "onum"]`), or an object that sets each tag (`{ liga: 0, ss01: 1 }`, numbers or booleans). Kerning and the standard ligatures are on by default, so the object form is how to turn one off. Tags that aren't four letters are skipped. The built-in fonts have no features. |
 | `letterSpacing`, `wordSpacing` | lengths |
 | `lineHeight` | a multiplier of the element's own `fontSize` (or 18 when it has none), a length, or a percentage |
 | `textAlign` | `left`, `right`, `center`, `justify` |
@@ -520,9 +521,10 @@ are `min-width`, `max-width`, `min-height`, `max-height` (points) and `orientati
 
 ### Inheritance
 
-Children inherit `color`, `fontFamily`, `fontSize`, `fontStyle`, `fontWeight`, `letterSpacing`,
-`opacity`, `textDecoration`, `textTransform`, `lineHeight`, `textAlign`, `visibility` and
-`wordSpacing`. A `Text` also passes its `backgroundColor` to the text nested in it.
+Children inherit `color`, `fontFamily`, `fontSize`, `fontStyle`, `fontWeight`,
+`fontFeatureSettings`, `letterSpacing`, `opacity`, `textDecoration`, `textTransform`, `lineHeight`,
+`textAlign`, `visibility` and `wordSpacing`. A child's own `fontFeatureSettings` replaces the
+inherited one rather than adding to it. A `Text` also passes its `backgroundColor` to the text nested in it.
 
 ## Pagination
 

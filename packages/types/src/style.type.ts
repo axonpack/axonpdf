@@ -126,7 +126,7 @@ export interface BaseStyle {
   fontSize?: Size;
   fontStyle?: FontStyle;
   fontWeight?: FontWeight;
-  fontFeatureSettings?: string[] | Record<string, number>;
+  fontFeatureSettings?: string[] | Record<string, number | boolean>;
   letterSpacing?: Size;
   lineHeight?: Size;
   maxLines?: Size;
