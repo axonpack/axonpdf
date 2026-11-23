@@ -16,6 +16,9 @@ const newWorker = {
   'react-pdf': () => new Worker(new URL('./react-pdf.worker.js', import.meta.url), { type: 'module' }),
 };
 
+// Page plus its workers. Needs cross-origin isolation (the COOP/COEP headers); null without it.
+const canMeasure = () => globalThis.crossOriginIsolated && !!performance.measureUserAgentSpecificMemory;
+
 /** Renders the ledger once and measures it. The frame watcher runs on the main thread throughout. */
 export async function run({ engine, pages, useWorker }) {
   let peak = heap() ?? 0;
@@ -30,6 +33,16 @@ export async function run({ engine, pages, useWorker }) {
     if (on) requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
+  let memory = null;
+  // ponytail: one sample about every second; the browser may answer late, so short renders can
+  // get a single sample.
+  const sampler = (async () => {
+    while (on && canMeasure()) {
+      const { bytes } = await performance.measureUserAgentSpecificMemory();
+      memory = Math.max(memory ?? 0, bytes);
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  })().catch(() => {}); // a browser can still refuse (SecurityError); then it's n/a
   await new Promise((r) => setTimeout(r, 100)); // let the watcher settle before starting
 
   const start = performance.now();
@@ -43,6 +56,7 @@ export async function run({ engine, pages, useWorker }) {
   const ms = performance.now() - start;
   frame();
   on = false;
+  await sampler;
   const bytes = new Uint8Array(await blob.arrayBuffer());
   return {
     engine,
@@ -53,6 +67,7 @@ export async function run({ engine, pages, useWorker }) {
     size: blob.size,
     gap: Math.round(gap),
     heap: heap() === undefined ? null : peak,
+    memory,
     url: URL.createObjectURL(blob),
   };
 }

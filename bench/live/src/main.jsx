@@ -38,6 +38,7 @@ function Segmented({ label, value, options, onChange }) {
   );
 }
 
+const memory = (r) => (r.memory === null ? 'n/a (needs cross-origin isolation)' : mb(r.memory));
 const cls = (e) => (e === 'axonpdf' ? 'axon' : 'rpdf');
 
 function App() {
@@ -138,7 +139,8 @@ function App() {
                 <div><dt>File size</dt><dd>{mb(r.size)}</dd></div>
                 <div><dt>Longest frame gap</dt><dd>{r.gap} ms</dd></div>
                 <div><dt>Thread</dt><dd>{r.thread}</dd></div>
-                <div><dt>JS heap peak</dt><dd>{r.heap === null ? 'not exposed' : mb(r.heap)}</dd></div>
+                <div><dt>Peak memory (page + worker)</dt><dd>{memory(r)}</dd></div>
+                {r.heap !== null && <div className="small"><dt>Page heap (excludes worker)</dt><dd>{mb(r.heap)}</dd></div>}
               </dl>
               <iframe title={ENGINES[r.engine].label} src={r.url} />
             </article>
@@ -151,13 +153,13 @@ function App() {
           <h2>All runs</h2>
           <table>
             <thead>
-              <tr>{['Engine', 'Thread', 'Pages', 'Time to PDF', 'File size', 'Longest frame gap', 'JS heap peak'].map((h) => <th key={h}>{h}</th>)}</tr>
+              <tr>{['Engine', 'Thread', 'Pages', 'Time to PDF', 'File size', 'Longest frame gap', 'Peak memory (page + worker)', 'Page heap (excludes worker)'].map((h) => <th key={h}>{h}</th>)}</tr>
             </thead>
             <tbody>
               {results.map((r, i) => (
                 <tr key={i}>
                   <td className={cls(r.engine)}>{ENGINES[r.engine].label}</td>
-                  {[r.thread, r.pages, `${(r.ms / 1000).toFixed(2)} s`, mb(r.size), `${r.gap} ms`, r.heap === null ? 'not exposed' : mb(r.heap)].map((c, j) => <td key={j}>{c}</td>)}
+                  {[r.thread, r.pages, `${(r.ms / 1000).toFixed(2)} s`, mb(r.size), `${r.gap} ms`, memory(r), r.heap === null ? 'not exposed' : mb(r.heap)].map((c, j) => <td key={j}>{c}</td>)}
                 </tr>
               ))}
             </tbody>

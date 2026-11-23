@@ -38,7 +38,11 @@ npm run build
 `dist/` is a static site. Upload it to any static host (GitHub Pages, Netlify, Cloudflare Pages,
 an S3 bucket). Paths are relative, so it also works from a subfolder such as
 `example.com/bench/live/`. The host must serve `.wasm` files as `application/wasm`, which the
-common hosts already do. To check the build before uploading, run `npm run preview`.
+common hosts already do. It must also send `Cross-Origin-Opener-Policy: same-origin` and
+`Cross-Origin-Embedder-Policy: require-corp`: they turn on cross-origin isolation, which the
+page-plus-worker memory figure needs. `public/_headers` sets them on Cloudflare Pages and Netlify,
+and `vite.config.js` sets them for `npm run dev` and `npm run preview`; on other hosts, add them
+in its config. To check the build before uploading, run `npm run preview`.
 
 ## What the numbers mean
 
@@ -50,6 +54,9 @@ common hosts already do. To check the build before uploading, run `npm run previ
 - Longest frame gap: the longest time between two animation frames on the main thread during
   the render. Around 16 ms means the page stayed smooth; a gap close to the render time means the
   page froze for the whole render. The moving bar next to the Render button shows the same thing.
-- JS heap peak: the highest main-thread JavaScript heap seen during the render, from
-  `performance.memory`. Only Chromium browsers expose it; other browsers show "not exposed". It
-  does not include the WebAssembly memory or a worker's heap.
+- Peak memory (page + worker): the highest memory the page and its workers used during the
+  render, from `performance.measureUserAgentSpecificMemory()`, sampled about once a second. It
+  needs cross-origin isolation (see above); without it the page shows "n/a". The browser can answer
+  late, so a short render may get only one sample.
+- Page heap (excludes worker): the main thread's JavaScript heap peak from `performance.memory`
+  (Chromium only). A worker's memory isn't in it.
