@@ -6,6 +6,15 @@ SVG logo, a "Page n of N" footer, and shipments, each a heading row followed by 
 with a note that wraps under the item. The data comes from a seeded generator, so every run builds
 the same document.
 
+The page offers two layouts of the same ledger:
+
+- Sections (the default): the summary on its own `<Page>`, then one `<Page>` per day of
+  shipments (28 days), each with the same header and footer. This is how a long report is usually
+  split. Each section ends on a part-filled page, so the PDF runs a few percent over the target
+  (112 pages at 100).
+- One flowing page: everything in a single `<Page>` that wraps onto every page. react-pdf slows
+  down sharply here: its time grows with the square of how many pages one `<Page>` wraps onto.
+
 Both engines render one set of components (`src/ledger.jsx`). The page passes in either
 `@axonpdf/react` or `@react-pdf/renderer`, and nothing else changes. In a project, switching is
 that one import.
