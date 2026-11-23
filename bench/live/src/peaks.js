@@ -3,9 +3,13 @@
 export const RESULTS_URL = 'https://github.com/axonpack/axonpdf/blob/main/bench/RESULTS.md';
 
 export const MEASURED = {
-  sections: { axonpdf: {}, 'react-pdf': {} },
+  sections: {
+    axonpdf: { 100: 11.6, 500: 55.9, 2000: 141.6 },
+    'react-pdf': { 100: 192.5, 500: 2229.9 },
+  },
   flowing: {
-    axonpdf: { 100: 6.3, 500: 51.7 },
-    'react-pdf': { 100: 530 },
+    // 100 is from an earlier run: the 2026-11-23 matrix run finished before the first sample.
+    axonpdf: { 100: 6.3, 500: 39.2 },
+    'react-pdf': { 100: 560.1 },
   },
 };

@@ -144,7 +144,7 @@ Notes on the two batches above:
 - Why the generator uses less memory than the array at 5000 pages (215 MB against 471 MB): the array of 190,000 `<Row>` elements stays alive for the whole render, so V8 starts placing the elements that `Row` creates straight into its old generation, where they wait for a full garbage collection. With a generator, no such array exists.
 - Output check at 100 pages: axonpdf's first and last pages differ from react-pdf's by 0.13% and 0.12% of pixels, pdfkit's by 16% and 10% (as before). The generator output matches the plain axonpdf output pixel for pixel; `<Rows>` differs from it by 0.02% and 0.03%. qpdf passes on every output.
 
-## 2026-11-23 UTC, live benchmark page in the browser (bench/live)
+## 2026-11-23 UTC, live benchmark page in the browser (bench/live), one flowing `<Page>`, react-pdf on the main thread
 
 - Commit: `33d9cbd` (the page as built from bench/live), engines from npm: @axonpdf/react 0.0.1 and react-pdf 4.9.0
 - Machine: Apple M4, 10 cores, 24 GB RAM, macOS 27.2.1, Chrome for Testing 156.0.8078.4 (headless, through Playwright), with `--enable-precise-memory-info`
@@ -166,3 +166,28 @@ Notes on the two batches above:
 | react-pdf | main thread | 2000 | - | no PDF after 10 min (stopped at 601 s) | - | - | - |
 
 The 33.7 s for react-pdf at 100 pages is the engine, not the page: the built app has no development React, and the same ledger rendered by react-pdf 4.9.0 in Node with production React took 61 s (with another browser run sharing the CPU).
+
+## 2026-11-23 17:26 UTC, live benchmark page in the browser (bench/live), sections and flowing layouts, both engines in a worker
+
+- Commit: `8aa5dca` (the page as built from bench/live), engines from npm: @axonpdf/react 0.0.1 and react-pdf 4.9.0
+- Machine: Apple M4, 10 cores, 24 GB RAM, macOS 27.2.1, Chrome for Testing 156.0.8078.4 (new headless, through Playwright)
+- Layouts: Sections is the summary on its own `<Page>`, then one `<Page>` per day of shipments (28 sections). One flowing page puts everything in a single `<Page>`. Same data and seed in both; the section headings make Sections a few pages longer.
+- Why the layout matters: react-pdf's time grows with the square of how many pages one `<Page>` wraps onto, so a report split into sections, as real ones usually are, is far faster in react-pdf than one flowing page.
+- Time is from the render call to the finished PDF Blob. Frame gap is the longest gap between main-thread animation frames. Worker heap is the worker's JS heap peak, read through CDP `Runtime.getHeapUsage` about once a second (what DevTools → Memory shows); a render that finishes in under a second may get no sample.
+- One run per cell, each in a fresh browser. A run with no PDF after 10 minutes was stopped; its heap is the peak up to then.
+- Rerun: `cd bench/live && npm ci && npm run build && npm run preview`, then for each cell open the page, pick the layout, page count and engine (worker thread), and Render. The scripted version used here reads the worker heap through CDP: one Playwright run per cell.
+
+| Layout | Engine | Target pages | Pages | Time to PDF | File size | Longest frame gap | Worker heap peak |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Sections | axonpdf | 100 | 112 | 0.90 s | 382 KB | 19 ms | 11.6 MB |
+| Sections | react-pdf | 100 | 112 | 2.8 s | 563 KB | 18 ms | 192.5 MB |
+| Sections | axonpdf | 500 | 499 | 4.1 s | 1.8 MB | 19 ms | 55.9 MB |
+| Sections | react-pdf | 500 | 499 | 45.8 s | 2.7 MB | 18 ms | 2230 MB |
+| Sections | axonpdf | 2000 | 1964 | 15.9 s | 7.1 MB | 18 ms | 141.6 MB |
+| Sections | react-pdf | 2000 | - | no PDF after 10 min | - | - | 3158 MB when stopped |
+| One flowing page | axonpdf | 100 | 98 | 0.86 s | 362 KB | 18 ms | not sampled (under 1 s) |
+| One flowing page | react-pdf | 100 | 98 | 32.8 s | 539 KB | 19 ms | 560.1 MB |
+| One flowing page | axonpdf | 500 | 487 | 3.9 s | 1.8 MB | 19 ms | 39.2 MB |
+| One flowing page | react-pdf | 500 | - | no PDF after 10 min | - | - | 2458 MB when stopped |
+
+Largest section in the Sections layout, from the data: about 4 pages at 100, 19 at 500 and 74 at 2000.
