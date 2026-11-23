@@ -13,8 +13,6 @@ and drives the engine for you. Use `@axonpdf/core` when you write a binding for 
 npm install @axonpdf/core
 ```
 
-The packages aren't on npm yet. Until they are, build them from this repo (see the root README).
-
 ## Example
 
 ```ts

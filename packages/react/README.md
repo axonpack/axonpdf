@@ -14,8 +14,7 @@ On top of that API it adds components for long documents (`Rows`, `PageNumber`, 
 npm install @axonpdf/react react
 ```
 
-React 18 and 19 are supported. The packages aren't on npm yet. Until they are, build them from
-this repo (see the root README).
+React 18 and 19 are supported.
 
 ## Example
 

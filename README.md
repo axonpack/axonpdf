@@ -5,8 +5,8 @@ React PDF renderer API, so an existing project can switch by changing its import
 out with flexbox and written as soon as each one is finished, which keeps memory low on documents
 of thousands of pages.
 
-Work in progress: the packages aren't on npm yet. To try them, build them from this repo (see
-Development setup and Build and test).
+Work in progress: the packages are on npm at an early 0.0.x version, so expect changes. To work
+on axonpdf itself, see Development setup and Build and test.
 
 ## Packages
 
