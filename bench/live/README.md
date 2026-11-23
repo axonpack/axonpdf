@@ -23,7 +23,8 @@ npm run dev
 
 Open the URL Vite prints. Pick a page count (100, 500, 2000, or a custom number), an engine or
 both side by side, and whether each engine runs in a Web Worker (the default for both) or on the
-main thread. react-pdf's worker (`src/react-pdf.worker.js`) calls its `pdf().toBlob()` there and
+main thread. The main thread is only offered up to 100 pages; above that both engines run in a
+worker. react-pdf's worker (`src/react-pdf.worker.js`) calls its `pdf().toBlob()` there and
 answers the same messages as axonpdf's `expose`, so the page sends both the same way.
 
 ## Build and deploy

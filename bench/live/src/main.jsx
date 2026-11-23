@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ENGINES, run } from './measure.js';
+import './style.css';
 
 const mb = (n) => `${(n / 2 ** 20).toFixed(1)} MB`;
 
@@ -14,12 +15,30 @@ function Ticker() {
     });
     return () => cancelAnimationFrame(id);
   }, []);
+  const pos = (x / 2400) % 2;
   return (
-    <div style={{ position: 'relative', height: 8, background: '#eee', width: 240, borderRadius: 4 }} title="Stops moving while the main thread is busy">
-      <div style={{ position: 'absolute', left: ((x / 4) % 230), width: 10, height: 8, background: '#1f4e79', borderRadius: 4 }} />
+    <div className="pulse" title="Stops moving while the main thread is busy">
+      Main thread
+      <div className="track">
+        <div className="dot" style={{ left: `calc(${pos < 1 ? pos : 2 - pos} * (100% - 28px))` }} />
+      </div>
     </div>
   );
 }
+
+function Segmented({ label, value, options, onChange }) {
+  return (
+    <div className="seg" role="group" aria-label={label}>
+      {options.map(([v, text]) => (
+        <button key={v} type="button" aria-pressed={value === v} onClick={() => onChange(v)}>
+          {text}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const cls = (e) => (e === 'axonpdf' ? 'axon' : 'rpdf');
 
 function App() {
   const [preset, setPreset] = useState('100');
@@ -32,16 +51,19 @@ function App() {
   const [error, setError] = useState('');
 
   const pages = preset === 'custom' ? Math.max(1, Math.min(5000, Math.round(custom) || 1)) : +preset;
+  // The main thread is allowed only up to 100 pages; above that both engines run in a worker.
+  const forced = pages > 100;
+  const worker = (e) => forced || inWorker[e];
+  const picked = engine === 'both' ? ['axonpdf', 'react-pdf'] : [engine];
 
   async function go() {
     setError('');
     setShown([]);
-    const order = engine === 'both' ? ['axonpdf', 'react-pdf'] : [engine];
     const done = [];
     try {
-      for (const e of order) {
+      for (const e of picked) {
         setBusy(`Rendering with ${ENGINES[e].label}…`);
-        const r = await run({ engine: e, pages, useWorker: inWorker[e] });
+        const r = await run({ engine: e, pages, useWorker: worker(e) });
         done.push(r);
         setShown([...done]);
         setResults((rs) => [r, ...rs]);
@@ -54,75 +76,94 @@ function App() {
     setBusy('');
   }
 
+  const results_link = <a href="https://github.com/axonpack/axonpdf/blob/main/bench/RESULTS.md">results</a>;
+
   return (
-    <main style={{ fontFamily: 'system-ui, sans-serif', margin: '16px auto', maxWidth: 1200, padding: '0 16px', color: '#222' }}>
-      <h1 style={{ fontSize: 22, marginBottom: 4 }}>axonpdf and react-pdf 4.9.0, live in your browser</h1>
-      <p style={{ marginTop: 0, color: '#555' }}>Both render the same warehouse ledger from the same components. Only the import differs.</p>
+    <main>
+      <h1>
+        <span className="axon">axonpdf</span> and <span className="rpdf">react-pdf 4.9.0</span>, live in your browser
+      </h1>
+      <p className="lede">Both render the same warehouse ledger from the same components. Only the import differs.</p>
 
-      <fieldset style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', border: '1px solid #ccc', padding: 12 }}>
-        <label>
-          Pages{' '}
-          <select value={preset} onChange={(e) => setPreset(e.target.value)} name="pages">
-            <option value="100">100</option>
-            <option value="500">500</option>
-            <option value="2000">2000</option>
-            <option value="custom">custom</option>
-          </select>
-        </label>
-        {preset === 'custom' && <input type="number" min={1} max={5000} value={custom} onChange={(e) => setCustom(+e.target.value)} style={{ width: 80 }} name="custom" />}
-        <label>
-          Engine{' '}
-          <select value={engine} onChange={(e) => setEngine(e.target.value)} name="engine">
-            <option value="both">both, side by side</option>
-            <option value="axonpdf">axonpdf</option>
-            <option value="react-pdf">react-pdf 4.9.0</option>
-          </select>
-        </label>
-        {(engine === 'both' ? ['axonpdf', 'react-pdf'] : [engine]).map((e) => (
-          <label key={e}>
-            <input type="checkbox" checked={inWorker[e]} onChange={(ev) => setInWorker({ ...inWorker, [e]: ev.target.checked })} name={`worker-${e}`} /> {ENGINES[e].label} in a Web Worker
-          </label>
+      <section className="panel" aria-label="Settings">
+        <div className="row">
+          <span className="name">Pages</span>
+          <Segmented label="Pages" value={preset} onChange={setPreset} options={[['100', '100'], ['500', '500'], ['2000', '2000'], ['custom', 'Custom']]} />
+          {preset === 'custom' && (
+            <input className="custom" type="number" min={1} max={5000} value={custom} onChange={(e) => setCustom(+e.target.value)} name="custom" aria-label="Custom page count" />
+          )}
+        </div>
+        <div className="row">
+          <span className="name">Engine</span>
+          <Segmented label="Engine" value={engine} onChange={setEngine} options={[['both', 'Both'], ['axonpdf', 'axonpdf'], ['react-pdf', 'react-pdf']]} />
+        </div>
+        <div className="row">
+          <span className="name">Thread</span>
+          {picked.map((e) => (
+            <label key={e} className="pick">
+              <span className={cls(e)}>{ENGINES[e].label}</span>
+              <select value={worker(e) ? 'worker' : 'main'} onChange={(ev) => setInWorker({ ...inWorker, [e]: ev.target.value === 'worker' })} name={`thread-${e}`}>
+                <option value="worker">Worker thread</option>
+                <option value="main" disabled={forced}>Main thread</option>
+              </select>
+            </label>
+          ))}
+          {forced && <span className="note" style={{ margin: 0 }}>Over 100 pages runs in a worker.</span>}
+        </div>
+        {engine !== 'axonpdf' && (forced ? (
+          <p className="warn">At 500 pages react-pdf took over 10 minutes in our run ({results_link}).</p>
+        ) : !worker('react-pdf') && (
+          <p className="warn">react-pdf on the main thread freezes the tab until it finishes.</p>
         ))}
-        <button onClick={go} disabled={!!busy}>{busy ? 'Rendering…' : 'Render'}</button>
-        <Ticker />
-        <span style={{ color: '#555' }}>{busy}</span>
-        {engine !== 'axonpdf' && pages > 100 && (
-          <span style={{ color: '#a15c00' }}>
-            {inWorker['react-pdf']
-              ? 'At 500 pages react-pdf took over 10 minutes in our run ('
-              : 'react-pdf runs on the main thread. At 500 pages it froze the tab for over 10 minutes in our run ('}
-            <a href="https://github.com/axonpack/axonpdf/blob/main/bench/RESULTS.md">results</a>).
-          </span>
-        )}
-      </fieldset>
-      <p style={{ color: '#777', fontSize: 13 }}>Page counts are approximate before the render; the table shows the real count.</p>
-      {error && <pre style={{ color: '#b00', whiteSpace: 'pre-wrap' }}>{error}</pre>}
+        <div className="row">
+          <button className="go" onClick={go} disabled={!!busy}>{busy ? 'Rendering…' : 'Render'}</button>
+          <Ticker />
+        </div>
+        {busy && <p className="note" style={{ margin: 0 }}>{busy}</p>}
+      </section>
+      <p className="note">Page counts are approximate before the render; the results show the real count.</p>
+      {error && <pre className="error">{error}</pre>}
 
-      {results.length > 0 && (
-        <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 14 }}>
-          <thead>
-            <tr>{['Engine', 'Thread', 'Pages', 'Time to PDF', 'File size', 'Longest frame gap', 'JS heap peak'].map((h) => <th key={h} style={{ textAlign: 'left', borderBottom: '2px solid #999', padding: 4 }}>{h}</th>)}</tr>
-          </thead>
-          <tbody>
-            {results.map((r, i) => (
-              <tr key={i}>
-                {[ENGINES[r.engine].label, r.thread, r.pages, `${(r.ms / 1000).toFixed(2)} s`, mb(r.size), `${r.gap} ms`, r.heap === null ? 'not exposed' : mb(r.heap)].map((c, j) => <td key={j} style={{ borderBottom: '1px solid #ddd', padding: 4 }}>{c}</td>)}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {shown.length > 0 && (
+        <div className="cards">
+          {shown.map((r) => (
+            <article key={r.engine} className="card">
+              <header>
+                <h2 className={cls(r.engine)}>{ENGINES[r.engine].label}</h2>
+                <a href={r.url} download={`ledger-${r.engine}-${r.pages}.pdf`}>Download PDF</a>
+              </header>
+              <dl>
+                <div><dt>Time to PDF</dt><dd>{(r.ms / 1000).toFixed(2)} s</dd></div>
+                <div><dt>Pages</dt><dd>{r.pages}</dd></div>
+                <div><dt>File size</dt><dd>{mb(r.size)}</dd></div>
+                <div><dt>Longest frame gap</dt><dd>{r.gap} ms</dd></div>
+                <div><dt>Thread</dt><dd>{r.thread}</dd></div>
+                <div><dt>JS heap peak</dt><dd>{r.heap === null ? 'not exposed' : mb(r.heap)}</dd></div>
+              </dl>
+              <iframe title={ENGINES[r.engine].label} src={r.url} />
+            </article>
+          ))}
+        </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(320px, 1fr))`, gap: 16, marginTop: 16 }}>
-        {shown.map((r) => (
-          <section key={r.engine}>
-            <h2 style={{ fontSize: 16 }}>
-              {ENGINES[r.engine].label} <a href={r.url} download={`ledger-${r.engine}-${r.pages}.pdf`} style={{ fontSize: 14, marginLeft: 8 }}>Download PDF</a>
-            </h2>
-            <iframe title={ENGINES[r.engine].label} src={r.url} style={{ width: '100%', height: '70vh', border: '1px solid #ccc' }} />
-          </section>
-        ))}
-      </div>
+      {results.length > 0 && (
+        <section className="history">
+          <h2>All runs</h2>
+          <table>
+            <thead>
+              <tr>{['Engine', 'Thread', 'Pages', 'Time to PDF', 'File size', 'Longest frame gap', 'JS heap peak'].map((h) => <th key={h}>{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {results.map((r, i) => (
+                <tr key={i}>
+                  <td className={cls(r.engine)}>{ENGINES[r.engine].label}</td>
+                  {[r.thread, r.pages, `${(r.ms / 1000).toFixed(2)} s`, mb(r.size), `${r.gap} ms`, r.heap === null ? 'not exposed' : mb(r.heap)].map((c, j) => <td key={j}>{c}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
     </main>
   );
 }
