@@ -5,8 +5,10 @@ React PDF renderer API, so an existing project can switch by changing its import
 out with flexbox and written as soon as each one is finished, which keeps memory low on documents
 of thousands of pages.
 
-Work in progress: the packages aren't on npm yet. To try them, build them from this repo (see
-Development setup and Build and test).
+Work in progress: the packages are on npm at an early 0.0.x version, so expect changes. To work
+on axonpdf itself, see Development setup and Build and test.
+
+The docs are at [axonpack.dev/docs/axonpdf](https://axonpack.dev/docs/axonpdf/).
 
 ## Packages
 
@@ -135,6 +137,27 @@ documents:
 `profile(element)` reports where a slow render spends its time, and `formatProfile` prints it.
 
 ## Benchmarks
+
+### In the browser (2026-11-23)
+
+The live benchmark page (`bench/live`) renders a warehouse ledger with @axonpdf/react 0.0.1 and
+react-pdf 4.9.0, both in a Web Worker, from the same components. The ledger is laid out the way
+reports usually are: a summary page, then one `<Page>` per day of shipments. Measured in Chrome
+for Testing 156 on an Apple M4 (24 GB RAM).
+
+| Pages | axonpdf | react-pdf 4.9.0 |
+| --- | --- | --- |
+| about 100 | 0.9 s, 382 KB, 11.6 MB worker heap | 2.8 s, 563 KB, 193 MB worker heap |
+| about 500 | 4.1 s, 1.8 MB, 56 MB worker heap | 45.8 s, 2.7 MB, 2.2 GB worker heap |
+| about 2000 | 15.9 s, 7.1 MB, 142 MB worker heap | no PDF after 10 min |
+
+Each cell is the time to the finished PDF, the file size and the worker's peak JS heap. The
+longest main-thread freeze was 19 ms or less in every run, since both engines ran in a worker.
+With the whole ledger in one flowing `<Page>`, react-pdf took 32.8 s at 100 pages and gave no PDF
+after 10 minutes at 500, while axonpdf took 0.86 s and 3.9 s. Every run is in
+[bench/RESULTS.md](bench/RESULTS.md).
+
+### In Node (2026-11-21)
 
 One A4 report, rendered at 100, 1000 and 5000 pages: a header with a logo, three paragraphs, and a
 bordered five-column table that runs across pages, with "Page n of N" in the footer. axonpdf and

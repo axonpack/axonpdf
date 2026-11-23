@@ -1,0 +1,21 @@
+{
+  "name": "axonpdf-live-bench",
+  "private": true,
+  "type": "module",
+  "description": "axonpdf and react-pdf 4.9.0 render the same document in the browser, with timings",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@axonpdf/react": "0.0.1",
+    "@react-pdf/renderer": "4.9.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "6.3.0",
+    "vite": "8.3.8"
+  }
+}

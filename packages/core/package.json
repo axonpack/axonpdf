@@ -2,6 +2,7 @@
   "name": "@axonpdf/core",
   "version": "0.0.1",
   "description": "The axonpdf engine as WebAssembly, for Node, browsers and Workers",
+  "homepage": "https://axonpack.dev/docs/axonpdf/core/",
   "bugs": {
     "url": "https://github.com/axonpack/axonpdf/issues"
   },
@@ -14,7 +15,8 @@
   },
   "files": [
     "build",
-    "wasm"
+    "wasm",
+    "CHANGELOG.md"
   ],
   "type": "module",
   "sideEffects": false,

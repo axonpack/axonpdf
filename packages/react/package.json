@@ -2,6 +2,7 @@
   "name": "@axonpdf/react",
   "version": "0.0.1",
   "description": "Create PDF files with React, in Node and in the browser",
+  "homepage": "https://axonpack.dev/docs/axonpdf/react/",
   "bugs": {
     "url": "https://github.com/axonpack/axonpdf/issues"
   },
@@ -13,7 +14,8 @@
     "directory": "packages/react"
   },
   "files": [
-    "build"
+    "build",
+    "CHANGELOG.md"
   ],
   "type": "module",
   "sideEffects": false,
@@ -43,7 +45,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
-    "build": "rm -rf build && tsc && node scripts/vendor.mjs",
+    "build": "rm -rf build && node scripts/sync-version.mjs && tsc && node scripts/vendor.mjs",
     "test": "vitest run",
     "check-types": "tsc --noEmit -p tsconfig.check.json"
   },
