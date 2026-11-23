@@ -11,7 +11,7 @@
     "format": "oxfmt packages",
     "format:check": "oxfmt --check packages",
     "changeset": "changeset",
-    "version-packages": "changeset version && bun install --lockfile-only",
+    "version-packages": "changeset version && node packages/react/scripts/sync-version.mjs && bun install --lockfile-only",
     "release": "bun run build:wasm && bun run build && env ${NPM_TOKEN:+NPM_CONFIG_USERCONFIG=$PWD/.npmrc.token} changeset publish"
   },
   "devDependencies": {
