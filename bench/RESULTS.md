@@ -164,3 +164,5 @@ Notes on the two batches above:
 | axonpdf | worker | 2000 | 1951 | 16.2 s | 7.1 MB | 19 ms | 21 MB |
 | axonpdf | main thread | 2000 | 1951 | 15.1 s | 7.1 MB | 15.1 s | 174 MB |
 | react-pdf | main thread | 2000 | - | no PDF after 10 min (stopped at 601 s) | - | - | - |
+
+The 33.7 s for react-pdf at 100 pages is the engine, not the page: the built app has no development React, and the same ledger rendered by react-pdf 4.9.0 in Node with production React took 61 s (with another browser run sharing the CPU).
