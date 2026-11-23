@@ -13,7 +13,8 @@
     "directory": "packages/react"
   },
   "files": [
-    "build"
+    "build",
+    "CHANGELOG.md"
   ],
   "type": "module",
   "sideEffects": false,

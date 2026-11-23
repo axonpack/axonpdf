@@ -14,7 +14,8 @@
   },
   "files": [
     "build",
-    "wasm"
+    "wasm",
+    "CHANGELOG.md"
   ],
   "type": "module",
   "sideEffects": false,
