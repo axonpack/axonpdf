@@ -77,8 +77,8 @@ const worker = useWorker(
 const { url, loading } = usePDFWorker(worker, { rows });
 ```
 
-Props go to the Worker through `postMessage`, so they can't hold functions. The file renders
-again when they change.
+Props go to the Worker through `postMessage`, so they can't hold functions. They are compared by
+value (as JSON), so an inline object like `{ rows }` renders again only when its contents change.
 
 Every export, component, prop and style key is in [REFERENCE.md](REFERENCE.md). The project's
 [README](../../README.md) covers switching an existing project, long documents and the other
