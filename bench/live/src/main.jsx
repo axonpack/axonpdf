@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ENGINES, run } from './measure.js';
 import './style.css';
@@ -39,6 +39,74 @@ function Segmented({ label, value, options, onChange }) {
 }
 
 const memory = (r) => (r.memory === null ? 'n/a (needs cross-origin isolation)' : mb(r.memory));
+function Numbers({ r }) {
+  return (
+    <dl>
+      <div><dt>Time to PDF</dt><dd>{(r.ms / 1000).toFixed(2)} s</dd></div>
+      <div><dt>Pages</dt><dd>{r.pages}</dd></div>
+      <div><dt>File size</dt><dd>{mb(r.size)}</dd></div>
+      <div><dt>Longest frame gap</dt><dd>{r.gap} ms</dd></div>
+      <div><dt>Thread</dt><dd>{r.thread}</dd></div>
+      <div><dt>Peak memory (page + worker)</dt><dd>{memory(r)}</dd></div>
+      {r.heap !== null && <div className="small"><dt>Page heap (excludes worker)</dt><dd>{mb(r.heap)}</dd></div>}
+    </dl>
+  );
+}
+
+const download = (r) => <a href={r.url} download={`ledger-${r.engine}-${r.pages}.pdf`}>Download PDF</a>;
+// ponytail: older runs keep their PDF for preview and download; past this many, the oldest is
+// dropped and its blob URL revoked.
+const KEEP = 20;
+
+// Its own component, so the once-a-second updates of the current run don't re-render it.
+const Previous = memo(function Previous({ runs }) {
+  const [open, setOpen] = useState(null);
+  if (!runs.length) return null;
+  return (
+        <section className="history">
+          <h2>Previous runs</h2>
+          {runs.map((r) => (
+            <details key={r.id} name="runs" className="run" onToggle={(e) => e.currentTarget.open ? setOpen(r.id) : open === r.id && setOpen(null)}>
+              <summary>
+                <span className={cls(r.engine)}>{ENGINES[r.engine].label}</span>
+                <span>{r.thread}</span>
+                <span>{r.pages} pages</span>
+                <span>{(r.ms / 1000).toFixed(2)} s</span>
+                <span>{memory(r)}</span>
+              </summary>
+              {open === r.id && (
+                <>
+                  <Numbers r={r} />
+                  <p className="dl">{download(r)}</p>
+                  <iframe title={ENGINES[r.engine].label} src={r.url} />
+                </>
+              )}
+            </details>
+          ))}
+        </section>
+  );
+});
+
+function Live({ engine, live }) {
+  return (
+    <article className="card">
+      <header>
+        <h2 className={cls(engine)}>{ENGINES[engine].label}</h2>
+        <span className="running">{live ? 'Running' : 'Waiting'}</span>
+      </header>
+      {live && (
+        <dl>
+          <div><dt>Stage</dt><dd>{live.stage}</dd></div>
+          <div><dt>Elapsed</dt><dd>{(live.ms / 1000).toFixed(0)} s</dd></div>
+          <div><dt>Memory now (page + worker)</dt><dd>{live.memoryNow === null ? 'n/a' : mb(live.memoryNow)}</dd></div>
+          <div><dt>Peak so far</dt><dd>{live.memory === null ? 'n/a' : mb(live.memory)}</dd></div>
+          <div><dt>Longest freeze so far</dt><dd>{live.gap} ms</dd></div>
+        </dl>
+      )}
+    </article>
+  );
+}
+
 const cls = (e) => (e === 'axonpdf' ? 'axon' : 'rpdf');
 
 function App() {
@@ -47,27 +115,34 @@ function App() {
   const [engine, setEngine] = useState('both');
   const [inWorker, setInWorker] = useState({ axonpdf: true, 'react-pdf': true });
   const [busy, setBusy] = useState('');
-  const [results, setResults] = useState([]);
-  const [shown, setShown] = useState([]);
+  // This run: one slot per engine: `null` while waiting, `{ live }` while running, then the result.
+  const [current, setCurrent] = useState([]);
+  const [previous, setPrevious] = useState([]);
   const [error, setError] = useState('');
 
   const pages = preset === 'custom' ? Math.max(1, Math.min(5000, Math.round(custom) || 1)) : +preset;
   // The main thread is allowed only up to 100 pages; above that both engines run in a worker.
   const forced = pages > 100;
   const worker = (e) => forced || inWorker[e];
+  const [order, setOrder] = useState([]);
   const picked = engine === 'both' ? ['axonpdf', 'react-pdf'] : [engine];
 
   async function go() {
     setError('');
-    setShown([]);
-    const done = [];
+    const finished = current.filter((r) => r?.id);
+    setPrevious((old) => {
+      const all = [...finished, ...old];
+      all.slice(KEEP).forEach((r) => URL.revokeObjectURL(r.url));
+      return all.slice(0, KEEP);
+    });
+    setCurrent(picked.map(() => null));
+    setOrder(picked);
     try {
-      for (const e of picked) {
+      for (const [i, e] of picked.entries()) {
         setBusy(`Rendering with ${ENGINES[e].label}…`);
-        const r = await run({ engine: e, pages, useWorker: worker(e) });
-        done.push(r);
-        setShown([...done]);
-        setResults((rs) => [r, ...rs]);
+        const onTick = (live) => setCurrent((c) => c.map((x, j) => (j === i ? { live } : x)));
+        const r = { ...(await run({ engine: e, pages, useWorker: worker(e), onTick })), id: crypto.randomUUID() };
+        setCurrent((c) => c.map((x, j) => (j === i ? r : x)));
         console.log('RESULT ' + JSON.stringify({ ...r, url: undefined }));
       }
     } catch (e) {
@@ -125,47 +200,26 @@ function App() {
       <p className="note">Page counts are approximate before the render; the results show the real count.</p>
       {error && <pre className="error">{error}</pre>}
 
-      {shown.length > 0 && (
+      {current.length > 0 && (
         <div className="cards">
-          {shown.map((r) => (
-            <article key={r.engine} className="card">
-              <header>
-                <h2 className={cls(r.engine)}>{ENGINES[r.engine].label}</h2>
-                <a href={r.url} download={`ledger-${r.engine}-${r.pages}.pdf`}>Download PDF</a>
-              </header>
-              <dl>
-                <div><dt>Time to PDF</dt><dd>{(r.ms / 1000).toFixed(2)} s</dd></div>
-                <div><dt>Pages</dt><dd>{r.pages}</dd></div>
-                <div><dt>File size</dt><dd>{mb(r.size)}</dd></div>
-                <div><dt>Longest frame gap</dt><dd>{r.gap} ms</dd></div>
-                <div><dt>Thread</dt><dd>{r.thread}</dd></div>
-                <div><dt>Peak memory (page + worker)</dt><dd>{memory(r)}</dd></div>
-                {r.heap !== null && <div className="small"><dt>Page heap (excludes worker)</dt><dd>{mb(r.heap)}</dd></div>}
-              </dl>
-              <iframe title={ENGINES[r.engine].label} src={r.url} />
-            </article>
-          ))}
+          {current.map((r, i) =>
+            r?.id ? (
+              <article key={r.id} className="card">
+                <header>
+                  <h2 className={cls(r.engine)}>{ENGINES[r.engine].label}</h2>
+                  {download(r)}
+                </header>
+                <Numbers r={r} />
+                <iframe title={ENGINES[r.engine].label} src={r.url} />
+              </article>
+            ) : (
+              <Live key={i} engine={order[i]} live={r?.live} />
+            ),
+          )}
         </div>
       )}
 
-      {results.length > 0 && (
-        <section className="history">
-          <h2>All runs</h2>
-          <table>
-            <thead>
-              <tr>{['Engine', 'Thread', 'Pages', 'Time to PDF', 'File size', 'Longest frame gap', 'Peak memory (page + worker)', 'Page heap (excludes worker)'].map((h) => <th key={h}>{h}</th>)}</tr>
-            </thead>
-            <tbody>
-              {results.map((r, i) => (
-                <tr key={i}>
-                  <td className={cls(r.engine)}>{ENGINES[r.engine].label}</td>
-                  {[r.thread, r.pages, `${(r.ms / 1000).toFixed(2)} s`, mb(r.size), `${r.gap} ms`, memory(r), r.heap === null ? 'not exposed' : mb(r.heap)].map((c, j) => <td key={j}>{c}</td>)}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
+      <Previous runs={previous} />
     </main>
   );
 }
