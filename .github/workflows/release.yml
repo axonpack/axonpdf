@@ -71,4 +71,5 @@ jobs:
           publish-script: bun run release
           commit-message: "release: version packages"
           pr-title: "release: version packages"
+          push-git-tags: true
           create-github-releases: true
