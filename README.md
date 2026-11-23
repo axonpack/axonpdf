@@ -8,6 +8,8 @@ of thousands of pages.
 Work in progress: the packages are on npm at an early 0.0.x version, so expect changes. To work
 on axonpdf itself, see Development setup and Build and test.
 
+The docs are at [axonpack.dev/docs/axonpdf](https://axonpack.dev/docs/axonpdf/).
+
 ## Packages
 
 | Package | What it is |
