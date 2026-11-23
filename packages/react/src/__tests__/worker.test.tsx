@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Document, Page, Text, createRenderer } from "../index.browser.js";
+import {
+  BlobProvider,
+  Document,
+  PDFDownloadLink,
+  PDFViewer,
+  Page,
+  Text,
+  createRenderer,
+} from "../index.browser.js";
 import type { Container } from "../types/instance.type.js";
 import { expose, usePDFWorker, useWorker } from "../worker.js";
 import type { UsePDFInstance } from "../dom/use-pdf.js";
@@ -118,5 +126,34 @@ describe("useWorker", () => {
     host.update(null);
     expect(worker.terminate).toHaveBeenCalled();
     expect(revoke).toHaveBeenCalledWith(state.url);
+  });
+});
+
+describe("the worker prop", () => {
+  it("PDFViewer shows the file the worker rendered", async () => {
+    const host = mountHost(<PDFViewer worker={fakeWorker()} props={{ label: "Viewer" }} />);
+    await vi.waitFor(() => expect(host.node.props.src).toMatch(/^blob:.*#toolbar=1$/));
+  });
+
+  it("PDFDownloadLink links to the file the worker rendered", async () => {
+    const host = mountHost(
+      <PDFDownloadLink worker={fakeWorker()} props={{ label: "Link" }} fileName="r.pdf" />,
+    );
+    await vi.waitFor(() => expect(host.node.props.href).toMatch(/^blob:/));
+    expect(host.node.props.download).toBe("r.pdf");
+  });
+
+  it("BlobProvider gives the blob the worker rendered", async () => {
+    let blob: Blob | null = null;
+    mountHost(
+      <BlobProvider worker={fakeWorker()} props={{ label: "Blob" }}>
+        {(params) => {
+          blob = params.blob;
+          return null;
+        }}
+      </BlobProvider>,
+    );
+    await vi.waitFor(() => expect(blob).not.toBeNull());
+    expect(await text(blob)).toMatch(/^%PDF-/);
   });
 });
