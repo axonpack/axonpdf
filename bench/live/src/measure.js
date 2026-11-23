@@ -10,7 +10,11 @@ const heap = () => performance.memory?.usedJSHeapSize;
 // Both engines write each page as a plain `/Type /Page` object, so counting them gives the pages.
 const countPages = (bytes) => (new TextDecoder('latin1').decode(bytes).match(/\/Type\s*\/Page\b(?!s)/g) ?? []).length;
 
-let worker;
+const workers = {};
+const newWorker = {
+  axonpdf: () => new Worker(new URL('./worker.js', import.meta.url), { type: 'module' }),
+  'react-pdf': () => new Worker(new URL('./react-pdf.worker.js', import.meta.url), { type: 'module' }),
+};
 
 /** Renders the ledger once and measures it. The frame watcher runs on the main thread throughout. */
 export async function run({ engine, pages, useWorker }) {
@@ -31,8 +35,8 @@ export async function run({ engine, pages, useWorker }) {
   const start = performance.now();
   let blob;
   if (useWorker) {
-    worker ??= new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
-    blob = await renderInWorker(worker, { pages });
+    workers[engine] ??= newWorker[engine]();
+    blob = await renderInWorker(workers[engine], { pages });
   } else {
     blob = await ENGINES[engine].pdf.pdf(createElement(LedgerDocument, { pdf: ENGINES[engine].pdf, pages })).toBlob();
   }

@@ -25,7 +25,7 @@ function App() {
   const [preset, setPreset] = useState('100');
   const [custom, setCustom] = useState(250);
   const [engine, setEngine] = useState('both');
-  const [useWorker, setUseWorker] = useState(false);
+  const [inWorker, setInWorker] = useState({ axonpdf: true, 'react-pdf': true });
   const [busy, setBusy] = useState('');
   const [results, setResults] = useState([]);
   const [shown, setShown] = useState([]);
@@ -41,7 +41,7 @@ function App() {
     try {
       for (const e of order) {
         setBusy(`Rendering with ${ENGINES[e].label}…`);
-        const r = await run({ engine: e, pages, useWorker: e === 'axonpdf' && useWorker });
+        const r = await run({ engine: e, pages, useWorker: inWorker[e] });
         done.push(r);
         setShown([...done]);
         setResults((rs) => [r, ...rs]);
@@ -78,20 +78,24 @@ function App() {
             <option value="react-pdf">react-pdf 4.9.0</option>
           </select>
         </label>
-        <label>
-          <input type="checkbox" checked={useWorker} onChange={(e) => setUseWorker(e.target.checked)} name="worker" /> axonpdf in a Web Worker
-        </label>
+        {(engine === 'both' ? ['axonpdf', 'react-pdf'] : [engine]).map((e) => (
+          <label key={e}>
+            <input type="checkbox" checked={inWorker[e]} onChange={(ev) => setInWorker({ ...inWorker, [e]: ev.target.checked })} name={`worker-${e}`} /> {ENGINES[e].label} in a Web Worker
+          </label>
+        ))}
         <button onClick={go} disabled={!!busy}>{busy ? 'Rendering…' : 'Render'}</button>
         <Ticker />
         <span style={{ color: '#555' }}>{busy}</span>
         {engine !== 'axonpdf' && pages > 100 && (
           <span style={{ color: '#a15c00' }}>
-            react-pdf runs on the main thread. At 500 pages it froze the tab for over 10 minutes in our run (
+            {inWorker['react-pdf']
+              ? 'At 500 pages react-pdf took over 10 minutes in our run ('
+              : 'react-pdf runs on the main thread. At 500 pages it froze the tab for over 10 minutes in our run ('}
             <a href="https://github.com/axonpack/axonpdf/blob/main/bench/RESULTS.md">results</a>).
           </span>
         )}
       </fieldset>
-      <p style={{ color: '#777', fontSize: 13 }}>react-pdf runs on the main thread. Page counts are approximate before the render; the table shows the real count.</p>
+      <p style={{ color: '#777', fontSize: 13 }}>Page counts are approximate before the render; the table shows the real count.</p>
       {error && <pre style={{ color: '#b00', whiteSpace: 'pre-wrap' }}>{error}</pre>}
 
       {results.length > 0 && (
