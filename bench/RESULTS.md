@@ -143,3 +143,24 @@ Notes on the two batches above:
 - axonpdf-generator is the same report with its rows passed as a generator child (`bench/report-generator.jsx`). react-pdf renders that file unchanged too.
 - Why the generator uses less memory than the array at 5000 pages (215 MB against 471 MB): the array of 190,000 `<Row>` elements stays alive for the whole render, so V8 starts placing the elements that `Row` creates straight into its old generation, where they wait for a full garbage collection. With a generator, no such array exists.
 - Output check at 100 pages: axonpdf's first and last pages differ from react-pdf's by 0.13% and 0.12% of pixels, pdfkit's by 16% and 10% (as before). The generator output matches the plain axonpdf output pixel for pixel; `<Rows>` differs from it by 0.02% and 0.03%. qpdf passes on every output.
+
+## 2026-11-23 UTC, live benchmark page in the browser (bench/live)
+
+- Commit: `33d9cbd` (the page as built from bench/live), engines from npm: @axonpdf/react 0.0.1 and react-pdf 4.9.0
+- Machine: Apple M4, 10 cores, 24 GB RAM, macOS 27.2.1, Chrome for Testing 156.0.8078.4 (headless, through Playwright), with `--enable-precise-memory-info`
+- Document: bench/live/src/ledger.jsx, A4, a fixed header with an SVG logo, a "Page n of N" footer, shipments of 4 to 12 lines each with wrapped notes; pages are counted in the output PDF
+- Time is from the click to the finished PDF Blob, including building the data. Frame gap is the longest gap between main-thread animation frames during the render. JS heap is the page's main-thread peak from `performance.memory`; a worker's heap can't be read there (`performance.memory` is not defined in a worker), so the worker rows show only the page's heap.
+- One run per cell, each in a fresh tab. A run that had no PDF after 10 minutes was stopped.
+- Rerun: `cd bench/live && npm ci && npm run build && npm run preview`, open the printed URL in Chromium, choose custom pages, the engine and the worker box, then Render, one fresh tab per cell.
+
+| Engine | Thread | Target pages | Pages | Time to PDF | File size | Longest frame gap | Page JS heap peak |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| axonpdf | worker | 100 | 98 | 0.90 s | 362 KB | 18 ms | 20 MB |
+| axonpdf | main thread | 100 | 98 | 0.83 s | 362 KB | 832 ms | 42 MB |
+| react-pdf | main thread | 100 | 98 | 33.7 s | 539 KB | 33.6 s | 160 MB |
+| axonpdf | worker | 500 | 487 | 3.9 s | 1.8 MB | 17 ms | 20 MB |
+| axonpdf | main thread | 500 | 487 | 3.8 s | 1.8 MB | 3.8 s | 66 MB |
+| react-pdf | main thread | 500 | - | no PDF after 10 min (stopped at 601 s) | - | - | - |
+| axonpdf | worker | 2000 | 1951 | 16.2 s | 7.1 MB | 19 ms | 21 MB |
+| axonpdf | main thread | 2000 | 1951 | 15.1 s | 7.1 MB | 15.1 s | 174 MB |
+| react-pdf | main thread | 2000 | - | no PDF after 10 min (stopped at 601 s) | - | - | - |
