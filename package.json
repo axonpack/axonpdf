@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun run --filter '@axonpdf/*' build",
+    "build": "for p in font types stylesheet core react; do bun run --filter \"@axonpdf/$p\" build || exit 1; done",
     "build:wasm": "packages/core/scripts/build-wasm.sh",
     "test": "bun run --filter '@axonpdf/*' test",
-    "check-types": "bun run --filter '*' check-types",
+    "check-types": "bun run build && bun run --filter '*' check-types",
     "lint": "oxlint packages",
     "format": "oxfmt packages",
     "format:check": "oxfmt --check packages",
