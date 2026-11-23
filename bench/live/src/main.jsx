@@ -84,6 +84,12 @@ function App() {
         <button onClick={go} disabled={!!busy}>{busy ? 'Rendering…' : 'Render'}</button>
         <Ticker />
         <span style={{ color: '#555' }}>{busy}</span>
+        {engine !== 'axonpdf' && pages > 100 && (
+          <span style={{ color: '#a15c00' }}>
+            react-pdf runs on the main thread. At 500 pages it froze the tab for over 10 minutes in our run (
+            <a href="https://github.com/axonpack/axonpdf/blob/main/bench/RESULTS.md">results</a>).
+          </span>
+        )}
       </fieldset>
       <p style={{ color: '#777', fontSize: 13 }}>react-pdf runs on the main thread. Page counts are approximate before the render; the table shows the real count.</p>
       {error && <pre style={{ color: '#b00', whiteSpace: 'pre-wrap' }}>{error}</pre>}
