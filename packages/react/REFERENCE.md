@@ -84,7 +84,7 @@ An `<iframe>` showing the document passed as its child. It renders again when th
 | Prop | Default | Notes |
 | --- | --- | --- |
 | `children` | | the `<Document>` |
-| `worker`, `props` | | a Worker that called `expose`, and the props it renders with. When `worker` is set, ``children`` is not used |
+| `worker`, `props` | | a Worker that called `expose`, and the props it renders with. When `worker` is set, `children` is not used |
 | `width`, `height`, `style`, `className`, `title` | | passed to the iframe |
 | `innerRef` | | a ref to the iframe |
 | `showToolbar` | `true` | adds `#toolbar=1` or `#toolbar=0` to the URL |
@@ -98,7 +98,7 @@ An `<a download>` for the document, rendered before it is clicked. It forwards a
 | Prop | Default | Notes |
 | --- | --- | --- |
 | `document` | | the `<Document>`; without it or `worker` it warns `You should pass a valid document to PDFDownloadLink` and renders nothing |
-| `worker`, `props` | | a Worker that called `expose`, and the props it renders with. When `worker` is set, ``document`` is not used |
+| `worker`, `props` | | a Worker that called `expose`, and the props it renders with. When `worker` is set, `document` is not used |
 | `fileName` | `document.pdf` | |
 | `children` | | a node, or a function of `{ loading, blob, url, error }` |
 | `onClick` | | `(event, instance)` |
