@@ -3,16 +3,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun run --filter '@axonpdf/*' build",
+    "build": "for p in font types stylesheet core react; do bun run --filter \"@axonpdf/$p\" build || exit 1; done",
     "build:wasm": "packages/core/scripts/build-wasm.sh",
     "test": "bun run --filter '@axonpdf/*' test",
-    "check-types": "bun run --filter '*' check-types",
+    "check-types": "bun run build && bun run --filter '*' check-types",
     "lint": "oxlint packages",
     "format": "oxfmt packages",
-    "format:check": "oxfmt --check packages"
+    "format:check": "oxfmt --check packages",
+    "changeset": "changeset",
+    "version-packages": "changeset version && bun install --lockfile-only",
+    "release": "bun run build:wasm && bun run build && env ${NPM_TOKEN:+NPM_CONFIG_USERCONFIG=$PWD/.npmrc.token} changeset publish"
   },
   "devDependencies": {
     "@axonpdf/react": "workspace:*",
+    "@changesets/cli": "^3.0.3",
     "oxfmt": "^0.79.0",
     "oxlint": "^1.94.0",
     "oxlint-config-universe": "^0.2.0",

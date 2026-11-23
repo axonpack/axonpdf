@@ -1,0 +1,237 @@
+name: Release
+
+# Runs on every push to main, which is what a merged PR is, and on demand. Not `pull_request_target`:
+# a canary run from it failed trusted publishing with E404, no merge-triggered run has ever
+# published, and every release on npm so far came from a manual run of this same workflow.
+#
+# With changesets pending, a push does two things at once: publishes a canary of what changed and
+# opens or refreshes the Version Packages PR. Merging that PR leaves no changesets, which routes it
+# to the stable publish. Any other push with nothing pending lands there too and publishes nothing,
+# since every version in the repo is already on npm.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "canary cuts a snapshot from main. stable refreshes the Version Packages PR, or publishes when nothing is pending."
+        type: choice
+        options: [canary, stable]
+        default: canary
+
+# Never cancel a run mid-publish: a half-published release is worse than a queued one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Pick the channel
+    runs-on: ubuntu-latest
+    # A dispatch from any other branch would publish that branch, so only main counts. Forks skip it,
+    # and every other job needs this one, so they skip with it.
+    if: github.repository == 'axonpack/axonpdf' && github.ref == 'refs/heads/main'
+    outputs:
+      pending: ${{ steps.pick.outputs.pending }}
+      channel: ${{ steps.pick.outputs.channel }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Pick the channel
+        id: pick
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_CHANNEL: ${{ inputs.channel }}
+        run: |
+          if compgen -G ".changeset/*.md" > /dev/null && [ -n "$(ls .changeset/*.md | grep -v README.md)" ]; then
+            pending=true
+          else
+            pending=false
+          fi
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            channel="$INPUT_CHANNEL"
+          elif [ "$pending" = "true" ]; then
+            channel=canary
+          else
+            channel=stable
+          fi
+          echo "pending=$pending" >> "$GITHUB_OUTPUT"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "pending changesets: $pending, channel: $channel"
+
+  # Publishes a canary of every package with a pending changeset, under the `canary` dist-tag. The
+  # snapshot rewrites versions in this checkout only: nothing is committed, `main` still says the
+  # stable version, and the same changesets feed the Version Packages PR beside this job.
+  canary:
+    name: Canary Release
+    needs: plan
+    if: needs.plan.outputs.pending == 'true' && (github.event_name == 'push' || needs.plan.outputs.channel == 'canary')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Trusted publishing: npm swaps this run's OIDC token for a short-lived publish token, so
+      # there is no npm secret to leak or rotate, and every release gets provenance with it.
+      id-token: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm 11.5.1 or newer, and the npm bundled with Node 24 can be older.
+      - name: Update npm
+        run: npm install -g npm@^11.5.1
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          targets: wasm32-unknown-emscripten
+
+      # build-wasm.sh needs exactly this Emscripten version.
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 7.0.0
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        env:
+          HUSKY: 0
+
+      - name: Version snapshot
+        run: bunx changeset version --snapshot canary
+
+      # The WebAssembly module is gitignored, and the core package's build and types read it.
+      - name: Build WebAssembly
+        run: bun run build:wasm
+
+      - name: Build packages
+        run: bun run build
+
+      - name: Publish canary
+        run: bunx changeset publish --tag canary --no-git-tag
+
+  # Opens or refreshes the Version Packages PR from `changeset-release/main`: the version bumps, the
+  # changelog entries and the refreshed lockfile, for a person to read before anything ships.
+  release-pr:
+    name: Release PR
+    needs: plan
+    if: needs.plan.outputs.pending == 'true' && (github.event_name == 'push' || needs.plan.outputs.channel == 'stable')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        env:
+          HUSKY: 0
+
+      # `version-packages` also refreshes the lockfile, which records each workspace's version. Without
+      # that the PR would fail its own frozen-lockfile install, which is what broke the 3.2.0 release.
+      - name: Open or update the Version Packages PR
+        uses: changesets/action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          version-script: bun run version-packages
+          commit-message: "release: version packages"
+          pr-title: "release: version packages"
+        env:
+          HUSKY: 0
+
+  # The only publish to `latest`. Reached by merging the Version Packages PR, which leaves no
+  # changesets behind, or by a manual run.
+  stable:
+    name: Stable Release
+    needs: plan
+    if: needs.plan.outputs.pending == 'false' && needs.plan.outputs.channel == 'stable'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Update npm
+        run: npm install -g npm@^11.5.1
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          targets: wasm32-unknown-emscripten
+
+      # build-wasm.sh needs exactly this Emscripten version.
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 7.0.0
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        env:
+          HUSKY: 0
+
+      # The WebAssembly module is gitignored, and the core package's build and types read it.
+      - name: Build WebAssembly
+        run: bun run build:wasm
+
+      - name: Build packages
+        run: bun run build
+
+      # Not a bare `changeset publish`: its tags are annotated, which needs a git identity the runner
+      # doesn't have, and it drops the failure without a word. The action sets one, pushes the tags
+      # and opens a Release from each version's CHANGELOG section.
+      - name: Publish to npm, tag and create GitHub Releases
+        uses: changesets/action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          publish-script: bunx changeset publish
+          push-git-tags: true
+          create-github-releases: true
+        env:
+          HUSKY: 0

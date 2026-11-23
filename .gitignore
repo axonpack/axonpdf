@@ -11,3 +11,4 @@ packages/core/wasm/axonpdf.web.mjs
 packages/core/wasm/axonpdf.wasm
 # Local runs: reference renders, diffs and private test documents, never committed
 local/
+.npmrc.token

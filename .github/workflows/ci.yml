@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  pull_request:
+    # `labeled` is here so adding the `preview` label starts a run, rather than waiting for a push.
+    types: [opened, synchronize, reopened, labeled]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Build, lint, types, tests
+    # Forks skip it. `preview` needs this job, so it skips with it.
+    if: github.repository == 'axonpack/axonpdf'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          targets: wasm32-unknown-emscripten
+
+      # build-wasm.sh needs exactly this Emscripten version.
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 7.0.0
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        env:
+          HUSKY: 0
+
+      # Build before anything else: the packages reach each other through their compiled output, so
+      # lint, types and tests all need the sibling builds on disk.
+      # The WebAssembly module is gitignored, and the core package's build and types read it.
+      - name: Build WebAssembly
+        run: bun run build:wasm
+
+      - name: Build packages
+        run: bun run build
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Check types
+        run: bun run check-types
+
+      - name: Test
+        run: bun run test
+
+  # A PR carrying the `preview` label gets its packages published to pkg.pr.new, so a reviewer or a
+  # tester can install the branch. Nothing reaches npm, and nothing runs for a PR without the label.
+  preview:
+    name: Preview build
+    if: github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'preview')
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          targets: wasm32-unknown-emscripten
+
+      # build-wasm.sh needs exactly this Emscripten version.
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 7.0.0
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        env:
+          HUSKY: 0
+
+      # The WebAssembly module is gitignored, and the core package's build and types read it.
+      - name: Build WebAssembly
+        run: bun run build:wasm
+
+      - name: Build packages
+        run: bun run build
+
+      - name: Publish to pkg.pr.new
+        run: |
+          bunx pkg-pr-new publish \
+            ./packages/core \
+            ./packages/react
