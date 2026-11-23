@@ -21,7 +21,7 @@ const newWorker = {
  * `onTick` gets the numbers so far about once a second. The ledger data is built inside the
  * render, so the stages are only `rendering` and `reading the PDF`.
  */
-export async function run({ engine, pages, useWorker, onTick = () => {} }) {
+export async function run({ engine, pages, layout, useWorker, onTick = () => {} }) {
   let peak = heap() ?? 0;
   let gap = 0;
   let last = performance.now();
@@ -44,9 +44,9 @@ export async function run({ engine, pages, useWorker, onTick = () => {} }) {
   let blob;
   if (useWorker) {
     workers[engine] ??= newWorker[engine]();
-    blob = await renderInWorker(workers[engine], { pages });
+    blob = await renderInWorker(workers[engine], { pages, layout });
   } else {
-    blob = await ENGINES[engine].pdf.pdf(createElement(LedgerDocument, { pdf: ENGINES[engine].pdf, pages })).toBlob();
+    blob = await ENGINES[engine].pdf.pdf(createElement(LedgerDocument, { pdf: ENGINES[engine].pdf, pages, layout })).toBlob();
   }
   const ms = performance.now() - start;
   frame();
@@ -59,6 +59,7 @@ export async function run({ engine, pages, useWorker, onTick = () => {} }) {
     engine,
     thread: useWorker ? 'worker' : 'main thread',
     asked: pages,
+    layout,
     pages: countPages(bytes),
     ms: Math.round(ms),
     size: blob.size,

@@ -39,7 +39,10 @@ function Segmented({ label, value, options, onChange }) {
   );
 }
 
-const peak = (r) => (MEASURED[r.engine][r.asked] === undefined ? 'pending' : `${MEASURED[r.engine][r.asked]} MB`);
+const peak = (r) => {
+  const mb = MEASURED[r.layout]?.[r.engine]?.[r.asked];
+  return mb === undefined ? 'pending' : `${mb} MB`;
+};
 function Numbers({ r }) {
   return (
     <dl>
@@ -72,6 +75,7 @@ const Previous = memo(function Previous({ runs }) {
                 <span className={cls(r.engine)}>{ENGINES[r.engine].label}</span>
                 <span>{r.thread}</span>
                 <span>{r.pages} pages</span>
+                <span>{r.layout === "flowing" ? "one flowing page" : "sections"}</span>
                 <span>{(r.ms / 1000).toFixed(2)} s</span>
                 <span>{peak(r)}</span>
               </summary>
@@ -112,6 +116,7 @@ function App() {
   const [preset, setPreset] = useState('100');
   const [custom, setCustom] = useState(250);
   const [engine, setEngine] = useState('both');
+  const [layout, setLayout] = useState('sections');
   const [inWorker, setInWorker] = useState({ axonpdf: true, 'react-pdf': true });
   const [busy, setBusy] = useState('');
   // This run: one slot per engine: `null` while waiting, `{ live }` while running, then the result.
@@ -140,7 +145,7 @@ function App() {
       for (const [i, e] of picked.entries()) {
         setBusy(`Rendering with ${ENGINES[e].label}…`);
         const onTick = (live) => setCurrent((c) => c.map((x, j) => (j === i ? { live } : x)));
-        const r = { ...(await run({ engine: e, pages, useWorker: worker(e), onTick })), id: crypto.randomUUID() };
+        const r = { ...(await run({ engine: e, pages, layout, useWorker: worker(e), onTick })), id: crypto.randomUUID() };
         setCurrent((c) => c.map((x, j) => (j === i ? r : x)));
         console.log('RESULT ' + JSON.stringify({ ...r, url: undefined }));
       }
@@ -167,6 +172,11 @@ function App() {
           {preset === 'custom' && (
             <input className="custom" type="number" min={1} max={5000} value={custom} onChange={(e) => setCustom(+e.target.value)} name="custom" aria-label="Custom page count" />
           )}
+        </div>
+        <div className="row">
+          <span className="name">Layout</span>
+          <Segmented label="Layout" value={layout} onChange={setLayout} options={[['sections', 'Sections'], ['flowing', 'One flowing page']]} />
+          <span className="note" style={{ margin: 0 }}>react-pdf slows down sharply when one <code>&lt;Page&gt;</code> flows over hundreds of pages.</span>
         </div>
         <div className="row">
           <span className="name">Engine</span>
