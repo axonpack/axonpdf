@@ -1,6 +1,7 @@
 import { memo, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ENGINES, run } from './measure.js';
+import { MEASURED, RESULTS_URL } from './peaks.js';
 import './style.css';
 
 const mb = (n) => `${(n / 2 ** 20).toFixed(1)} MB`;
@@ -38,7 +39,7 @@ function Segmented({ label, value, options, onChange }) {
   );
 }
 
-const memory = (r) => (r.memory === null ? 'n/a (needs cross-origin isolation)' : mb(r.memory));
+const peak = (r) => (MEASURED[r.engine][r.asked] === undefined ? 'pending' : `${MEASURED[r.engine][r.asked]} MB`);
 function Numbers({ r }) {
   return (
     <dl>
@@ -47,7 +48,7 @@ function Numbers({ r }) {
       <div><dt>File size</dt><dd>{mb(r.size)}</dd></div>
       <div><dt>Longest frame gap</dt><dd>{r.gap} ms</dd></div>
       <div><dt>Thread</dt><dd>{r.thread}</dd></div>
-      <div><dt>Peak memory (page + worker)</dt><dd>{memory(r)}</dd></div>
+      <div><dt>Peak memory in our run (worker, measured through DevTools)</dt><dd>{peak(r)} <a className="src" href={RESULTS_URL}>results</a></dd></div>
       {r.heap !== null && <div className="small"><dt>Page heap (excludes worker)</dt><dd>{mb(r.heap)}</dd></div>}
     </dl>
   );
@@ -72,7 +73,7 @@ const Previous = memo(function Previous({ runs }) {
                 <span>{r.thread}</span>
                 <span>{r.pages} pages</span>
                 <span>{(r.ms / 1000).toFixed(2)} s</span>
-                <span>{memory(r)}</span>
+                <span>{peak(r)}</span>
               </summary>
               {open === r.id && (
                 <>
@@ -98,8 +99,6 @@ function Live({ engine, live }) {
         <dl>
           <div><dt>Stage</dt><dd>{live.stage}</dd></div>
           <div><dt>Elapsed</dt><dd>{(live.ms / 1000).toFixed(0)} s</dd></div>
-          <div><dt>Memory now (page + worker)</dt><dd>{live.memoryNow === null ? 'n/a' : mb(live.memoryNow)}</dd></div>
-          <div><dt>Peak so far</dt><dd>{live.memory === null ? 'n/a' : mb(live.memory)}</dd></div>
           <div><dt>Longest freeze so far</dt><dd>{live.gap} ms</dd></div>
         </dl>
       )}
@@ -152,7 +151,7 @@ function App() {
     setBusy('');
   }
 
-  const results_link = <a href="https://github.com/axonpack/axonpdf/blob/main/bench/RESULTS.md">results</a>;
+  const results_link = <a href={RESULTS_URL}>results</a>;
 
   return (
     <main>
@@ -197,7 +196,7 @@ function App() {
         </div>
         {busy && <p className="note" style={{ margin: 0 }}>{busy}</p>}
       </section>
-      <p className="note">Page counts are approximate before the render; the results show the real count.</p>
+      <p className="note">Page counts are approximate before the render; the results show the real count. Chrome DevTools → Memory shows the worker live.</p>
       {error && <pre className="error">{error}</pre>}
 
       {current.length > 0 && (

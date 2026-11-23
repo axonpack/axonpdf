@@ -111,3 +111,4 @@ td { border-bottom: 1px solid var(--line); padding: 6px 8px; white-space: nowrap
 .run summary { list-style: none; }
 .run summary::before { content: "▸"; color: var(--muted); width: 1em; }
 .run[open] summary::before { content: "▾"; }
+.src { font-size: 12px; font-weight: 400; }
