@@ -26,43 +26,48 @@ npm install @axonpdf/react react
 ```tsx
 import { Document, Page, Text, renderToFile } from "@axonpdf/react";
 
-await renderToFile(
+const Report = () => (
   <Document title="Hello">
     <Page size="A4" style={{ padding: 40 }}>
       <Text>Hello from axonpdf.</Text>
       <Text fixed render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
     </Page>
-  </Document>,
-  "hello.pdf",
+  </Document>
 );
+
+await renderToFile(<Report />, "report.pdf");
 ```
 
 ## Getting the PDF
 
-`renderToFile` is one of several ways to get the PDF. In Node:
+`Report` is the component from the example above. `renderToFile` is one of several ways to get the PDF. In Node:
 
 | API | Gives you |
 | --- | --- |
-| `renderToFile(doc, path)` | Writes the PDF to a file. |
-| `renderToBuffer(doc)` | The whole PDF as a `Buffer`. |
-| `renderToStream(doc)` | A stream that sends each page as soon as it is laid out, for example straight into an HTTP response. |
+| `renderToFile(<Report />, path)` | Writes the PDF to a file. |
+| `renderToBuffer(<Report />)` | The whole PDF as a `Buffer`. |
+| `renderToStream(<Report />)` | A stream that sends each page as soon as it is laid out, for example straight into an HTTP response. |
 
 In the browser, and in Node:
 
 | API | Gives you |
 | --- | --- |
-| `pdf(doc).toBlob()` | A `Blob` to upload, store or open. |
-| `pdf(doc).toBuffer()` | A stream of the PDF's bytes. |
-| `<PDFDownloadLink document={doc} fileName="report.pdf">` | A link that downloads the PDF. |
-| `<PDFViewer>` | The PDF shown in the page. |
-| `<BlobProvider document={doc}>` and `usePDF({ document })` | The `blob`, a `url`, `loading` and `error`, to build your own preview or download button. |
+| `pdf(<Report />).toBlob()` | A `Blob` to upload, store or open. |
+| `pdf(<Report />).toBuffer()` | A stream of the PDF's bytes. |
+| `<PDFDownloadLink document={<Report />} fileName="report.pdf">` | A link that downloads the PDF. |
+| `<PDFViewer><Report /></PDFViewer>` | The PDF shown in the page. |
+| `<BlobProvider document={<Report />}>` and `usePDF({ document: <Report /> })` | The `blob`, a `url`, `loading` and `error`, to build your own preview or download button. |
 
 ```tsx
 import { PDFDownloadLink } from "@axonpdf/react";
 
-<PDFDownloadLink document={doc} fileName="report.pdf">
-  {({ loading }) => (loading ? "Preparing…" : "Download PDF")}
-</PDFDownloadLink>;
+export function DownloadButton() {
+  return (
+    <PDFDownloadLink document={<Report />} fileName="report.pdf">
+      {({ loading }) => (loading ? "Preparing…" : "Download PDF")}
+    </PDFDownloadLink>
+  );
+}
 ```
 
 [Rendering](https://axonpack.dev/docs/axonpdf/react/rendering/) has every option and return type,
@@ -106,7 +111,7 @@ Coming from react-pdf 4.9.0? The [migration guide](https://axonpack.dev/docs/axo
 | Page | What it covers |
 | --- | --- |
 | [Getting started](https://axonpack.dev/docs/axonpdf/getting-started/) | Install, a first document, Node and the browser |
-| [Migrating an existing project](https://axonpack.dev/docs/axonpdf/migrate-from-react-pdf/) | Changing one import or adding an npm alias |
+| [Migrate from react-pdf](https://axonpack.dev/docs/axonpdf/migrate-from-react-pdf/) | Changing one import or adding an npm alias |
 | [@axonpdf/react](https://axonpack.dev/docs/axonpdf/react/) | Components, styles, fonts, rendering, Web Workers |
 | [Reference](https://axonpack.dev/docs/axonpdf/react/reference/) | Every export, prop, style key and error |
 | [@axonpdf/core](https://axonpack.dev/docs/axonpdf/core/) | The engine on its own, for bindings to other frameworks |
