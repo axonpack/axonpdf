@@ -1,6 +1,6 @@
 {
   "name": "@axonpdf/react",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Create PDF files with React, in Node and in the browser",
   "homepage": "https://axonpack.dev/docs/axonpdf/react/",
   "bugs": {
