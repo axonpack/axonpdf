@@ -11,8 +11,8 @@
 
 </div>
 
-axonpdf lays pages out with flexbox in a Rust engine compiled to WebAssembly, and writes each page
-as soon as it is finished, so documents of thousands of pages render in little memory. The
+axonpdf's engine is written in Rust, uses Yoga for flexbox, and is compiled to WebAssembly. It
+writes each page as soon as it is finished, so documents of thousands of pages render in little memory. The
 packages are at an early 0.0.x version, so expect changes.
 
 ## Install
