@@ -63,6 +63,20 @@ jobs:
       - name: Test
         run: bun run test
 
+      # Release gates (plan S3): the example app builds, the heap stays flat over long documents,
+      # and every fixture matches the reference renders committed in parity/reference.
+      - name: Build example app
+        run: bun run --filter axonpdf-react-example build
+
+      - name: Memory tests
+        run: cargo test -p axonpdf --release --test memory --test count_memory --test heap
+
+      - name: Parity
+        run: |
+          sudo apt-get install -y --no-install-recommends poppler-utils qpdf
+          npm ci --prefix parity
+          node parity/compare.mjs --reference parity/reference
+
   # A PR carrying the `preview` label gets its packages published to pkg.pr.new, so a reviewer or a
   # tester can install the branch. Nothing reaches npm, and nothing runs for a PR without the label.
   preview:
