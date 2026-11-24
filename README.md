@@ -37,7 +37,36 @@ await renderToFile(
 );
 ```
 
-In the browser, `<PDFViewer>` shows the same document and `<PDFDownloadLink>` offers it as a file.
+## Getting the PDF
+
+`renderToFile` is one of several ways to get the PDF. In Node:
+
+| API | Gives you |
+| --- | --- |
+| `renderToFile(doc, path)` | Writes the PDF to a file. |
+| `renderToBuffer(doc)` | The whole PDF as a `Buffer`. |
+| `renderToStream(doc)` | A stream that sends each page as soon as it is laid out, for example straight into an HTTP response. |
+
+In the browser, and in Node:
+
+| API | Gives you |
+| --- | --- |
+| `pdf(doc).toBlob()` | A `Blob` to upload, store or open. |
+| `pdf(doc).toBuffer()` | A stream of the PDF's bytes. |
+| `<PDFDownloadLink document={doc} fileName="report.pdf">` | A link that downloads the PDF. |
+| `<PDFViewer>` | The PDF shown in the page. |
+| `<BlobProvider document={doc}>` and `usePDF({ document })` | The `blob`, a `url`, `loading` and `error`, to build your own preview or download button. |
+
+```tsx
+import { PDFDownloadLink } from "@axonpdf/react";
+
+<PDFDownloadLink document={doc} fileName="report.pdf">
+  {({ loading }) => (loading ? "Preparing…" : "Download PDF")}
+</PDFDownloadLink>;
+```
+
+[Rendering](https://axonpack.dev/docs/axonpdf/react/rendering/) has every option and return type,
+streaming from a server, and updating a document after it has rendered.
 
 ## What it does
 
@@ -59,9 +88,18 @@ each engine in a Web Worker. Each cell is the time to the finished PDF and the w
 | 500 | 4.1 s, 55.9 MB | 45.8 s, 2230 MB |
 | 2000 | 15.9 s, 141.6 MB | no PDF after 10 min |
 
-The [benchmarks page](https://axonpack.dev/docs/axonpdf/benchmarks/) has the method, a second
-layout and the Node runs. Every run is in [bench/RESULTS.md](bench/RESULTS.md), and
+With the whole ledger in one `<Page>` that wraps onto every page:
+
+| Pages | axonpdf 0.0.1 | react-pdf 4.9.0 |
+| --- | --- | --- |
+| 100 | 0.86 s | 32.8 s, 560.1 MB |
+| 500 | 3.9 s, 39.2 MB | no PDF after 10 min |
+
+axonpdf's 100-page flowing render finished before the first heap sample. The
+[benchmarks page](https://axonpack.dev/docs/axonpdf/benchmarks/) has the method and the Node runs. Every run is in [bench/RESULTS.md](bench/RESULTS.md), and
 [bench/live](bench/live) is the benchmark app.
+
+Coming from react-pdf 4.9.0? The [migration guide](https://axonpack.dev/docs/axonpdf/migrate-from-react-pdf/) shows the one import to change, or the npm alias that changes nothing in your code.
 
 ## Documentation
 
