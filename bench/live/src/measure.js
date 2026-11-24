@@ -12,7 +12,7 @@ const countPages = (bytes) => (new TextDecoder('latin1').decode(bytes).match(/\/
 
 const workers = {};
 const newWorker = {
-  axonpdf: () => new Worker(new URL('./worker.js', import.meta.url), { type: 'module' }),
+  axonpdf: () => new Worker(new URL('./axonpdf.worker.js', import.meta.url), { type: 'module' }),
   'react-pdf': () => new Worker(new URL('./react-pdf.worker.js', import.meta.url), { type: 'module' }),
 };
 
