@@ -3,13 +3,14 @@
 //
 //   node parity/compare.mjs [fixture...] [--reference <dir>] [--dpi 72] [--threshold 1]
 //
-// --reference is an engine folder as render.mjs takes it (default local/oracle). Output goes to
+// --reference is an engine folder as render.mjs takes it (default local/oracle), or a folder of
+// ready <fixture>.pdf files such as parity/reference, which CI uses. Output goes to
 // local/diff/<fixture>/: both PDFs, and per page a PNG with the reference, ours and the differing
 // pixels in red, side by side. A fixture passes when the page counts match, every page differs by
 // at most --threshold percent of its pixels, and qpdf finds no errors in our PDF.
 // Needs poppler (pdftoppm) and qpdf on the PATH.
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { diffPages, encodePng, rasterise } from './raster.mjs';
@@ -51,11 +52,16 @@ for (const name of fixtures) {
   mkdirSync(dir, { recursive: true });
   const byEye = BY_EYE.has(name);
   const ours = render(name, ROOT, join(dir, 'ours.pdf'));
-  const ref = byEye ? { error: 'not renderable by the reference' } : render(name, resolve(opts.reference), join(dir, 'reference.pdf'));
+  const ready = join(resolve(opts.reference), `${name}.pdf`);
+  const ref = byEye
+    ? { error: 'not renderable by the reference' }
+    : existsSync(ready)
+      ? (copyFileSync(ready, join(dir, 'reference.pdf')), {})
+      : render(name, resolve(opts.reference), join(dir, 'reference.pdf'));
 
   console.log(`\n${name}`);
   console.log(`  ours       ${ours.error ? `FAILED: ${ours.error}` : `${ours.ms} ms, peak ${mb(ours)}, qpdf ${qpdf(join(dir, 'ours.pdf'))}`}`);
-  console.log(`  reference  ${ref.error ? `${byEye ? '' : 'FAILED: '}${ref.error}` : `${ref.ms} ms, peak ${mb(ref)}, qpdf ${qpdf(join(dir, 'reference.pdf'))}`}`);
+  console.log(`  reference  ${ref.error ? `${byEye ? '' : 'FAILED: '}${ref.error}` : `${ref.ms ?? '-'} ms, peak ${mb(ref)}, qpdf ${qpdf(join(dir, 'reference.pdf'))}`}`);
   if (ours.error) {
     failed++;
     continue;
