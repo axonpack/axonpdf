@@ -1,5 +1,11 @@
 # @axonpdf/core
 
+## 0.0.4
+
+### Patch Changes
+
+- 327d2c6: The `@axonpdf/react` README lists every way to get the PDF (file, buffer, stream, blob, download link, viewer, `BlobProvider`, `usePDF`), links to the Rendering docs, and shows the browser benchmark.
+
 ## 0.0.3
 
 ### Patch Changes
