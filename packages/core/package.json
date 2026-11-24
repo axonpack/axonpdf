@@ -1,6 +1,6 @@
 {
   "name": "@axonpdf/core",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "The axonpdf engine as WebAssembly, for Node, browsers and Workers",
   "homepage": "https://axonpack.dev/docs/axonpdf/core/",
   "bugs": {
