@@ -63,8 +63,8 @@ common hosts already do. To check the build before uploading, run `npm run previ
 - Longest frame gap: the longest time between two animation frames on the main thread during
   the render. Around 16 ms means the page stayed smooth; a gap close to the render time means the
   page froze for the whole render. The moving bar next to the Render button shows the same thing.
-- Peak memory in our run: each engine's worker memory peak from our measured run at that page
-  count, read through Chrome DevTools, from `src/peaks.js`. The page can't read a worker's memory
-  itself; Chrome DevTools → Memory shows it live. "pending" means that size isn't measured yet.
+- Worker memory isn't shown: a web page can't read it. Open Chrome DevTools → Memory and look
+  under "Select JavaScript VM instance", where each worker has its own row (the page shows a
+  screenshot of this). The measured peaks are in `bench/RESULTS.md`.
 - Page heap (excludes worker): the main thread's JavaScript heap peak from `performance.memory`
   (Chromium only). A worker's memory isn't in it.
