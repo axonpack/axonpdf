@@ -1,5 +1,11 @@
 # @axonpdf/core
 
+## 0.0.3
+
+### Patch Changes
+
+- 5314daf: Rewrite the package READMEs: a short first example, a `.js` worker example with a link to the Web Worker guide, and links to the docs.
+
 ## 0.0.2
 
 ### Patch Changes
