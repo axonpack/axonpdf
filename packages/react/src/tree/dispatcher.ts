@@ -16,9 +16,11 @@ export const rootScope = (): Scope => ({ contexts: new Map(), ids: { next: 0 } }
 export const major = Number(React.version.split(".")[0]);
 
 // React reads the current hooks dispatcher from its shared internals; servers set it the same way.
+// Read by string, not as a property of the namespace: webpack checks named imports at build time,
+// and fails the build on the one name the installed React doesn't export.
 const internals: any =
-  (React as any).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE ??
-  (React as any).__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+  Reflect.get(React, "__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE") ??
+  Reflect.get(React, "__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED");
 
 function setDispatcher(dispatcher: unknown): unknown {
   if (major >= 19) {
