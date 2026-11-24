@@ -61,6 +61,20 @@ describe("browser components", () => {
     expect(await isPdf(states.at(-1)!.blob)).toBe(true);
   });
 
+  it("usePDF logs nothing for a render whose component unmounted first", async () => {
+    // StrictMode in development mounts, unmounts and mounts again; the first render is thrown away.
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    function Probe() {
+      usePDF({ document: doc("Gone") });
+      return null;
+    }
+    const host = mountHost(<Probe />);
+    host.update(null);
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+
   it("PDFViewer shows the document in an iframe, with the toolbar switch on its URL", async () => {
     const host = mountHost(
       <PDFViewer width={300} height={200} title="Preview" showToolbar={false}>

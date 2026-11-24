@@ -49,8 +49,12 @@ export function usePDF({ document }: { document?: ReactElement<DocumentProps> } 
           setState({ blob, url, error: null, loading: false });
         }
       } catch (error) {
-        console.error(error);
-        if (!unmounted) setState((prev) => ({ ...prev, error, loading: false }));
+        // After unmount the cleanup has emptied the container, so this render can only fail. Under
+        // StrictMode that happens on every mount in development; it isn't the app's error.
+        if (!unmounted) {
+          console.error(error);
+          setState((prev) => ({ ...prev, error, loading: false }));
+        }
       }
       running = false;
       if (queued && !unmounted) {
