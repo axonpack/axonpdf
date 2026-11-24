@@ -1,7 +1,6 @@
 import { memo, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ENGINES, run } from './measure.js';
-import { MEASURED, RESULTS_URL } from './peaks.js';
 import { CodeHighlight, domPrimitives } from '@axonpack/react-pretty-print';
 import { DARK_THEME, LIGHT_THEME } from '@axonpack/react-pretty-print/themes';
 import { PACKAGE, snippet } from './snippets.js';
@@ -42,10 +41,6 @@ function Segmented({ label, value, options, onChange }) {
   );
 }
 
-const peak = (r) => {
-  const mb = MEASURED[r.layout]?.[r.engine]?.[r.asked];
-  return mb === undefined ? 'pending' : `${mb} MB`;
-};
 function Numbers({ r }) {
   return (
     <dl>
@@ -54,7 +49,6 @@ function Numbers({ r }) {
       <div><dt>File size</dt><dd>{mb(r.size)}</dd></div>
       <div><dt>Longest frame gap</dt><dd>{r.gap} ms</dd></div>
       <div><dt>Thread</dt><dd>{r.thread}</dd></div>
-      <div><dt>Peak memory in our run (worker, measured through DevTools)</dt><dd>{peak(r)} <a className="src" href={RESULTS_URL}>results</a></dd></div>
       {r.heap !== null && <div className="small"><dt>Page heap (excludes worker)</dt><dd>{mb(r.heap)}</dd></div>}
     </dl>
   );
@@ -80,7 +74,6 @@ const Previous = memo(function Previous({ runs }) {
                 <span>{r.pages} pages</span>
                 <span>{r.layout === "flowing" ? "one flowing page" : "sections"}</span>
                 <span>{(r.ms / 1000).toFixed(2)} s</span>
-                <span>{peak(r)}</span>
               </summary>
               {open === r.id && (
                 <>
@@ -199,7 +192,7 @@ function App() {
     setBusy('');
   }
 
-  const results_link = <a href={RESULTS_URL}>results</a>;
+  const results_link = <a href="https://github.com/axonpack/axonpdf/blob/main/bench/RESULTS.md">results</a>;
 
   return (
     <main>
@@ -239,7 +232,7 @@ function App() {
           {forced && <span className="note" style={{ margin: 0 }}>Over 100 pages runs in a worker.</span>}
         </div>
         {engine !== 'axonpdf' && (forced ? (
-          <p className="warn">At 500 pages react-pdf took over 10 minutes in our run ({results_link}).</p>
+          <p className="warn">{layout === 'flowing' ? 'At 500 pages on one flowing page, react-pdf had no PDF after 10 minutes in our run' : 'At 500 pages, react-pdf took about 46 s in our run'} ({results_link}).</p>
         ) : !worker('react-pdf') && (
           <p className="warn">react-pdf on the main thread freezes the tab until it finishes.</p>
         ))}
@@ -254,7 +247,12 @@ function App() {
           <Code key={e} engine={e} text={snippet({ engine: e, layout, worker: worker(e), pages })} />
         ))}
       </section>
-      <p className="note">Page counts are approximate before the render; the results show the real count. Chrome DevTools → Memory shows the worker live.</p>
+      <p className="note">Page counts are approximate before the render; the results show the real count.</p>
+      <section className="memory">
+        <h2>Memory</h2>
+        <p>A web page can't read how much memory a worker uses, so this page doesn't show it. To see it, open Chrome DevTools (<kbd>⌥⌘I</kbd> on macOS, <kbd>F12</kbd> on Windows and Linux), go to the <b>Memory</b> tab, and look under <b>Select JavaScript VM instance</b>. Each worker has its own row with its current heap size, and it updates while the render runs.</p>
+        <img src="./devtools-memory.png" width="554" height="864" alt="Chrome DevTools Memory tab after a 100-page run: axonpdf.worker uses 17.8 MB and react-pdf.worker uses 271 MB" />
+      </section>
       {error && <pre className="error">{error}</pre>}
 
       {current.length > 0 && (
