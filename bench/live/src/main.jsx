@@ -2,6 +2,8 @@ import { memo, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ENGINES, run } from './measure.js';
 import { MEASURED, RESULTS_URL } from './peaks.js';
+import { CodeHighlight, domPrimitives } from '@axonpack/react-pretty-print';
+import { DARK_THEME, LIGHT_THEME } from '@axonpack/react-pretty-print/themes';
 import { PACKAGE, snippet } from './snippets.js';
 import './style.css';
 
@@ -111,10 +113,25 @@ function Live({ engine, live }) {
   );
 }
 
-// The package name stands out, since it is the one thing that changes between the engines.
+const dark = matchMedia('(prefers-color-scheme: dark)');
+function useDark() {
+  const [isDark, setDark] = useState(dark.matches);
+  useEffect(() => {
+    const on = (e) => setDark(e.matches);
+    dark.addEventListener('change', on);
+    return () => dark.removeEventListener('change', on);
+  }, []);
+  return isDark;
+}
+
+// The package name is marked, since it is the one thing that changes between the engines.
+const matchers = Object.fromEntries(
+  Object.entries(PACKAGE).map(([e, pkg]) => [e, { pattern: new RegExp(pkg.replace(/[/@-]/g, '\\$&'), 'g'), invalid: false }]),
+);
+
 function Code({ engine, text }) {
   const [copied, setCopied] = useState(false);
-  const parts = text.split(PACKAGE[engine]);
+  const theme = useDark() ? DARK_THEME : LIGHT_THEME;
   const copy = () =>
     navigator.clipboard.writeText(text).then(
       () => {
@@ -130,7 +147,7 @@ function Code({ engine, text }) {
         <button type="button" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
       </figcaption>
       <pre>
-        <code>{parts.flatMap((p, i) => (i ? [<mark key={i}>{PACKAGE[engine]}</mark>, p] : [p]))}</code>
+        <CodeHighlight primitives={domPrimitives} code={text} language="tsx" format={false} theme={theme} matcher={matchers[engine]} />
       </pre>
     </figure>
   );
