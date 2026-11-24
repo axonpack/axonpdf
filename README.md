@@ -102,7 +102,8 @@ With the whole ledger in one `<Page>` that wraps onto every page:
 
 axonpdf's 100-page flowing render finished before the first heap sample. The
 [benchmarks page](https://axonpack.dev/docs/axonpdf/benchmarks/) has the method and the Node runs. Every run is in [bench/RESULTS.md](bench/RESULTS.md), and
-[bench/live](bench/live) is the benchmark app.
+you can run the browser benchmark yourself at [axonpdf-demo.axonpack.dev](https://axonpdf-demo.axonpack.dev/).
+Its source is [bench/live](bench/live).
 
 Coming from react-pdf 4.9.0? The [migration guide](https://axonpack.dev/docs/axonpdf/migrate-from-react-pdf/) shows the one import to change, or the npm alias that changes nothing in your code.
 

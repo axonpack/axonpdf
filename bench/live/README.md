@@ -6,6 +6,8 @@ SVG logo, a "Page n of N" footer, and shipments, each a heading row followed by 
 with a note that wraps under the item. The data comes from a seeded generator, so every run builds
 the same document.
 
+It runs at [axonpdf-demo.axonpack.dev](https://axonpdf-demo.axonpack.dev/).
+
 The page offers two layouts of the same ledger:
 
 - Sections (the default): the summary on its own `<Page>`, then one `<Page>` per day of
@@ -52,6 +54,9 @@ npm run build
 an S3 bucket). Paths are relative, so it also works from a subfolder such as
 `example.com/bench/live/`. The host must serve `.wasm` files as `application/wasm`, which the
 common hosts already do. To check the build before uploading, run `npm run preview`.
+
+The copy at axonpdf-demo.axonpack.dev is built by Cloudflare Pages from this folder on every push
+to `main`. Cloudflare runs `npm ci`, so `package-lock.json` must stay in step with `package.json`.
 
 ## What the numbers mean
 
