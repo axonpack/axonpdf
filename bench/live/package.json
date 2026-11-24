@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@axonpdf/react": "0.0.1",
+    "@axonpdf/react": "0.0.2",
     "@react-pdf/renderer": "4.9.0",
     "react": "19.2.3",
     "react-dom": "19.2.3"

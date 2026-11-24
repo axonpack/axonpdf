@@ -4,7 +4,7 @@ import * as reactPdf from '@react-pdf/renderer';
 import { createElement } from 'react';
 import { LedgerDocument } from './ledger.jsx';
 
-export const ENGINES = { axonpdf: { label: 'axonpdf 0.0.1', pdf: axonpdf }, 'react-pdf': { label: 'react-pdf 4.9.0', pdf: reactPdf } };
+export const ENGINES = { axonpdf: { label: 'axonpdf 0.0.2', pdf: axonpdf }, 'react-pdf': { label: 'react-pdf 4.9.0', pdf: reactPdf } };
 
 const heap = () => performance.memory?.usedJSHeapSize;
 // Both engines write each page as a plain `/Type /Page` object, so counting them gives the pages.

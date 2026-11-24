@@ -19,7 +19,7 @@ Both engines render one set of components (`src/ledger.jsx`). The page passes in
 `@axonpdf/react` or `@react-pdf/renderer`, and nothing else changes. In a project, switching is
 that one import.
 
-It uses the published packages, `@axonpdf/react` 0.0.1 and `@react-pdf/renderer` 4.9.0, so it
+It uses the published packages, `@axonpdf/react` 0.0.2 and `@react-pdf/renderer` 4.9.0, so it
 needs Node and npm but no Rust toolchain.
 
 ## Run it
