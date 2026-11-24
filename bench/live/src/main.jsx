@@ -2,6 +2,7 @@ import { memo, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ENGINES, run } from './measure.js';
 import { MEASURED, RESULTS_URL } from './peaks.js';
+import { PACKAGE, snippet } from './snippets.js';
 import './style.css';
 
 const mb = (n) => `${(n / 2 ** 20).toFixed(1)} MB`;
@@ -110,6 +111,31 @@ function Live({ engine, live }) {
   );
 }
 
+// The package name stands out, since it is the one thing that changes between the engines.
+function Code({ engine, text }) {
+  const [copied, setCopied] = useState(false);
+  const parts = text.split(PACKAGE[engine]);
+  const copy = () =>
+    navigator.clipboard.writeText(text).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      },
+      () => {},
+    );
+  return (
+    <figure className="code">
+      <figcaption>
+        <span className={cls(engine)}>{ENGINES[engine].label}</span>
+        <button type="button" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+      </figcaption>
+      <pre>
+        <code>{parts.flatMap((p, i) => (i ? [<mark key={i}>{PACKAGE[engine]}</mark>, p] : [p]))}</code>
+      </pre>
+    </figure>
+  );
+}
+
 const cls = (e) => (e === 'axonpdf' ? 'axon' : 'rpdf');
 
 function App() {
@@ -205,6 +231,11 @@ function App() {
           <Ticker />
         </div>
         {busy && <p className="note" style={{ margin: 0 }}>{busy}</p>}
+      </section>
+      <section className="codes" aria-label="Code for these choices">
+        {picked.map((e) => (
+          <Code key={e} engine={e} text={snippet({ engine: e, layout, worker: worker(e), pages })} />
+        ))}
       </section>
       <p className="note">Page counts are approximate before the render; the results show the real count. Chrome DevTools → Memory shows the worker live.</p>
       {error && <pre className="error">{error}</pre>}

@@ -36,6 +36,10 @@ main thread. The main thread is only offered up to 100 pages; above that both en
 worker. react-pdf's worker (`src/react-pdf.worker.js`) calls its `pdf().toBlob()` there and
 answers the same messages as axonpdf's `expose`, so the page sends both the same way.
 
+Under the controls, the page shows the code you would write for the current choices, for each
+engine side by side (`src/snippets.js`). The import lines differ only in the package name, apart
+from axonpdf's worker helpers.
+
 ## Build and deploy
 
 ```sh
