@@ -57,8 +57,8 @@ common hosts already do. To check the build before uploading, run `npm run previ
 
 - Time to PDF: from the click (after a 100 ms pause) until the PDF exists as a Blob. It
   includes building the ledger data, the React render, layout and writing the file.
-- Pages: counted in the finished PDF. The page count you pick is a target, so the real count
-  can be off by a page or two.
+- Pages: counted in the finished PDF. The page count you pick is a target. One flowing page lands
+  a little under it (98 at 100, 487 at 500), and Sections a little over (112 at 100).
 - File size: the size of the PDF.
 - Longest frame gap: the longest time between two animation frames on the main thread during
   the render. Around 16 ms means the page stayed smooth; a gap close to the render time means the
