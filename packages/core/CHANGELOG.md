@@ -1,5 +1,13 @@
 # @axonpdf/core
 
+## 0.0.6
+
+### Patch Changes
+
+- 0c20b45: A Next.js app built with webpack (`next build`) compiles with `@axonpdf/react` again. The build stopped on a React internal that React 19 doesn't export.
+- 74b4dbc: `usePDF`, `PDFViewer`, `PDFDownloadLink` and `BlobProvider` no longer log "The root element must be a <Document>" under React StrictMode in development. The render thrown away by StrictMode's extra mount stays quiet.
+- 2a68a29: A Web Worker bundled by Turbopack (`next dev --turbopack`, `next build --turbopack`) finds `axonpdf.wasm` and renders. Before, it stayed on loading.
+
 ## 0.0.5
 
 ### Patch Changes
