@@ -1,12 +1,15 @@
+<div align="center">
+
 # @axonpdf/react
 
-Create PDF files with React components, in Node and in the browser. It follows the usual React PDF
-renderer API (`Document`, `Page`, `View`, `Text`, `StyleSheet`, `Font`, `renderToFile`, `pdf`,
-`PDFViewer` and the rest), so an existing project can switch by changing its import. The layout
-and the PDF writing run in the axonpdf engine, compiled to WebAssembly.
+**Create PDF files with React components, in Node, the browser and Web Workers.**
 
-On top of that API it adds components for long documents (`Rows`, `PageNumber`, `PageCount`,
-`Table`), page header and footer bands, and a profiler.
+**[Documentation](https://axonpack.dev/docs/axonpdf/react/)** · [Getting started](https://axonpack.dev/docs/axonpdf/getting-started/) · [Reference](https://axonpack.dev/docs/axonpdf/react/reference/) · [Web Worker](https://axonpack.dev/docs/axonpdf/react/web-worker/)
+
+[![npm version](https://img.shields.io/npm/v/@axonpdf/react.svg)](https://www.npmjs.com/package/@axonpdf/react)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/axonpack/axonpdf/blob/main/LICENSE)
+
+</div>
 
 ## Install
 
@@ -23,63 +26,67 @@ import { Document, Page, StyleSheet, Text, View, renderToFile } from "@axonpdf/r
 
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 12 },
-  title: { fontSize: 20, marginBottom: 12 },
+  row: { flexDirection: "row", justifyContent: "space-between" },
 });
 
-function Invoice({ number }: { number: number }) {
-  return (
-    <Document title={`Invoice ${number}`}>
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.title}>Invoice {number}</Text>
-        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-          <Text>Total</Text>
-          <Text>£120.00</Text>
-        </View>
-        <Text fixed render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
-      </Page>
-    </Document>
-  );
-}
+const invoice = (
+  <Document title="Invoice 42">
+    <Page size="A4" style={styles.page}>
+      <View style={styles.row}>
+        <Text>Total</Text>
+        <Text>£120.00</Text>
+      </View>
+      <Text fixed render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
+    </Page>
+  </Document>
+);
 
-await renderToFile(<Invoice number={42} />, "invoice.pdf");
+await renderToFile(invoice, "invoice.pdf");
 ```
 
-In the browser, show the same document with `<PDFViewer>` or offer it with `<PDFDownloadLink>`.
-`packages/react/example` has both, from one invoice component.
+In the browser, `<PDFViewer>` shows the same document and `<PDFDownloadLink>` offers it as a file.
+[`packages/react/example`](https://github.com/axonpack/axonpdf/tree/main/packages/react/example) in the repository has both.
 
-## Rendering in a Web Worker
+## In a Web Worker
 
-A big document can take a while to render. To keep the page responsive, render it in a Worker.
-The worker file calls `expose` with a function from props to the document:
+The worker file calls `expose`. A plain `.js` file with `createElement` works with or without a
+bundler:
 
-```tsx
-// pdf.worker.tsx
+```js
+// axonpdf.worker.js
+import { createElement } from "react";
 import { expose } from "@axonpdf/react/worker";
 import { Report } from "./report.js";
 
-expose(({ rows }: { rows: Row[] }) => <Report rows={rows} />);
+expose((props) => createElement(Report, props));
 ```
 
-On the page, `useWorker` starts the Worker and stops it on unmount. Pass it to a component with
-`worker` and `props`, or use `usePDFWorker` for the `{ loading, blob, url, error }` that `usePDF`
-gives:
-
-```tsx
-import { PDFDownloadLink } from "@axonpdf/react";
+```jsx
 import { usePDFWorker, useWorker } from "@axonpdf/react/worker";
 
 const worker = useWorker(
-  () => new Worker(new URL("./pdf.worker.tsx", import.meta.url), { type: "module" }),
+  () => new Worker(new URL("./axonpdf.worker.js", import.meta.url), { type: "module" }),
 );
-
-<PDFDownloadLink worker={worker} props={{ rows }} fileName="report.pdf">Download</PDFDownloadLink>;
-
 const { url, loading } = usePDFWorker(worker, { rows });
 ```
 
-Props go to the Worker through `postMessage`, so they can't hold functions. They are compared by
-value (as JSON), so an inline object like `{ rows }` renders again only when its contents change.
+The [Web Worker page](https://axonpack.dev/docs/axonpdf/react/web-worker/) covers loading a
+prebuilt worker from `public/`, fonts, and what props can hold.
 
-Every export, component, prop and style key is in [REFERENCE.md](REFERENCE.md). The project's
-[README](../../README.md) covers switching an existing project, long documents and the other
-packages.
+## Documentation
+
+| Page | What it covers |
+| --- | --- |
+| [Components](https://axonpack.dev/docs/axonpdf/react/components/) | Document, Page, View, Text, Link, Image, Canvas, SVG |
+| [Styling](https://axonpack.dev/docs/axonpdf/react/styling/) | Units, flexbox, borders, text, media queries |
+| [Fonts](https://axonpack.dev/docs/axonpdf/react/fonts/) | Registering fonts, weights, hyphenation, emoji |
+| [Rendering](https://axonpack.dev/docs/axonpdf/react/rendering/) | Files, streams and buffers in Node; viewer, link and hooks in the browser |
+| [Long documents](https://axonpack.dev/docs/axonpdf/react/long-documents/) | `<Rows>`, generators and memory |
+| [axonpdf extras](https://axonpack.dev/docs/axonpdf/react/extras/) | `PageNumber`, `PageCount`, tables, header and footer bands |
+| [Security and archiving](https://axonpack.dev/docs/axonpdf/react/security-and-archiving/) | Passwords, PDF/A, form fields |
+| [Profiling](https://axonpack.dev/docs/axonpdf/react/profiling/) | Where a slow render spends its time |
+| [Reference](https://axonpack.dev/docs/axonpdf/react/reference/) | Every export, prop, style key and error ([REFERENCE.md](REFERENCE.md) here) |
+
+## License
+
+MIT
