@@ -29,7 +29,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", justifyContent: "space-between" },
 });
 
-const invoice = (
+const Invoice = () => (
   <Document title="Invoice 42">
     <Page size="A4" style={styles.page}>
       <View style={styles.row}>
@@ -41,35 +41,39 @@ const invoice = (
   </Document>
 );
 
-await renderToFile(invoice, "invoice.pdf");
+await renderToFile(<Invoice />, "invoice.pdf");
 ```
 
 ## Getting the PDF
 
-`renderToFile` is one of several ways to get the PDF. In Node:
+`Invoice` is the component from the example above. `renderToFile` is one of several ways to get the PDF. In Node:
 
 | API | Gives you |
 | --- | --- |
-| `renderToFile(doc, path)` | Writes the PDF to a file. |
-| `renderToBuffer(doc)` | The whole PDF as a `Buffer`. |
-| `renderToStream(doc)` | A stream that sends each page as soon as it is laid out, for example straight into an HTTP response. |
+| `renderToFile(<Invoice />, path)` | Writes the PDF to a file. |
+| `renderToBuffer(<Invoice />)` | The whole PDF as a `Buffer`. |
+| `renderToStream(<Invoice />)` | A stream that sends each page as soon as it is laid out, for example straight into an HTTP response. |
 
 In the browser, and in Node:
 
 | API | Gives you |
 | --- | --- |
-| `pdf(doc).toBlob()` | A `Blob` to upload, store or open. |
-| `pdf(doc).toBuffer()` | A stream of the PDF's bytes. |
-| `<PDFDownloadLink document={doc} fileName="report.pdf">` | A link that downloads the PDF. |
-| `<PDFViewer>` | The PDF shown in the page. |
-| `<BlobProvider document={doc}>` and `usePDF({ document })` | The `blob`, a `url`, `loading` and `error`, to build your own preview or download button. |
+| `pdf(<Invoice />).toBlob()` | A `Blob` to upload, store or open. |
+| `pdf(<Invoice />).toBuffer()` | A stream of the PDF's bytes. |
+| `<PDFDownloadLink document={<Invoice />} fileName="invoice.pdf">` | A link that downloads the PDF. |
+| `<PDFViewer><Invoice /></PDFViewer>` | The PDF shown in the page. |
+| `<BlobProvider document={<Invoice />}>` and `usePDF({ document: <Invoice /> })` | The `blob`, a `url`, `loading` and `error`, to build your own preview or download button. |
 
 ```tsx
 import { PDFDownloadLink } from "@axonpdf/react";
 
-<PDFDownloadLink document={doc} fileName="report.pdf">
-  {({ loading }) => (loading ? "Preparing…" : "Download PDF")}
-</PDFDownloadLink>;
+export function DownloadButton() {
+  return (
+    <PDFDownloadLink document={<Invoice />} fileName="invoice.pdf">
+      {({ loading }) => (loading ? "Preparing…" : "Download PDF")}
+    </PDFDownloadLink>
+  );
+}
 ```
 
 [Rendering](https://axonpack.dev/docs/axonpdf/react/rendering/) has every option and return type,
@@ -132,7 +136,7 @@ Coming from react-pdf 4.9.0? The [migration guide](https://axonpack.dev/docs/axo
 
 | Page | What it covers |
 | --- | --- |
-| [Migrating an existing project](https://axonpack.dev/docs/axonpdf/migrate-from-react-pdf/) | Changing one import or adding an npm alias |
+| [Migrate from react-pdf](https://axonpack.dev/docs/axonpdf/migrate-from-react-pdf/) | Changing one import or adding an npm alias |
 | [Components](https://axonpack.dev/docs/axonpdf/react/components/) | Document, Page, View, Text, Link, Image, Canvas, SVG |
 | [Styling](https://axonpack.dev/docs/axonpdf/react/styling/) | Units, flexbox, borders, text, media queries |
 | [Fonts](https://axonpack.dev/docs/axonpdf/react/fonts/) | Registering fonts, weights, hyphenation, emoji |
