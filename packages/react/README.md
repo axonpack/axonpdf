@@ -44,8 +44,38 @@ const invoice = (
 await renderToFile(invoice, "invoice.pdf");
 ```
 
-In the browser, `<PDFViewer>` shows the same document and `<PDFDownloadLink>` offers it as a file.
-[`packages/react/example`](https://github.com/axonpack/axonpdf/tree/main/packages/react/example) in the repository has both.
+## Getting the PDF
+
+`renderToFile` is one of several ways to get the PDF. In Node:
+
+| API | Gives you |
+| --- | --- |
+| `renderToFile(doc, path)` | Writes the PDF to a file. |
+| `renderToBuffer(doc)` | The whole PDF as a `Buffer`. |
+| `renderToStream(doc)` | A stream that sends each page as soon as it is laid out, for example straight into an HTTP response. |
+
+In the browser, and in Node:
+
+| API | Gives you |
+| --- | --- |
+| `pdf(doc).toBlob()` | A `Blob` to upload, store or open. |
+| `pdf(doc).toBuffer()` | A stream of the PDF's bytes. |
+| `<PDFDownloadLink document={doc} fileName="report.pdf">` | A link that downloads the PDF. |
+| `<PDFViewer>` | The PDF shown in the page. |
+| `<BlobProvider document={doc}>` and `usePDF({ document })` | The `blob`, a `url`, `loading` and `error`, to build your own preview or download button. |
+
+```tsx
+import { PDFDownloadLink } from "@axonpdf/react";
+
+<PDFDownloadLink document={doc} fileName="report.pdf">
+  {({ loading }) => (loading ? "Preparing…" : "Download PDF")}
+</PDFDownloadLink>;
+```
+
+[Rendering](https://axonpack.dev/docs/axonpdf/react/rendering/) has every option and return type,
+streaming from a server, and updating a document after it has rendered.
+
+[`packages/react/example`](https://github.com/axonpack/axonpdf/tree/main/packages/react/example) in the repository renders in Node and in the browser.
 
 ## In a Web Worker
 
