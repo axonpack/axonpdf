@@ -52,6 +52,20 @@ fi
 mv "$web/axonpdf.mjs" "$out/axonpdf.web.mjs"
 rm -rf "$web"
 
+# Turbopack turns `new URL("axonpdf.wasm", import.meta.url).href` into a bare path such as
+# /_next/static/media/axonpdf.<hash>.wasm. A worker started from a blob: URL can't fetch a bare path,
+# so resolve it against the page's origin there. The `new URL(..., import.meta.url)` stays as it is,
+# because that is the pattern bundlers look for to copy the .wasm.
+for loader in "$out/axonpdf.mjs" "$out/axonpdf.web.mjs"; do
+  find='return new URL("axonpdf.wasm",import.meta.url).href'
+  if [ "$(grep -o "$find" "$loader" | wc -l | tr -d ' ')" != 1 ]; then
+    echo "$loader: the wasm lookup Emscripten writes has changed; update build-wasm.sh" >&2
+    exit 1
+  fi
+  base='globalThis.location&&(location.href.startsWith("blob:")?location.origin:location.href)'
+  perl -pi -e "s/\Q$find\E/return new URL(new URL(\"axonpdf.wasm\",import.meta.url).href,$base).href/" "$loader"
+done
+
 raw=$(wc -c <"$out/axonpdf.wasm" | tr -d ' ')
 gz=$(gzip -9c "$out/axonpdf.wasm" | wc -c | tr -d ' ')
 echo "axonpdf.wasm: $raw bytes, $gz gzipped"
