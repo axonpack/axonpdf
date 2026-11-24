@@ -9,7 +9,7 @@ export type { Renderer as PDFRenderer } from "./reconciler/renderer.js";
 export { formatProfile } from "./profile/format-profile.js";
 export type { CpuProfile, ProfilePhases, ProfileReport } from "./types/profile.type.js";
 
-export const version = "0.0.4";
+export const version = "0.0.5";
 
 /** Thrown in Node for a browser-only API, and in the browser for a Node-only one. */
 export function environmentError(name: string, environment: "web" | "Node") {

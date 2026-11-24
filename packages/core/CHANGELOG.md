@@ -1,5 +1,11 @@
 # @axonpdf/core
 
+## 0.0.5
+
+### Patch Changes
+
+- cf8fe66: The README links the browser benchmark at axonpdf-demo.axonpack.dev.
+
 ## 0.0.4
 
 ### Patch Changes
