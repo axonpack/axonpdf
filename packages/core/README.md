@@ -1,11 +1,20 @@
+<div align="center">
+
 # @axonpdf/core
 
-The axonpdf engine compiled to WebAssembly, with a small JavaScript wrapper. It runs in Node,
-browsers and Web Workers. It takes a document tree as JSON plus font and image bytes, and writes
-the PDF in chunks as pages finish.
+**The axonpdf engine as WebAssembly, for Node, browsers and Web Workers.**
 
-Most apps don't use this package directly. `@axonpdf/react` builds the tree from your components
-and drives the engine for you. Use `@axonpdf/core` when you write a binding for another framework.
+**[Documentation](https://axonpack.dev/docs/axonpdf/core/)** · [Reference](https://axonpack.dev/docs/axonpdf/core/reference/)
+
+[![npm version](https://img.shields.io/npm/v/@axonpdf/core.svg)](https://www.npmjs.com/package/@axonpdf/core)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/axonpack/axonpdf/blob/main/LICENSE)
+
+</div>
+
+The engine takes a document tree as JSON plus font and image bytes, lays it out, and writes the
+PDF in chunks as pages finish. Most apps don't use this package directly:
+[`@axonpdf/react`](https://axonpack.dev/docs/axonpdf/react/) builds the tree from your components
+and drives the engine for you. Use `@axonpdf/core` to write a binding for another framework.
 
 ## Install
 
@@ -39,5 +48,9 @@ engine.render(JSON.stringify(tree), (chunk) => chunks.push(chunk));
 engine.free();
 ```
 
-Every export is listed in [REFERENCE.md](REFERENCE.md). The project's [README](../../README.md)
-covers the other packages and how to build them.
+Every export, engine method, callback and error is in the
+[reference](https://axonpack.dev/docs/axonpdf/core/reference/) and in [REFERENCE.md](REFERENCE.md).
+
+## License
+
+MIT

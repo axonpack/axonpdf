@@ -19,7 +19,7 @@ Both engines render one set of components (`src/ledger.jsx`). The page passes in
 `@axonpdf/react` or `@react-pdf/renderer`, and nothing else changes. In a project, switching is
 that one import.
 
-It uses the published packages, `@axonpdf/react` 0.0.1 and `@react-pdf/renderer` 4.9.0, so it
+It uses the published packages, `@axonpdf/react` 0.0.2 and `@react-pdf/renderer` 4.9.0, so it
 needs Node and npm but no Rust toolchain.
 
 ## Run it
@@ -35,6 +35,10 @@ both side by side, and whether each engine runs in a Web Worker (the default for
 main thread. The main thread is only offered up to 100 pages; above that both engines run in a
 worker. react-pdf's worker (`src/react-pdf.worker.js`) calls its `pdf().toBlob()` there and
 answers the same messages as axonpdf's `expose`, so the page sends both the same way.
+
+Under the controls, the page shows the code you would write for the current choices, for each
+engine side by side (`src/snippets.js`). The import lines differ only in the package name, apart
+from axonpdf's worker helpers.
 
 ## Build and deploy
 
@@ -53,8 +57,8 @@ common hosts already do. To check the build before uploading, run `npm run previ
 
 - Time to PDF: from the click (after a 100 ms pause) until the PDF exists as a Blob. It
   includes building the ledger data, the React render, layout and writing the file.
-- Pages: counted in the finished PDF. The page count you pick is a target, so the real count
-  can be off by a page or two.
+- Pages: counted in the finished PDF. The page count you pick is a target. One flowing page lands
+  a little under it (98 at 100, 487 at 500), and Sections a little over (112 at 100).
 - File size: the size of the PDF.
 - Longest frame gap: the longest time between two animation frames on the main thread during
   the render. Around 16 ms means the page stayed smooth; a gap close to the render time means the
