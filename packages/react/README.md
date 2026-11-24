@@ -103,10 +103,36 @@ const { url, loading } = usePDFWorker(worker, { rows });
 The [Web Worker page](https://axonpack.dev/docs/axonpdf/react/web-worker/) covers loading a
 prebuilt worker from `public/`, fonts, and what props can hold.
 
+## Benchmarks
+
+A shipping ledger with one `<Page>` per section, rendered in Chrome on an Apple M4 on 2026-11-23,
+each engine in a Web Worker. Each cell is the time to the finished PDF and the worker's peak heap.
+
+| Pages | axonpdf 0.0.1 | react-pdf 4.9.0 |
+| --- | --- | --- |
+| 100 | 0.90 s, 11.6 MB | 2.8 s, 192.5 MB |
+| 500 | 4.1 s, 55.9 MB | 45.8 s, 2230 MB |
+| 2000 | 15.9 s, 141.6 MB | no PDF after 10 min |
+
+With the whole ledger in one `<Page>` that wraps onto every page:
+
+| Pages | axonpdf 0.0.1 | react-pdf 4.9.0 |
+| --- | --- | --- |
+| 100 | 0.86 s | 32.8 s, 560.1 MB |
+| 500 | 3.9 s, 39.2 MB | no PDF after 10 min |
+
+axonpdf's 100-page flowing render finished before the first heap sample. The
+[benchmarks page](https://axonpack.dev/docs/axonpdf/benchmarks/) has the method and the Node runs,
+every run is in [bench/RESULTS.md](https://github.com/axonpack/axonpdf/blob/main/bench/RESULTS.md),
+and [bench/live](https://github.com/axonpack/axonpdf/tree/main/bench/live) is the app to rerun it.
+
+Coming from react-pdf 4.9.0? The [migration guide](https://axonpack.dev/docs/axonpdf/migrate-from-react-pdf/) shows the one import to change, or the npm alias that changes nothing in your code.
+
 ## Documentation
 
 | Page | What it covers |
 | --- | --- |
+| [Migrating an existing project](https://axonpack.dev/docs/axonpdf/migrate-from-react-pdf/) | Changing one import or adding an npm alias |
 | [Components](https://axonpack.dev/docs/axonpdf/react/components/) | Document, Page, View, Text, Link, Image, Canvas, SVG |
 | [Styling](https://axonpack.dev/docs/axonpdf/react/styling/) | Units, flexbox, borders, text, media queries |
 | [Fonts](https://axonpack.dev/docs/axonpdf/react/fonts/) | Registering fonts, weights, hyphenation, emoji |
